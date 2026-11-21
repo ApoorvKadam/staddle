@@ -44,8 +44,10 @@ CUSTOMERS = [
     ("cust_HBRuizLu01", HARBOR, "Lucia", "Ruiz", "+18135550101", "lucia.ruiz@example.com"),
 ]
 
-# Omar's rent went unpaid twelve days before the world is built, whatever day that is: nothing is wrong with his account but the balance
-RECENT = date.today() - timedelta(days=12)
+# Omar's rent went unpaid twelve days before the world is built, whatever day that is: nothing is wrong with his account but the balance.
+# Counted back from the facility's own day when `reset` builds the world, not when this module loads, so a test run that crosses
+# midnight still sees twelve days.
+RECENT = timedelta(days=12)
 
 # lease id, facility, customer, unit, monthly rent (cents), open charges [(category, description, cents, accrues_on)]
 LEASES = [
@@ -265,6 +267,8 @@ def reset(session: Session, id_seed: str | None = None) -> None:
                     for c, o, fn, ln, ph, em in CUSTOMERS)
     session.flush()
     for lease_id, facility_id, customer_id, unit, rent, charges in LEASES:
+        today = facility_today(session, facility_id)
+        charges = [(c, d, cents, today - on if isinstance(on, timedelta) else on) for c, d, cents, on in charges]
         first_due = min((d for _, _, _, d in charges if d), default=date(2026, 10, 1))
         session.add(Lease(lease_id=lease_id, facility_id=facility_id, customer_id=customer_id, unit_name=unit,
                           move_in_date=date(2025, 4, 6), monthly_rental_amount=rent, paid_through_date=first_due,
