@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
+from core import reconcile
 from core.billing import Ledger
 from core.books import ADMIN_FEE, RENT, at_local
 from core.gate import RENT_SCOPE
@@ -732,7 +733,7 @@ def test_a_visitor_rents_a_vacant_unit_on_the_live_copy_without_anyone_pricing_i
     now = at_local(day, 10)
     b, r = load(store, stream)
     assert all(r.units[u].rent_cents and r.units[u].size for u in b.units)
-    vacant = next(u for u in b.units if r.status(u, now) == "vacant")
+    vacant = next(u for u in b.units if not reconcile.readiness(b, r, u, now))        # ready to offer: the seeded walk holds two vacant units back
     with store.write():
         led = Ledger(store.books(stream))
         newcomer = led.add_tenant(now, "Rae Quinn", "+14075550199")

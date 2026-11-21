@@ -45,6 +45,7 @@ AGREEMENT = ("Storage rental agreement ({version})\n"
 # intent's moves are collections' to fold; renting reads them only to remember which intents were ever reported failed or closed
 KINDS = ("unit.", "reservation.", "rental.", "agreement.", "transfer.", "moveout.", "waitlist.", "access.", "op.", "rent_task.",
          "intent.updated", "refund.paid")
+FLOOR = ("walk.", "work_order.")        # core/walk.py's records, kept beside renting's so readiness can read both
 # the refusal that means a payment checked out as this tenant's, unreturned and unrecorded, but its rental was already cancelled:
 # only this refusal sets the money aside for a refund
 LATE = "the rental was cancelled before the payment came; the money is set aside for staff to refund"
@@ -302,6 +303,8 @@ class Rent:
         self.ops: dict[str, Op] = {}
         self.tasks: dict[str, Task] = {}
         self.failed_intents: set[str] = set()   # payment intents the processor ever reported failed, or closed for want of a payment
+        from . import walk                      # late: walk reads renting through work, so it cannot be imported at the top
+        self.floor = walk.State()               # what staff saw on the floor and the work orders: a unit is offered only when none stands on it
 
     @property
     def refunds(self) -> dict[str, dict]:
@@ -325,6 +328,9 @@ class Rent:
 
     # folding ----------------------------------------------------------------------------------------------------------
     def apply(self, kind: str, at: datetime, p: dict) -> None:
+        if kind.startswith(FLOOR):
+            self.floor.apply(kind, at, p)
+            return
         if not kind.startswith(KINDS):
             return
         if kind in MOVES:
@@ -608,8 +614,9 @@ class Rent:
             return "the unit has no price yet"
         if size and u.size != size:
             return f"the unit is not {size}"
-        status = self.status(unit, now)
-        return None if status == "vacant" else f"the unit is {status}"
+        from . import reconcile                 # late, as for the floor: reconcile reads this module
+        why = reconcile.readiness(self.books, self, unit, now)      # offering, reserving and moving in all ask the same question
+        return why[0] if why else None
 
     def refusal(self, act: Act, now: datetime) -> str | None:
         """Why the records do not allow the command (the gate's fixed safety check), or None."""
@@ -692,6 +699,9 @@ class Rent:
                 return "the agreement is not accepted"
             if _d(rec.quote["start"]) > today:
                 return "the move-in day has not come"
+            from . import reconcile
+            if why := reconcile.readiness(b, self, rec.unit, now, claimed=True):      # a fault reported after the hold still stops the move-in
+                return why[0]
             if rec.lease and any(b.pending_return(src) for cid in b.of_lease.get(rec.lease, [])
                                  if not b.charges[cid].closed and b.charges[cid].due == b.leases[rec.lease].start
                                  for _, _, src in b.charges[cid].paid_effective):

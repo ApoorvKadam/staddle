@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from core import delinquency
+from core import delinquency, reconcile
 from core.billing import Ledger, Refused
 from core.books import at_local
 from core.delinquency import SimulatedProcessor
@@ -199,7 +199,7 @@ def desk_rental(card, accepted, desk=None, stream="visitor:v1", through_desk=Tru
     desk = desk or FrontDesk(":memory:", clock=clock)
     store, visitor = desk.ready(), stream.removeprefix("visitor:")
     b, r = load(store, stream)
-    unit = next(u for u in b.units if r.status(u, clock()) == "vacant")
+    unit = next(u for u in b.units if not reconcile.readiness(b, r, u, clock()))      # a unit ready to offer: the seeded walk holds two vacant ones back
     assert run(store, stream, Act("p", "price_unit", "staff:manager", unit, args={"rent_cents": 10000, "size": "5x10"}), clock()).allowed
     with store.write():
         led = Ledger(store.books(stream))

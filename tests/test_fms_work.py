@@ -38,14 +38,14 @@ def test_a_fresh_copy_lists_the_years_work_in_four_views_and_the_money_figures_d
     with sign_in(site(fms_url)) as c:
         page = c.get("/today").text
         text = seen(page)
-        assert "Work for staff" in text and "Facility-wide 14" in text and "My work 14" in text and "Waiting 0" in text and "Done today 0" in text
-        assert "Rhea Mills Payment plan breached since Oct 26" in text and text.count("Overlock due") == 13
+        assert "Work for staff" in text and "Facility-wide 17" in text and "My work 16" in text and "Waiting 0" in text and "Done today 0" in text
+        assert "Rhea Mills Payment plan breached since Oct 26" in text and text.count("Overlock due") == 12
         assert "Each item stays here until the record it is about shows the work done" in text
         assert "What closes it: Staff reinstate or end the plan." in text and "What closes it: The overlock is recorded on the unit." in text
         assert 'id="collections"' in page and 'id="overlocks"' in page          # Home's links still land on the first of each kind
         home = seen(c.get("/home").text)
         assert "$2,996.00" in home and "23 tenants" in home and "14 collections item" not in home and "1 collections item waiting for staff" in home
-        assert "13 overlocks due on the owner's schedule" in home
+        assert "12 overlocks due on the owner's schedule" in home
         assert "23 tenants owe $2,996.00" in seen(c.get("/collections").text)
         assert not re.search(r"\b(?:PL|PR|EX|PI|TK|RT|L|T|C)\d{4}\b", text) and not re.search(r"simulat|sim_pay|test mode", text, re.I)
 
@@ -57,7 +57,7 @@ def test_acknowledging_a_due_overlock_keeps_it_listed_and_recording_it_moves_it_
         r = push(c, "acknowledge", key)
         assert (r.status_code, r.headers["location"]) == (303, "/today?view=all#work")
         after = view(c)
-        assert after.count("Overlock due") == 13 and "Seen by Office manager" in after              # seen is not done
+        assert after.count("Overlock due") == 12 and "Seen by Office manager" in after              # seen is not done
         assert view(c, "done").count("Overlock due") == 0 and "Done today 0" in view(c, "done")
         assert "Seen by" not in view(other)                                                          # another copy keeps its own
         page = c.get("/today").text
@@ -67,7 +67,7 @@ def test_acknowledging_a_due_overlock_keeps_it_listed_and_recording_it_moves_it_
         c.post(f"{who}/collections", data={"token": token(page), "action": "overlock", "lease": lease, "next": "today"}, follow_redirects=False)
         done = view(c, "done")
         assert "Done today 1" in done and "The overlock is recorded on the unit." in done and "What closes it" not in done.split("Work for staff")[1].split("Handed to staff")[0]
-        assert view(c).count("Overlock due") == 12 and owner not in keys(c.get("/today?view=all").text)
+        assert view(c).count("Overlock due") == 11 and owner not in keys(c.get("/today?view=all").text)
 
 
 def test_acknowledging_an_unconfirmed_gate_code_does_not_close_it_but_the_code_reading_back_does(fms_url, sim):
@@ -100,7 +100,7 @@ def test_an_item_assigned_to_a_role_is_under_that_roles_my_work_and_overdue_ones
         assert f"unit {unit}" not in view(c, "mine")                                                # the front desk's, by default
         assert push(c, "assign", code, to="office_manager").status_code == 303
         mine = view(c, "mine")
-        assert f"unit {unit} Gate code not confirmed" in mine and "Assigned to Office manager" in mine and "My work 15" in mine
+        assert f"unit {unit} Gate code not confirmed" in mine and "Assigned to Office manager" in mine and "My work 17" in mine
         assert push(c, "assign", code, to="front_desk").status_code == 303
         assert f"unit {unit}" not in view(c, "mine") and "Assigned to Front desk" in view(c)
         assert push(c, "assign", code, to="person:dana.reyes").status_code == 303
@@ -149,5 +149,5 @@ def test_visiting_today_again_makes_no_second_item(fms_url, sim):
         fd.sweep()
         c.get("/today")
         opened = [e.payload["key"] for e in fd.ready().stream_events(fd.stream(ident)) if e.kind == "work.opened"]
-        assert len(opened) == len(set(opened)) == 14
+        assert len(opened) == len(set(opened)) == 17
         assert NOW.date() == fd.today()

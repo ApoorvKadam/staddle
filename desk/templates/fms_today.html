@@ -38,7 +38,7 @@
   {% if step_note %}<p class="fms-status" role="status">Nothing changed. {{ step_note }}</p>{% endif %}
   <p class="muted">Each item stays here until the record it is about shows the work done. Acknowledging says it was seen; it does not close the item.</p>
   {% for x in items %}{% set i = x.i %}
-  <article class="fms-line"{% if x.anchor %} id="{{ x.anchor }}"{% endif %}>
+  <article class="fms-line"{% if x.anchor %} id="{{ x.anchor }}"{% endif %}><span id="item-{{ i.key }}"></span>
     <p>{% if x.who %}<a href="/tenants/{{ x.who.slug }}#{{ x.section }}">{{ x.who.name }}</a>{% endif %}{% if x.unit %}{% if x.who %} <span class="muted" aria-hidden="true">&middot;</span> {% endif %}<a href="/units#u-{{ x.unit }}">unit {{ x.unit }}</a>{% endif %} <span class="chip {{ 'act' if i.state == 'reopened' else i.tone }}">{{ i.what }}</span> <span class="muted">since {{ x.since }}</span> <span class="chip {{ x.tone }}">{{ x.state }}</span>{% if i.overdue %} <span class="chip act">Overdue</span>{% endif %}</p>
     <p class="muted">{{ x.why }}{{ '' if x.why.endswith('.') else '.' }}</p>
     {% if x.evidence %}<p class="muted">{{ x.evidence }}</p>

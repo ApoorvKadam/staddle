@@ -1,0 +1,55 @@
+{% extends "fms.html" %}
+{% block page %}Walkthrough{% endblock %}
+{% macro seen_fields() %}
+  {% for name, label, values in [('lock', 'Lock', lock), ('whose', 'Whose lock', whose), ('tag', 'Overlock tag', tag), ('door', 'Door', door)] %}
+  <label>{{ label|plain }} <select name="{{ name }}">{% for value in values %}<option value="{{ value }}">{{ value|plain }}</option>{% endfor %}</select></label>
+  {% endfor %}
+  <label>Note <input name="text" maxlength="{{ note_max }}"></label>
+{% endmacro %}
+{% block body %}
+<header class="head"><h1>Walkthrough</h1></header>
+<section class="fms-section" id="latest-walk">
+  <h2>Latest walk</h2>
+  {% if walks %}{% set w = walks[0] %}
+  <p>{{ staff(w.by)|plain }} started {{ clock(w.started)|plain }}. {% if w.finished %}Finished {{ clock(w.finished[1])|plain }} by {{ staff(w.finished[0])|plain }}.{% else %}Not finished.{% endif %} {{ w.route|length - w.not_checked|length }} checked, {{ w.not_checked|length }} not checked.</p>
+  <p>Every observation is what staff saw and said (staff attested).</p>
+  <div class="fms-scroll"><table class="fms-table"><thead><tr><th>Unit</th><th>Lock</th><th>Whose lock</th><th>Overlock tag</th><th>Door</th><th>Note</th><th>Recorded by and when</th></tr></thead><tbody>
+  {% for unit in w.route %}{% set o = w.current(unit) %}<tr><td>{{ unit|plain }}</td>{% if o %}
+    <td>{{ o.lock|plain }}{% if o.supersedes %} <span class="chip">corrected</span>{% endif %}</td><td>{{ o.whose|plain }}</td><td>{{ o.tag|plain }}</td><td>{{ o.door|plain }}</td><td>{{ o.note|plain }}
+    {% if o.supersedes %}<details><summary>Earlier observations</summary>{% for old in w.history(unit) if old.id != o.id %}<p>{{ old.lock|plain }}, {{ old.whose|plain }}, tag {{ old.tag|plain }}, door {{ old.door|plain }}. {{ old.note|plain }} {{ staff(old.by)|plain }}, {{ clock(old.at)|plain }}</p>{% endfor %}</details>{% endif %}</td><td>{{ staff(o.by)|plain }}, {{ clock(o.at)|plain }}</td>
+    {% else %}<td colspan="6">not checked</td>{% endif %}</tr>{% endfor %}</tbody></table></div>
+  {% else %}<p>No walk has been started.</p>{% endif %}
+</section>
+<section class="fms-section" id="findings">
+  <h2>What disagrees with the records</h2>
+  {% for finding in findings %}<article class="fms-line"><h3>Unit {{ finding.unit|plain }}: {{ finding.kind|plain }}</h3><p>{{ finding.why|plain }}</p><p>What closes it: {{ finding.closes|plain }}</p><p><a href="/today?view=all#item-{{ finding.key|urlencode }}">View this item on Today</a></p></article>
+  {% else %}<p>Every unit checked agrees with the records.</p>{% endfor %}
+</section>
+<section class="fms-section" id="orders">
+  <h2>Work orders</h2>
+  {% if step_note and note_at == 'orders' %}<p class="fms-status" role="status">Nothing changed. {{ step_note|plain }}</p>{% endif %}
+  {% for o in orders %}<article class="fms-line"><h3>Unit {{ o.unit|plain }}: {{ o.problem|plain }}</h3>
+    <p>{{ o.state|capitalize|plain }}. With: {{ staff(o.assigned_to)|plain }}.</p>
+    {% set last = o.changes[-1] %}<p>Last change: {{ last.state|plain }}{% if last.text %}: {{ last.text|plain }}{% endif %}, {{ staff(last.by)|plain }}, {{ clock(last.at)|plain }}{% if last.to %}, to {{ staff(last.to)|plain }}{% endif %}.</p>
+    <details><summary>Full history</summary>{% for change in o.changes %}<p>{{ change.state|capitalize|plain }}{% if change.text %}: {{ change.text|plain }}{% endif %}{% if change.to %}, to {{ staff(change.to)|plain }}{% endif %}, {{ staff(change.by)|plain }}, {{ clock(change.at)|plain }}</p>{% endfor %}</details>
+    {% if o.state != 'closed' %}{% set action, next = moves[o.state] %}
+    <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ o.id }}">
+      {% if action == 'assign_work_order' %}<label>Assign to <select name="to">{% for role in roles %}<option value="{{ role }}">{{ staff(role)|plain }}</option>{% endfor %}</select></label>
+      {% elif action != 'close_work_order' %}<label>Note <input name="text" maxlength="{{ note_max }}" required></label>{% endif %}
+      <button class="button" name="action" value="{{ action }}">{% if action == 'triage_work_order' %}Triage{% elif action == 'assign_work_order' %}Assign{% elif action == 'record_order_work' %}Record the work{% elif action == 'check_order_work' %}Staff check{% else %}Close{% endif %}</button>
+    </form>
+    <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ o.id }}"><label>Note <input name="text" maxlength="{{ note_max }}" minlength="3" required></label><button class="button" name="action" value="report_work_order">Same fault reported again</button></form>{% endif %}
+  </article>{% else %}<p>No work orders have been reported.</p>{% endfor %}
+</section>
+<section class="fms-section" id="staff-forms">
+  <h2>Staff forms</h2>
+  {% if step_note and note_at == 'staff-forms' %}<p class="fms-status" role="status">Nothing changed. {{ step_note|plain }}</p>{% endif %}
+  <details><summary>Start a walk</summary><form method="post" action="/walkthrough"><input type="hidden" name="token" value="{{ token }}">{% for building, units in groups.items() %}<fieldset><legend>Building {{ building|plain }}</legend>{% for unit in units %}<label><input type="checkbox" name="unit_{{ unit }}" value="1"> {{ unit|plain }}</label> {% endfor %}</fieldset>{% endfor %}<button class="button" name="action" value="start_walk">Start walk</button></form></details>
+  {% for w in walks if not w.finished %}<details><summary>Record what was seen on the walk started {{ clock(w.started)|plain }} by {{ staff(w.by)|plain }}</summary>
+    <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ w.id }}"><label>Unit <select name="unit">{% for unit in w.not_checked %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="observe_unit"{% if not w.not_checked %} disabled{% endif %}>Record observation</button></form>
+    <form method="post" action="/walkthrough"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ w.id }}"><button class="button" name="action" value="finish_walk">Finish walk</button></form></details>{% endfor %}
+  <details><summary>Correct an observation</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Observation <select name="about">{% for w in walks %}{% for unit in w.route %}{% set o = w.current(unit) %}{% if o %}<option value="{{ o.id }}">Unit {{ unit|plain }}, walk started {{ clock(w.started)|plain }}, recorded {{ clock(o.at)|plain }}</option>{% endif %}{% endfor %}{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="correct_observation">Correct observation</button></form></details>
+  <details><summary>Report a work order</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Unit <select name="unit">{% for building, units in groups.items() %}<optgroup label="Building {{ building|plain }}">{% for unit in units %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</optgroup>{% endfor %}</select></label><label>Problem <input name="text" minlength="3" maxlength="{{ note_max }}" required></label><button class="button" name="action" value="report_work_order">Report work order</button></form></details>
+</section>
+<section class="fms-section"><h2>Earlier walks</h2><details><summary>Earlier walks</summary>{% for w in walks[1:] %}<p>{{ clock(w.started)|plain }}, {{ staff(w.by)|plain }}, {{ w.route|length - w.not_checked|length }} units checked.</p>{% else %}<p>No earlier walks.</p>{% endfor %}</details></section>
+{% endblock %}
