@@ -12,14 +12,18 @@ Staddle is the FMS itself. It keeps the facility's books, Tilden reads what tena
 
 ## The FMS
 
-The preview opens on an Overview. The FMS is behind a sign-in that comes filled in with a demo login, and each visitor works on a copy of the facility of their own.
+The preview opens on an Overview. The FMS is behind a sign-in that comes filled in with a demo login, and each visitor works on a copy of the facility of their own. The top bar holds Facilities, Today, Messages and Settings. Inside the facility, a menu down the left side holds its pages and a link to the facility's own rental website.
 
 - **Home.** The facility this morning: work waiting, units rented by row, the month's billing and collections, who is past due.
 - **Today.** What waits for a person: disputes to decide, the work queue (below), messages handed to staff, what staff decided, and how many messages Tilden closed.
 - **Messages.** This morning's tenant texts, read one at a time or all at once. Each conversation with the tenant's words, what Tilden read, what the books show, what was done, the books entries written and the reply. Try a tenant message sends one of your own through the same path.
-- **Units** and **Tenants.** Who rents what at which rent, the account with its rentals and a ledger with a running balance.
+- **Site map**, **Units** and **Tenants.** Every unit by building, who rents what at which rent, and each tenant's account with its rentals and a ledger with a running balance.
+- **Rentals.** Every rental and reservation with its agreement and gate code, filtered by active, reservations, transfers, move-outs, ended and needs attention. From a tenant's page, staff move the tenant out (the last day, a review, then the final bill on that day) or to another unit. The year's existing leases are rentals from before Staddle: their terms are on file and no signed copy is claimed.
+- **Collections.** Every tenant past due, with payment plans and the overlocks due on the owner's schedule.
+- **Lien cases.** Each open lien file, what it still needs and the next step. On the tenant's page the file shows each finding met or missing, the evidence, the frozen ledger copy, approvals and whether they still hold, legal stops, the auction and the sale money.
+- **Gate access.** Every rental's gate code, counted only once the gate system has read it back.
 - **Billing and payments.** Each month's billing, payments with the day the card was charged and the day the facility learned of it, declined cards, and who is past due.
-- **Rules.** The fee schedule, the owner's rules in words and in the exact form code checks, what Tilden may do, and what only staff decide. Write a rule in plain words: Tilden turns it into an exact rule, code checks it against your words and replays last year under it, and nothing changes until you approve it as the owner on your copy.
+- **Settings.** The fee schedule, the owner's rules in words and in the exact form code checks, what Tilden may do, and what only staff decide. Write a rule in plain words: Tilden turns it into an exact rule, code checks it against your words and replays last year under it, and nothing changes until you approve it as the owner on your copy.
 
 Today's work queue lists every open piece of staff work in one place: collections tasks, overlocks that are due or can come off, rentals not finished, gate codes not confirmed, and units waiting for an old code to be revoked. Each item says where it came from, why it is there and what closes it, and shows under My work, Facility-wide, Waiting or Done today. Staff can acknowledge an item, start it, assign it to a role or a person, and add a note, each through the same gate. Acknowledging says an item was seen; it does not close it. An item closes when the record it is about shows the work done (the overlock is recorded or lifted, the plan is decided, the code reads back). Where no record can show it, such as a call made, staff say what they checked and the item says it was staff attested. The same condition is one item however often the daily check runs, and if the problem comes back the item reopens. This is plain code: no model reads or writes any of it.
 
@@ -84,8 +88,8 @@ A generated year of one facility runs through the same code: 120 units, 121 tena
 
 ## What is built and what is simulated
 
-- **Built:** the books, the gate, Tilden's reading, the FMS screens, renting records (reservations, move-ins with a signed agreement, transfers, and move-outs with a final bill), the staff decisions, owner rules written in plain words, the sign-in and the tests.
-- **Simulated:** the facility, its tenants and its money are generated. Replies are shown, never sent. Tenants rent a unit online on the made-up facility's rental page, reached from Online rentals in the FMS menu, with a test card. Transfers and move-outs run in the code and its tests. On the screens, staff price, hold, block and unblock units and follow each rental. Gate codes go to a simulated gate system, and lien notices come in a later step. Card payments run in the card processor's test mode, and a payment still waiting when the service restarts is not carried over.
+- **Built:** the books, the gate, Tilden's reading, the FMS screens, renting records (reservations, move-ins with a signed agreement, transfers, and move-outs with a final bill), lien files on Florida's steps, an auction platform of Staddle's own, sale money applied once with any surplus kept owed to the tenant, the work queue, the staff decisions, owner rules written in plain words, the sign-in and the tests.
+- **Simulated:** the facility, its tenants and its money are generated. Replies are shown, never sent. Tenants rent a unit online on the made-up facility's rental page, reached from Online rentals in the FMS menu, with a test card. Transfers and move-outs run in the code and its tests. On the screens, staff price, hold, block and unblock units and follow each rental. Gate codes go to a simulated gate system. Lien notices, their mailing and the newspaper advertisements are records staff enter; nothing is mailed or published. Lien sales run on Staddle's own simulated auction platform, and a surplus payout is simulated. Card payments run in the card processor's test mode, and a payment still waiting when the service restarts is not carried over.
 - **Not shown yet:** no operator has used it.
 
 ## Screens
@@ -93,7 +97,9 @@ A generated year of one facility runs through the same code: 120 units, 121 tena
 | | |
 |---|---|
 | ![Home](docs/screens/home.png) **Home.** The day at a glance: occupancy, money collected, past due, and what needs a person. | ![Site map](docs/screens/units.png) **Site map.** Every unit by building: rented, reserved, blocked or vacant, with past due and disputes marked. Staff price, hold, block and unblock units on the Units page. |
-| ![A tenant's page](docs/screens/tenant.png) **A tenant.** Balance, ledger, rentals step by step and collections on one page. | ![Collections](docs/screens/billing.png) **Collections.** Every tenant past due, with payment plans and the overlocks due on the owner's schedule. |
+| ![Today](docs/screens/today.png) **Today.** Disputes waiting for a decision and one work queue over every source of staff work, each item saying what closes it. | ![A tenant's page](docs/screens/tenant.png) **A tenant.** Balance, ledger, rentals step by step and collections on one page. |
+| ![Collections](docs/screens/billing.png) **Collections.** Every tenant past due, with payment plans and the overlocks due on the owner's schedule. | ![Rentals](docs/screens/rentals.png) **Rentals.** Every rental with its agreement and gate code. Existing tenants are rentals from before Staddle, with no signed copy claimed. |
+| ![Lien cases](docs/screens/liens.png) **Lien cases.** Each open lien file, what it still needs and the next step. | ![A lien file](docs/screens/lien-file.png) **A lien file.** Each Florida finding met or missing, with what to record, then the evidence, approvals and legal stops. |
 | ![Online rentals](docs/screens/online-rentals.png) **Online rentals.** Where tenants rent a unit online: pick a size, accept the agreement, pay with a test card, and get a gate code that is read back. | |
 
 
