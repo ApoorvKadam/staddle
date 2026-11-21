@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from . import delinquency as col
 from . import renting
 from . import liens
+from . import walk
 from .gate import Command, evaluate
 from .billing import Ledger
 from .books import ADMIN_FEE, LATE_FEE, LATE_FEE_CENTS, RENT, at_local, cutoff
@@ -81,6 +82,7 @@ class Year:
         self.standing = standing                         # the live copy's open dispute from last week; never in the fixed books
         self.plan_tenant: dict | None = None             # the live copy's tenant on a payment plan; kept out of the cast
         self.breached_tenant: dict | None = None         # the live copy's tenant whose plan breached; kept out of the cast
+        self.walked: dict = {}                           # the live copy's walk: which unit carries which situation (never in a record)
         self.story = story_month(today)                  # every date below is counted in months from this one
         self.opened = add_months(self.story, -12)
         self.rnd = random.Random(seed)
@@ -182,6 +184,7 @@ class Year:
                     rental = renting.adopt_existing_lease(adopted, lease.id, "seeded_existing", self.now)
                     renting.record_baseline_access(adopted, rental, self.now)       # the code each tenant already holds on the simulated gate
             self.led.pending.extend(adopted.pending)
+            self.walkthrough(rent)
         return self
 
     def price_units(self, at: datetime) -> None:
@@ -515,6 +518,68 @@ class Year:
         for t in plan + late[:3]:
             col.save_card(self.led, t, self.now, "Visa", "4242", "card_ok")
             col.save_card(self.led, t, self.now, "Visa", "9995", "card_declined")
+
+    # the live copy's walk ---------------------------------------------------------------------------------------------------
+    PAID_UP = ("luis", "yara", "nora", "kemi", "femi", "dev")        # cast tenants who are normally paid up; tried first
+
+    def walkthrough(self, rent: renting.Rent) -> None:
+        """The live copy opens with yesterday's walk of eight units (the year ends at midnight, so the walk is the day before), written
+        through the same commands staff use and marked staff attested. Four units carry a planted situation and four agree with the
+        records. The units are read off the books, so each situation is true on any day the copy opens; which is which is kept in
+        `walked` and in no record. No money moves: the only record besides the walk is the FMS overlock on a tenant long past due,
+        made through the collections command, which writes no journal line."""
+        led, b, day = self.led, self.led.books, self.today - timedelta(days=1)
+        active = {x.unit: x for x in b.leases.values() if x.ended is None}
+        ended: dict[str, date] = {}
+        for x in b.leases.values():
+            if x.ended:
+                ended[x.unit] = max(ended.get(x.unit, x.ended), x.ended)
+        vacant = sorted(u for u in b.units if rent.status(u, self.now) == "vacant")
+        paid = list(dict.fromkeys(                                      # nothing past due, the usual cast first (on the 1st the new rent is not yet due)
+            [b.leases[self.cast[r]["leases"][0]].unit for r in self.PAID_UP if r in self.cast] + sorted(active)))
+        paid = [u for u in paid if u in active and col.days_past_due(b, active[u].id, self.now) is None]
+        gus = b.leases[self.lease("gus")]                               # nothing paid since August: the overlock is long due
+        olga = b.leases[self.lease("olga")].unit                        # moved out earlier in the year; the unit is vacant
+        repair = olga if olga in vacant else max((u for u in vacant if u in ended), key=ended.get)
+        vacant.remove(repair)
+        left = next((u for u in vacant if u in ended), vacant[0])        # a tenant's lock left on a unit the FMS lists as vacant
+        vacant.remove(left)
+        empty = next((u for u in vacant if u not in ended), vacant[0])
+        paid_overlocked, ordinary = paid[0], paid[1:4]
+        self.walked = {"paid_overlocked": paid_overlocked, "overlock_no_lock": gus.unit, "lock_on_vacant": left, "repair": repair,
+                       "ordinary": [*ordinary, empty]}
+
+        when = at_local(day - timedelta(days=3), 10)
+        cmd = Command(f"seed:overlock:{gus.id}", "overlock", gus.tenant, "staff:office_manager", lease=gus.id)
+        assert evaluate(b, cmd, when).allowed, "the seeded overlock must be due on the owner's schedule"
+        col.act(led, cmd, when)
+
+        wk = walk.State()
+
+        def do(at: datetime, action: str, source: str = "staff:front_desk", **kw) -> str:
+            act = walk.Act(f"seed:walk:{action}:{kw.get('unit') or kw.get('about') or ''}", action, source, **kw)
+            ok, why = walk.evaluate(b, wk, act, at)
+            assert ok, f"the seeded walk was refused: {why}"
+            return walk.record(led, wk, act, at)
+        # the repair: reported when the move-out was done, triaged and assigned the same morning, work not yet recorded
+        first = min(at_local(ended[repair] + timedelta(days=1), 10), at_local(day, 9))
+        order = do(first, "report_work_order", unit=repair, text="Door latch bent after the move-out; the door will not stay shut.")
+        do(first + timedelta(minutes=30), "triage_work_order", "staff:office_manager", about=order, text="Needs a new latch.")
+        do(first + timedelta(hours=1), "assign_work_order", "staff:office_manager", about=order, to="office_manager")
+
+        start = at_local(day, 15)
+        route = sorted(self.walked["ordinary"] + [paid_overlocked, gus.unit, left, repair])
+        wid = do(start, "start_walk", route=route)
+        saw = {gus.unit: ("absent", "unknown", "absent", "closed", "No lock on the door."),
+               paid_overlocked: ("present", "facility overlock", "present", "closed", "Facility overlock and its tag on the door."),
+               left: ("present", "tenant", "absent", "closed", "A padlock is on the door."),
+               repair: ("absent", "unknown", "absent", "damaged", "The door will not stay shut; the latch is bent."),
+               empty: ("absent", "unknown", "absent", "closed", "")}
+        for i, u in enumerate(route):
+            lock, whose, tag, door, note = saw.get(u, ("present", "tenant", "absent", "closed", ""))
+            do(start + timedelta(minutes=9 * (i + 1)), "observe_unit", about=wid, unit=u,
+               form={"lock": lock, "whose": whose, "tag": tag, "door": door}, text=note)
+        do(start + timedelta(minutes=80), "finish_walk", about=wid)
 
 
 def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False) -> Year:

@@ -5,7 +5,7 @@ import itertools
 import re
 from datetime import timedelta
 
-from core import renting
+from core import reconcile, renting, walk
 from core.billing import Ledger
 from core.books import at_local
 from core.evidence import clock
@@ -26,9 +26,22 @@ def rent_of(fd, ident) -> renting.Rent:
     return renting.load(fd.ready(), fd.stream(ident))[1]
 
 
+def settle_walk(fd, ident):
+    """The seeded walk found a tenant's lock on a vacant unit, which keeps that unit from being offered. A later walk finds it clear, so a
+    test that needs every vacant unit offered gets it back."""
+    store, stream, now = fd.ready(), fd.stream(ident), fd.clock()
+    books, rent = renting.load(store, stream)
+    stuck = [f.unit for f in reconcile.compare(books, rent, now) if f.slug == "lock_on_vacant"]
+    d = walk.run(store, stream, walk.Act("settle-walk", "start_walk", "staff:front_desk", route=stuck), now)
+    for u in stuck:
+        form = {"lock": "absent", "whose": "unknown", "tag": "absent", "door": "closed"}
+        assert walk.run(store, stream, walk.Act(f"settle-{u}", "observe_unit", "staff:front_desk", about=d.made, unit=u, form=form), now).allowed
+
+
 def vacant(fd, ident, n=1) -> list[str]:
     r = rent_of(fd, ident)
-    return [u for u in sorted(fd.ready().books(fd.stream(ident)).units) if r.status(u, fd.clock()) == "vacant"][:n]
+    books = fd.ready().books(fd.stream(ident))
+    return [u for u in sorted(books.units) if not reconcile.readiness(books, r, u, fd.clock())][:n]     # ready to offer, not only vacant
 
 
 def token(page: str) -> str:
@@ -219,6 +232,7 @@ def test_today_lists_each_rental_not_finished_yet_and_home_counts_only_those_tha
     app = site(fms_url)
     with sign_in(app) as c, sign_in(app) as other:
         fd, ident = desk_of(app, c)
+        settle_walk(fd, ident)                                   # six units to offer: the seeded vacant units, one of them held back by the walk
         units = vacant(fd, ident, 6)
         people = [new_tenant(fd, ident, n) for n in ("Rae Quinn", "Ben Ortiz", "Cara Dunn", "Dev Patel", "Eli Park", "Hal Moss")]
         start_rental(fd, ident, people[0], units[0], card="card_pending")                    # the card processor has not answered

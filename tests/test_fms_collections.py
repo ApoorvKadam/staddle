@@ -171,7 +171,7 @@ def test_today_lists_every_due_overlock_and_records_one_from_the_list(fms_url, s
     with sign_in(site(fms_url)) as c:
         page = c.get("/today").text
         text = seen(page)
-        assert text.count("Overlock due") == 13
+        assert text.count("Overlock due") == 12
         due = re.findall(r'name="lease" value="([A-Z0-9]+)"><input type="hidden" name="next" value="today">', page)
         assert len(due) >= 2
         section = lambda t: t.split("Work for staff")[1].split("Handed to staff")[0]

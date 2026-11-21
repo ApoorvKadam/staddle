@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from core import renting
+from core import reconcile, renting
 from core.billing import Ledger
 from core.books import at_local, lines
 from core.store import BASE
@@ -124,7 +124,7 @@ def test_a_transfer_issues_and_reads_back_the_new_code_then_revokes_the_old_one_
     start(desk, "b")
     old = existing(desk, "a")
     rent = desk.rent_view("a")
-    target = next(u for u in desk.view("a")[0].units if rent.status(u, clock()) == "vacant")
+    target = next(u for u in desk.view("a")[0].units if not reconcile.readiness(desk.view("a")[0], rent, u, clock()))      # ready, not only vacant
     tr = step(desk, "a", "tr", "request_transfer", old.id, unit=target)
     new = desk.rent_view("a").transfers[tr].target
     step(desk, "a", "ap", "approve_transfer", tr)

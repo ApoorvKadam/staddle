@@ -67,7 +67,7 @@ def test_a_fresh_copy_lists_the_years_own_work_and_changes_no_money():
     breached = [i for i in got.values() if i.source == "collections"]
     assert [(i.kind, i.role, i.state) for i in breached] == [("plan breached", "office_manager", "open")]
     due = [i for i in got.values() if i.kind == "overlock"]
-    assert len(due) == 13 and all(i.role == "office_manager" and i.closes and i.why for i in due)
+    assert len(due) == 12 and all(i.role == "office_manager" and i.closes and i.why for i in due)
     assert sum(owed.values()) == 299600 and sum(1 for v in owed.values() if v) == 23          # the year's figures: 23 tenants owe $2,996.00
     assert work.sweep(store, STREAM, AT) == len(got)                                          # one record opened for each
     after = store.books(STREAM)
@@ -125,7 +125,7 @@ def test_a_returned_payment_reopens_the_overlock_item_instead_of_opening_another
 def test_the_daily_check_and_a_restart_make_no_second_item(tmp_path):
     store = fresh(str(tmp_path / "copy.db"))
     first = work.sweep(store, STREAM, AT)
-    assert first >= 14 and work.sweep(store, STREAM, AT) == 0 and work.sweep(store, STREAM, AT + timedelta(minutes=5)) == 0
+    assert first >= 17 and work.sweep(store, STREAM, AT) == 0 and work.sweep(store, STREAM, AT + timedelta(minutes=5)) == 0
     keys = sorted(items(store))
     restarted = Store(str(tmp_path / "copy.db"))             # a new process reading the same database
     assert work.sweep(restarted, STREAM, AT + timedelta(hours=1)) == 0 and sorted(items(restarted)) == keys

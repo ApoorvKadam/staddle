@@ -21,7 +21,7 @@ from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from core import delinquency as col
-from core import renting, liens as lien_core, auction, work
+from core import reconcile, renting, liens as lien_core, auction, work, walk
 from core.case import OFF
 from core.books import ADMIN_FEE_CENTS, LATE_FEE_CENTS, RENT, REVIEW_DAYS, at_local, lines, local, month_key
 from core.billing import Refused
@@ -42,7 +42,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("rentals", "Rentals", "door-open"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("rentals", "Rentals", "door-open"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))
@@ -94,7 +94,7 @@ WORK_STATES = {"open": ("Open", "plain"), "assigned": ("Assigned", "plain"), "in
                "waiting for evidence": ("Waiting for evidence", "wait"), "blocked": ("Blocked by a hold", "wait"),
                "reopened": ("Reopened: the problem came back", "act"), "done": ("Done", "done"), "cancelled": ("Cancelled", "plain")}
 WORK_ANCHORS = {"collections": "collections", "overlock": "overlocks", "reservation": "rentals", "rental": "rentals", "refund": "rentals",
-                "access": "codes", "turnover": "turnover"}       # where Home's links land: the first item of each kind
+                "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance"}       # where Home's links land: the first item of each kind
 WORK_FORMS = {"acknowledge": "acknowledge_work", "start": "start_work", "assign": "assign_work", "note": "note_work", "finish": "finish_work"}
 SCOPE_WORDS = {"overlock": "overlock", "lien": "lien eligibility"}
 STEP_FORMS = ("overlock", "lift_overlock", "review_plan", "grant_exemption", "revoke_exemption", "take_payment")
@@ -513,6 +513,10 @@ class Facility:
             if lease is None:
                 last = max((x.ended for x in b.leases.values() if x.unit == u and x.ended), default=None)
                 item["since"] = f"Empty since {day(last)}" if last else "Not rented this year"
+                why = reconcile.readiness(b, rent, u, self.now) if state == "vacant" else []
+                if why and not item["note"]:         # vacant on the books, but something on the floor or a repair keeps it off the market
+                    first = re.sub(r"\s*\(.*\)$", "", why[0].split(":")[0]).replace("work order is", "a work order is")
+                    item["note"] = plain(f"Not ready to rent: {first}.")
             else:
                 p = self.people[lease.tenant]
                 chip = ("Fee in dispute", "wait") if lease.id in disputed else (("Past due", "act") if p["past"] else None)
@@ -748,6 +752,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         return templates.TemplateResponse(request, name, {"nav": nav, "side": SIDE, "agent": AGENT, "f": f, "today": date_words(f.today), "live": live,
                                                           "money": money, "day": day, **ctx})
 
+    templates.env.filters["plain"] = plain
+
     def check() -> dict | None:
         return {"sitekey": guard.sitekey} if guard.on else None
 
@@ -814,7 +820,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
 
         units = []
         for unit, record in f.rent.units.items():
-            if record.rent_cents and record.size and f.rent.status(unit, f.now) == "vacant":
+            if record.rent_cents and record.size and not reconcile.readiness(f.b, f.rent, unit, f.now):      # ready, not only vacant
                 units.append(record)
         units.sort(key=lambda u: (area(u.size), u.rent_cents, u.id))
         sizes = sorted({u.size for u in units}, key=lambda size: (area(size), size))
@@ -827,7 +833,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
     def website_rent(request: Request, unit: str):
         f = Facility(fd, need(request))
         record = f.rent.units.get(unit)
-        if not record or not record.rent_cents or not record.size or f.rent.status(unit, f.now) != "vacant":
+        if not record or not record.rent_cents or not record.size or reconcile.readiness(f.b, f.rent, unit, f.now):
             return RedirectResponse("/rent?unavailable=1", status_code=303)
         return site_show(request, "site_renter.html", f, unit=record, token=secrets.token_hex(6))
 
@@ -1027,7 +1033,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         p = f.by_slug.get(key)
         if p is None:
             raise HTTPException(404, "no such tenant")
-        vacant = [u for u in sorted(f.b.units) if f.rent.status(u, f.now) == "vacant" and f.rent.units.get(u) and f.rent.units[u].rent_cents]
+        vacant = [u for u in sorted(f.b.units) if not reconcile.readiness(f.b, f.rent, u, f.now) and f.rent.units.get(u) and f.rent.units[u].rent_cents]
         return show(request, "fms_tenant.html", "tenants", f, p=p, rentals=f.rentals(p["id"]), ledger=f.ledger(p["id"]), vacant=vacant,
                     cases=[c for c in f.cases() if c["who"] and c["who"]["id"] == p["id"]],
                     disputes=[d for d in f.disputes() if d["who"]["id"] == p["id"]], col=f.collections(p["id"]),
@@ -1112,6 +1118,57 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         return show(request, "fms_list.html", "rentals", f, title="Rentals", heads=("Tenant", "Unit", "Where it stands", "Monthly rent", "Balance", "Agreement", "Gate code"), rows=rows,
                     filters=filters, selected=status, lede="Rentals and reservations, with their agreement and gate code records.",
                     empty="No rentals match this view.")
+
+    @app.get("/walkthrough", include_in_schema=False)
+    def walkthrough(request: Request):
+        ident = need(request)
+        f = Facility(fd, ident)
+        floor = f.rent.floor
+        walks = sorted(floor.walks.values(), key=lambda w: (w.started, w.id), reverse=True)
+        orders = sorted(floor.orders.values(), key=lambda o: (o.state == "closed", -o.reported.timestamp(), o.id))
+        groups = {}
+        for unit in sorted(f.b.units):
+            groups.setdefault(unit[0], []).append(unit)
+        def staff(source):
+            if not source:
+                return "Not assigned"
+            return source.removeprefix("staff:").removeprefix("person:").replace("_", " ").replace(".", " ").capitalize()
+        moves = {before: (action, after) for action, (_, before) in walk.MOVES.items() for after in (walk.NEXT[before],)}
+        return show(request, "fms_walk.html", "walkthrough", f, walks=walks, orders=orders,
+                    findings=reconcile.compare(f.b, f.rent, f.now), groups=groups, moves=moves,
+                    roles=("front_desk", "office_manager", "manager"), staff=staff, clock=clock,
+                    lock=walk.LOCK, whose=walk.WHOSE, tag=walk.TAG, door=walk.DOOR, note_max=work.NOTE_MAX,
+                    token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)), note_at=request.query_params.get("at", ""))
+
+    @app.post("/walkthrough", include_in_schema=False)
+    async def walkthrough_step(request: Request):
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        action, token = data.get("action", ""), data.get("token", "")
+        if action not in walk.ACTIONS:
+            raise HTTPException(422, "That is not a step staff can take here.")
+        if not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
+        section = "orders" if action in walk.MOVES or (action == "report_work_order" and data.get("about")) else "staff-forms"
+        # the same form sent twice (a double click, a resend) gets its first decision back; another form or other words is another command
+        route = sorted(k[5:] for k, v in data.items() if k.startswith("unit_") and v)
+        what = hashlib.sha256("|".join([data.get("text") or "", ",".join(route), *(data.get(k, "") for k in ("lock", "whose", "tag", "door", "to"))]).encode()).hexdigest()[:10]
+        act = walk.Act(f"form:{token}:{action}:{data.get('about') or '-'}:{data.get('unit') or '-'}:{what}", action, STAFF, about=data.get("about") or None,
+                       unit=data.get("unit") or None, route=[k[5:] for k, v in data.items() if k.startswith("unit_") and v],
+                       form={k: data.get(k, "") for k in ("lock", "whose", "tag", "door")},
+                       text=data.get("text"), to=data.get("to") or None)
+        def take_step():
+            with fd.lock:
+                decision = walk.run(fd.ready(), fd.stream(ident), act, fd.clock())
+                if decision.allowed:
+                    fd._step_notes.pop(ident, None)
+                else:
+                    # The gate can name a record in a refusal; the page identifies it by its unit instead.
+                    reason = re.sub(r"\s*\((?:W|O|WO)\d+\)", "", decision.check)
+                    fd._keep(fd._step_notes, ident, reason)
+        await run_in_threadpool(take_step)
+        return RedirectResponse(f"/walkthrough?at={section}#{section}", status_code=303)
 
     @app.get("/liens", include_in_schema=False)
     def lien_cases(request: Request):

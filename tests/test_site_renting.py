@@ -6,7 +6,7 @@ from html import unescape
 from fastapi.testclient import TestClient
 
 from core.seed import NOW
-from core import renting
+from core import reconcile, renting
 from core.billing import Ledger
 from core.stripe_processor import StripeProcessor
 from tests.test_fms import record_of, seen, sign_in, site
@@ -46,7 +46,7 @@ def test_only_priced_vacant_units_are_offered(fms_url, sim):
         rent = rent_of(fd, ident)
         page = c.get('/rent').text
         for unit in fd.view(ident)[0].units:
-            offered = rent.status(unit, NOW) == 'vacant' and rent.units[unit].rent_cents is not None
+            offered = not reconcile.readiness(fd.ready().books(fd.stream(ident)), rent, unit, NOW) and rent.units[unit].rent_cents is not None
             assert (f'href="/rent/{unit}"' in page) == offered
         assert 'Northstar Storage' in page and 'Orlando, FL' in page
 

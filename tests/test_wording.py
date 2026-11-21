@@ -57,3 +57,8 @@ def test_a_state_shown_first_in_a_line_keeps_its_capital_letters():
 def test_a_status_code_the_fms_sends_reads_as_words():
     from desk.wording import words
     assert words("IN_PROGRESS") == "in progress" and words("OPEN") == "open" and words("SUCCEEDED") == "succeeded"
+
+
+def test_a_work_order_id_goes_but_a_part_number_that_starts_the_same_way_stays():
+    assert plain("Door latch bent (WO0001).") == "Door latch bent."
+    assert plain("Replace WO1234B hinge") == "Replace WO1234B hinge"

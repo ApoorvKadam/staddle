@@ -9,7 +9,9 @@ An item closes only when its completion check reads true on the record it is abo
 code is read back). Acknowledging is not finishing. Where no record can show the work (a call made, a promise judged), staff finish
 the item by saying what they checked, and the item says it was staff attested. If the problem comes back the same item reopens.
 
-Events (all in the copy's own stream): work.opened, work.closed, work.reopened, work.changed written by `sweep`, and work.assigned, work.acknowledged,
+Sources: collections, overlock, reservation, rental, refund, access, turnover, and walk (what staff saw on the floor against the records).
+
+Events (all in the copy's own stream): work.opened, work.closed, work.reopened, work.changed, work.cleared written by `sweep`, and work.assigned, work.acknowledged,
 work.started, work.noted, work.attested written by a staff command through the gate (`run`). The books and renting ignore them."""
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime
 
 from . import delinquency as col
-from . import renting
+from . import reconcile, renting
 from .billing import Ledger
 from .books import Books, local
 from .evidence import clock, day
@@ -208,10 +210,38 @@ def _renting(b: Books, rent: renting.Rent, now: datetime, today: date) -> list[C
     return out
 
 
+def _walk(b: Books, rent: renting.Rent, now: datetime) -> list[Cond]:
+    """One item for each place what staff saw on the floor disagrees with the records (core/reconcile.py). It reads the records and
+    writes none; it closes when a later look or a record change makes them agree, or when staff say what they checked."""
+    # the headline is the finding's short kind, as every other item's is; the records that disagree are in its why
+    return [Cond(f.key, "walk", f.ref, f.kind, f.kind[:1].upper() + f.kind[1:], f.why, f.closes, f.role, f.due, "act", f.unit, f.tenant_id, f.lease, attest=True,
+                 closed_by="A later look found the records agree, or a record changed so they do.") for f in reconcile.compare(b, rent, now)]
+
+
+def _name(source: str) -> str:
+    return source.removeprefix("staff:").removeprefix("person:").replace("_", " ")
+
+
+def _maintenance(rent: renting.Rent) -> list[Cond]:
+    """One item for each work order that is not closed. It closes when the order does, and an order closes only after the staff check."""
+    out = []
+    for o in rent.floor.orders.values():
+        if o.state == "closed":
+            continue
+        says = {"reported": "Not triaged yet.", "triaged": "Triaged, not assigned yet.", "assigned": f"Assigned to {_name(o.assigned_to or '')}; no work recorded yet.",
+                "work recorded": "Work is recorded; staff have not checked it yet.", "staff checked": "Staff checked the work; the order is not closed yet."}[o.state]
+        again = " ".join(f"Reported again {clock(r.at)} by {_name(r.by)}: {r.text}" for r in o.reports[1:])
+        out.append(Cond(f"maintenance:{o.id}", "maintenance", o.id, "work order", f"Work order on unit {o.unit}: {o.problem if len(o.problem) <= 80 else o.problem[:77] + '...'}",
+                        f"Reported {clock(o.reported)} by {_name(o.reported_by)}: {o.problem} {says}{' ' + again if again else ''}",
+                        "The order is closed after staff checked the work.", o.assigned_to if o.assigned_to in STAFF_ROLES else col.OWNER_ROLE,
+                        local(o.reported).date(), "act", o.unit, closed_by="The work order was closed after staff checked the work."))
+    return out
+
+
 def conditions(b: Books, rent: renting.Rent, now: datetime) -> dict[str, Cond]:
     """Everything staff have to do right now, by key, read off the books and the renting records."""
     today = local(now).date()
-    return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today)}
+    return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)}
 
 
 # the folded record -----------------------------------------------------------------------------------------------------------
@@ -260,6 +290,8 @@ class State:
             rec.notes.append((at, p["by"], p["text"]))
         elif kind == "work.attested":
             rec.attested = {"by": p["by"], "text": p["text"], "at": at}
+        elif kind == "work.cleared":         # the condition staff said they checked has gone, so their word no longer holds it
+            rec.attested, rec.moves = None, rec.moves + 1
 
 
 def load(store: Store, stream: str) -> tuple[Books, renting.Rent, State]:
@@ -415,6 +447,11 @@ def _sync(led: Ledger, rent: renting.Rent, wk: State, now: datetime) -> None:
         if rec.open and key not in conds:
             how, evidence = (("done", f"Staff checked: {rec.attested['text']}") if key in said else _closing(led.books, rent, {**rec.snap, "key": key}))
             _emit(led, wk, "work.closed", now, {"key": key, "how": how, "evidence": evidence}, f"work:{key}:{rec.moves + 1}", "code")
+    # a staff word holds an item done only while the books still show its condition; once the condition is gone the word expires,
+    # so the same problem coming back later reopens the item instead of staying hidden behind an old attestation
+    for key, rec in list(wk.items.items()):
+        if not rec.open and rec.attested and key not in conds and key not in said:
+            _emit(led, wk, "work.cleared", now, {"key": key}, f"work:{key}:{rec.moves + 1}", "code")
 
 
 def sweep(store: Store, stream: str, now: datetime) -> int:
@@ -439,7 +476,8 @@ class Act:
     text: str | None = None
 
 
-def _person(to: str) -> bool:
+def person(to: str) -> bool:
+    """Whether `to` names a person ("person:Dana"), as work and work orders are given to one."""
     name = to.removeprefix("person:")
     return to.startswith("person:") and 2 <= len(name) <= 40 and all(ch.isalpha() or ch in ".-" for ch in name)
 
@@ -458,7 +496,7 @@ def evaluate(item: Item | None, act: Act) -> tuple[bool, str]:
     if item.state in CLOSED:
         return False, "that item is already closed; if the problem comes back it reopens"
     text = " ".join((act.text or "").split())
-    if act.action == "assign_work" and not (act.to in STAFF_ROLES or act.to and _person(act.to)):
+    if act.action == "assign_work" and not (act.to in STAFF_ROLES or act.to and person(act.to)):
         return False, "work goes to a staff role or a named person"
     if act.action == "assign_work" and act.to == item.assignee:
         return False, "it is already with them"

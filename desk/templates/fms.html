@@ -58,6 +58,11 @@
         extra += free / n;
         t.style.setProperty("--extra", Math.floor(extra * 10) / 10 + "px");
       }
+      // a cell held by its min-width can push the last share past the frame by a fraction of a pixel: step back until it fits
+      for (var j = 0; j < 20 && extra > 0 && t.parentElement.clientWidth < t.getBoundingClientRect().width; j++) {
+        extra = Math.max(0, extra - 0.2);
+        t.style.setProperty("--extra", Math.floor(extra * 10) / 10 + "px");
+      }
     });
   }
   spread();

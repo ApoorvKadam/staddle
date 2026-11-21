@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from core import reconcile
 from core.books import at_local
 from core.seed import NOW
 from desk import spend
@@ -456,7 +457,7 @@ def test_a_staff_renting_command_is_listed_without_a_tenant_and_every_page_still
         fd = app.state.front_desk
         store, stream = fd.ready(), fd.stream(ident)
         b, r = renting.load(store, stream)
-        vacant = next(u for u in b.units if r.status(u, NOW) == "vacant")
+        vacant = next(u for u in b.units if not reconcile.readiness(b, r, u, NOW))      # ready to offer: the seeded walk holds two vacant units back
         taken = next(u for u in b.units if r.status(u, NOW) == "occupied")
         tenant = fd.cast["priya"]["tenant"]
         steps = [renting.Act("price-1", "price_unit", "staff:front_desk", vacant, args={"rent_cents": 12000, "size": "5x10"}),
