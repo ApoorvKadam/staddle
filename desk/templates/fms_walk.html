@@ -74,7 +74,7 @@
     </form>
     <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ w.id }}"><label>Unit <select name="unit">{% for unit in w.not_checked %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="observe_unit"{% if not w.not_checked %} disabled{% endif %}>Record observation</button></form>
     <form method="post" action="/walkthrough"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ w.id }}"><button class="button" name="action" value="finish_walk">Finish walk</button></form></details>{% endfor %}
-  <details><summary>Correct an observation</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Observation <select name="about">{% for w in walks %}{% for unit in w.route %}{% set o = w.current(unit) %}{% if o %}<option value="{{ o.id }}">Unit {{ unit|plain }}, walk started {{ clock(w.started)|plain }}, recorded {{ clock(o.at)|plain }}</option>{% endif %}{% endfor %}{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="correct_observation">Correct observation</button></form></details>
+  <details><summary>Correct an observation</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Observation <select name="about">{% for w in walks %}{% for unit in w.route %}{% set o = w.current(unit) %}{% if o %}<option value="{{ o.id }}" data-walk="{{ w.id }}" data-unit="{{ unit }}">Unit {{ unit|plain }}, walk started {{ clock(w.started)|plain }}, recorded {{ clock(o.at)|plain }}</option>{% endif %}{% endfor %}{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="correct_observation">Correct observation</button></form></details>
   <details><summary>Report a work order</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Unit <select name="unit">{% for building, units in groups.items() %}<optgroup label="Building {{ building|plain }}">{% for unit in units %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</optgroup>{% endfor %}</select></label><label>Problem <input name="text" minlength="3" maxlength="{{ note_max }}" required></label><button class="button" name="action" value="report_work_order">Report work order</button></form></details>
 </section>
 <section class="fms-section"><h2>Earlier walks</h2><details><summary>Earlier walks</summary>{% for w in walks[1:] %}<p>{{ clock(w.started)|plain }}, {{ staff(w.by)|plain }}, {{ w.route|length - w.not_checked|length }} units checked.</p>{% else %}<p>No earlier walks.</p>{% endfor %}</details></section>
@@ -124,14 +124,20 @@
         if (p.reason) line(result, p.reason);
         if (Object.keys(p.fields).length && !p.reason) {
           // the reading fills the form below; nothing is recorded until staff check it and press Record
-          var observe = document.querySelector('form button[value="observe_unit"]'), target = observe && observe.form;
+          // this walk's own observe form; a unit already checked on this walk fills the correction form for its observation instead
+          var walkBox = form.closest("details"), observe = walkBox && walkBox.querySelector('button[value="observe_unit"]');
+          var target = observe && observe.form, verb = "Record observation", unit = p.unit || form.elements.unit.value;
+          if (target && !Array.prototype.some.call(target.elements.unit.options, function (o) { return o.value === unit; })) {
+            var seen = document.querySelector('select[name="about"] option[data-walk="' + form.dataset.walk + '"][data-unit="' + unit + '"]');
+            if (seen) { target = seen.closest("form"); target.elements.about.value = seen.value; verb = "Correct observation"; }
+          }
           if (target) {
-            if (p.unit && target.elements.unit) target.elements.unit.value = p.unit;
+            if (unit && target.elements.unit) target.elements.unit.value = unit;
             Object.keys(p.fields).forEach(function (key) { if (target.elements[key]) target.elements[key].value = p.fields[key].raw; });
             if (target.elements.text) target.elements.text.value = form.elements.text.value;
             var box = target.closest("details"); if (box) box.open = true;
           }
-          line(result, "Read into the fields below. Check each one, change what is wrong, then press Record observation.");
+          line(result, "Read into the fields below. Check each one, change what is wrong, then press " + verb + ".");
           var labels = {lock: "Lock", whose: "Whose lock", tag: "Overlock tag", door: "Door", contents: "Belongings inside"};
           Object.keys(labels).forEach(function (key) { var field = p.fields[key]; if (field) line(result, labels[key] + ": " + field.value + (field.words ? " (“" + field.words + "”)" : "")); });
         }
