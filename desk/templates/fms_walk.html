@@ -37,8 +37,18 @@
 <section class="fms-section" id="orders">
   <h2>Work orders</h2>
   {% if step_note and note_at == 'orders' %}<p class="fms-status" role="status">Nothing changed. {{ step_note|plain }}</p>{% endif %}
+  {% for p in same %}<article class="fms-line walk-pair" data-first="{{ p.first.id }}" data-second="{{ p.second.id }}"><h3>Unit {{ p.first.unit|plain }}: two open work orders</h3>
+    <p>Reported {{ clock(p.first.reported)|plain }} by {{ staff(p.first.reported_by)|plain }}: {{ p.first.problem|plain }}.</p>
+    <p>Reported {{ clock(p.second.reported)|plain }} by {{ staff(p.second.reported_by)|plain }}: {{ p.second.problem|plain }}.</p>
+    <div class="walk-report" aria-live="polite">{% set r = p.reading %}
+      {% if r and r.stale %}<p class="muted">{{ agent|plain }} read these before a report changed; ask again for a current reading.</p>{% endif %}
+      {% if r %}{% if r.dropped %}<p>Not shown: {{ r.dropped|plain }}</p>{% else %}<p>{{ agent|plain }} reads: {{ r.verdict|plain }}.</p><p>{{ r.summary|plain }}</p>{% endif %}{% endif %}</div>
+    <button type="button" class="button walk-same">Ask {{ agent|plain }} whether this is one fault</button><p class="walk-status" role="status"></p>
+    <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ p.second.id }}"><input type="hidden" name="into" value="{{ p.first.id }}"><label>Note <input name="text" maxlength="{{ note_max }}"></label><button class="button" name="action" value="join_work_order">Same fault: join into the first order</button><button class="button" name="action" value="keep_work_orders_apart">Different faults: keep both</button></form>
+  </article>{% endfor %}
   {% for o in orders %}<article class="fms-line"><h3>Unit {{ o.unit|plain }}: {{ o.problem|plain }}</h3>
-    <p>{{ o.state|capitalize|plain }}. With: {{ staff(o.assigned_to)|plain }}.</p>
+    {% if o.joined_into %}{% set kept = order_of[o.joined_into] %}<p>Closed as the same fault as the order reported {{ clock(kept.reported)|plain }}: {{ kept.problem|plain }}.</p>
+    {% else %}<p>{{ o.state|capitalize|plain }}. With: {{ staff(o.assigned_to)|plain }}.</p>{% endif %}
     {% set last = o.changes[-1] %}<p>Last change: {{ last.state|plain }}{% if last.text %}: {{ last.text|plain }}{% endif %}, {{ staff(last.by)|plain }}, {{ clock(last.at)|plain }}{% if last.to %}, to {{ staff(last.to)|plain }}{% endif %}.</p>
     <details><summary>Full history</summary>{% for change in o.changes %}<p>{{ change.state|capitalize|plain }}{% if change.text %}: {{ change.text|plain }}{% endif %}{% if change.to %}, to {{ staff(change.to)|plain }}{% endif %}, {{ staff(change.by)|plain }}, {{ clock(change.at)|plain }}</p>{% endfor %}</details>
     {% if o.state != 'closed' %}{% set action, next = moves[o.state] %}
@@ -91,6 +101,20 @@
       }).catch(function (err) { status.textContent = err.message; });
     });
   });
+  document.querySelectorAll(".walk-pair").forEach(function (box) {
+    var button = box.querySelector(".walk-same"), status = box.querySelector(".walk-status"), report = box.querySelector(".walk-report");
+    button.addEventListener("click", function () {
+      button.hidden = true;
+      status.textContent = {{ (agent ~ ' is reading both reports. Code then checks the reading.')|plain|tojson }};
+      post("/api/fms/walk/compare", {first: box.dataset.first, second: box.dataset.second}).then(function (p) {
+        status.textContent = "";
+        if (p.reason && !p.verdict && !p.dropped) { status.textContent = p.reason; return; }
+        report.textContent = "";
+        if (p.dropped) { line(report, "Not shown: " + p.dropped); return; }
+        line(report, {{ agent|plain|tojson }} + " reads: " + p.verdict + "."); line(report, p.summary);
+      }).catch(function (err) { status.textContent = err.message; button.hidden = false; });
+    });
+  });
   document.querySelectorAll(".walk-note").forEach(function (form) {
     form.addEventListener("submit", function (event) {
       event.preventDefault(); var button = form.querySelector("button"), result = form.querySelector(".walk-note-result");
@@ -110,6 +134,32 @@
           line(result, "Read into the fields below. Check each one, change what is wrong, then press Record observation.");
           var labels = {lock: "Lock", whose: "Whose lock", tag: "Overlock tag", door: "Door", contents: "Belongings inside"};
           Object.keys(labels).forEach(function (key) { var field = p.fields[key]; if (field) line(result, labels[key] + ": " + field.value + (field.words ? " (“" + field.words + "”)" : "")); });
+        }
+        if (p.work && p.work.length) {
+          // work the note names: each is a proposal; staff open it as a work order on the unit, or leave it
+          line(result, "Work the note names. Untick what you do not agree with, then open the rest as work orders:");
+          var token = document.querySelector('input[name="token"]').value, unit = p.unit || form.elements.unit.value;
+          var list = document.createElement("div"); result.appendChild(list);
+          p.work.forEach(function (w) {
+            var row = document.createElement("p"), label = document.createElement("label"), box = document.createElement("input");
+            box.type = "checkbox"; box.checked = true; box.value = w.kind + ": " + w.words;
+            label.appendChild(box); label.appendChild(document.createTextNode(" " + w.kind + ": “" + w.words + "”")); row.appendChild(label); list.appendChild(row);
+          });
+          var open = document.createElement("button"); open.type = "button"; open.className = "button"; open.textContent = "Open as work orders";
+          result.appendChild(open);
+          open.addEventListener("click", function () {
+            var texts = Array.prototype.map.call(list.querySelectorAll("input:checked"), function (b) { return b.value; });
+            if (!texts.length) return;
+            open.hidden = true;
+            var said = line(result, "Opening the work orders.");
+            // each order goes through the walk gate; the first refusal stops the rest and is shown, and a retry keeps the ones opened
+            post("/api/fms/walk/orders", {unit: unit, texts: texts, token: token}).then(function (p) {
+              var refused = p.results.filter(function (r) { return !r.allowed; })[0];
+              if (!refused) { window.location = "/walkthrough?at=orders#orders"; return; }
+              said.textContent = "Not opened: " + refused.text + ". " + refused.check + ".";
+              open.hidden = false;
+            }).catch(function (err) { said.textContent = err.message; open.hidden = false; });
+          });
         }
       }).catch(function (err) { result.textContent = err.message; }).finally(function () { button.hidden = false; });
     });

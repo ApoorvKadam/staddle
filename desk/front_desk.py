@@ -42,7 +42,8 @@ WALK_MODEL = ("claude-haiku-5-5", "low")      # Tilden on the walk: reading a ty
 WALK_NOTE_WORST_CENTS = 0.1     # the most reading one typed note can cost (one call on Haiku, output capped at 600 tokens)
 INVESTIGATE_WORST_CENTS = 0.3   # the most one investigation can cost (one call on Haiku with the unit's history, output capped at 900 tokens)
 WALK_NOTES_PER_DAY = 10         # typed notes a visitor may have read in a day, apart from the message and rule tries
-INVESTIGATIONS_PER_DAY = 5      # findings a visitor may have investigated in a day
+INVESTIGATIONS_PER_DAY = 5      # findings a visitor may have investigated in a day (readings of two work orders count here too)
+SAME_WORST_CENTS = 0.2          # the most reading two work orders can cost (one call on Haiku, output capped at 500 tokens)
 KEEP_FOR = timedelta(hours=24)
 HOLD_RETRY = 60                 # seconds before a day that cannot leave its waiting payments asks the processor again
 ACTION_WORDS = {"explain_charge": "Explained from the records", "reverse_duplicate": "Reversed the second copy",
@@ -656,7 +657,7 @@ class FrontDesk:
                 return out
             now = self.clock()
             standing = walks.load(store, stream)[1].walks[walk].current(reading.unit)
-            mark = {"by": "tilden", "model": WALK_MODEL[0], "effort": WALK_MODEL[1], "quotes": reading.quotes, "flags": reading.flags,
+            mark = {"by": "tilden", "model": WALK_MODEL[0], "effort": WALK_MODEL[1], "quotes": reading.quotes, "flags": reading.flags, "work": reading.work,
                     "tokens_in": reading.call.tokens_in, "tokens_out": reading.call.tokens_out, "cents": round(cents, 6)}
             act = walks.Act(f"note:{secrets.token_hex(6)}", "correct_observation" if standing else "observe_unit", source,
                             about=standing.id if standing else walk, unit=reading.unit, form=reading.fields, text=text, read=mark)
@@ -711,6 +712,60 @@ class FrontDesk:
                 led.emit("walk.investigated", now, payload, f"investigate:{run}", source="operator")
                 store.append(stream, led.pending)
             return {"off": False, "key": key, "packet": result.packet, "dropped": result.dropped, "history": history,
+                    "cents": result.call.cents if result.call else 0.0, "reason": result.dropped}
+
+    def compare_orders(self, visitor: str, first: str, second: str, live: bool = True, budget_left=None) -> dict:
+        """Tilden's reading of two open work orders on one unit: one fault reported twice, or two. Code keeps it only when it cites a
+        report of each order and says nothing was done (core/walk_reading.py). The only record written is the reading itself
+        (work_order.compared); joining the orders is a staff step. It counts against the day's investigations; a refused run costs nothing."""
+        key = f"{first}:{second}"
+
+        def pair_of(wk):
+            return next(((a, b) for a, b in walks.pairs(wk) if (a.id, b.id) == (first, second)), None)
+        with self.lock:
+            store, stream = self.ready(), self.stream(visitor)
+            wk = walks.load(store, stream)[1]
+            pair = pair_of(wk)
+            if pair is None:
+                raise HTTPException(404, "Those two work orders are not both open on one unit any more.")
+            if not live or self.client is None:
+                return {"off": True, "pair": key, "reading": None, "dropped": None, "records": [], "cents": 0.0,
+                        "reason": "Tilden is off on this copy, so the two orders cannot be read"}
+            # asked again over the same reports a reading can only differ by chance, so a kept one stands until a report changes
+            last = (wk.comparisons.get(key) or [None])[-1]
+            if last and last.get("reading") and [r["text"] for r in last["records"]] == [r["text"] for r in walk_reading.order_records(*pair, "same")]:
+                raise HTTPException(409, "Tilden already read these two orders and nothing in their reports has changed since; its reading is below.")
+            copy = self._resets.get(visitor, 0)
+            store, usage = self._tilden_try(visitor, "investigate", INVESTIGATIONS_PER_DAY, SAME_WORST_CENTS, "investigations", budget_left)
+            run, now = secrets.token_hex(4), self.clock()
+        result = None
+        try:
+            result = walk_reading.same_fault(self.client, WALK_MODEL[0], WALK_MODEL[1], *pair, run)
+        finally:
+            self._tilden_settle(store, usage, result.call if result else None, SAME_WORST_CENTS)
+        with self.lock:
+            if self._resets.get(visitor, 0) != copy:
+                raise HTTPException(409, "Your copy was started over while the orders were read. Ask again.")
+            if self.ready() is not store:
+                raise HTTPException(409, "The day turned over while the orders were read. Ask again.")
+            wk2 = walks.load(store, stream)[1]
+            again = pair_of(wk2)
+            if again is None or [r["text"] for r in walk_reading.order_records(*again, run)] != [r["text"] for r in result.records]:
+                raise HTTPException(409, "The two orders changed while Tilden read them. Ask again.")
+            # another request may have kept a reading of the same reports while this one was out: that one stands
+            kept = next((x for x in reversed(wk2.comparisons.get(key) or []) if x.get("reading")
+                         and [r["text"] for r in x["records"]] == [r["text"] for r in result.records]), None)
+            if kept:
+                return {"off": False, "pair": key, "reading": kept["reading"], "dropped": None, "records": kept["records"],
+                        "cents": result.call.cents if result.call else 0.0, "reason": None}
+            payload = {"pair": key, "unit": pair[0].unit, "run": run, "records": result.records, "reading": result.reading,
+                       "checks": {"kept": result.reading is not None, "dropped": result.dropped},
+                       "call": asdict(result.call) if result.call else None}
+            with store.write():                      # the only thing written: the reading itself
+                led = Ledger(store.books(stream))
+                led.emit("work_order.compared", now, payload, f"compare:{run}", source="operator")
+                store.append(stream, led.pending)
+            return {"off": False, "pair": key, "reading": result.reading, "dropped": result.dropped, "records": result.records,
                     "cents": result.call.cents if result.call else 0.0, "reason": result.dropped}
 
     # renting ------------------------------------------------------------------------------------------------------------------
