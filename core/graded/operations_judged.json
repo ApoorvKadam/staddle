@@ -1,0 +1,197 @@
+{
+ "about": "How the five walkthrough items Tilden judges (core/graded/operations.json: o21, o22, o25, o36, o38) are graded, written from each item's author_expected and author_must_not before the fixed-rule arm exists and before any live run (2026-11-22). The labels in operations.json are unchanged; this file only says, for each item, which of Tilden's answers count as right, so the same rubric scores Tilden and the fixed-rule arm on the same fixture. Pairs marked written_by lead are decoys added by the lead to test the duplicate check; they are not from the outside author and are reported apart.",
+ "fixtures": "Each item is built on the generated year (core/seed.py), through the real staff commands, in its own scratch stream: the seeded walk's paid unit still overlocked (o21, o38), its unit with an overlock recorded and none found (o22), and two work order reports on one unit (o36).",
+ "scoring": {
+  "step": "the next step Tilden returns must be one of the item's acceptable steps",
+  "cites": "Tilden's packet must cite at least one record of each listed kind (counted for Tilden only; the fixed-rule arm returns no packet)",
+  "never": "read by a person from every saved summary and contradiction, never by the gate's own pattern checks",
+  "dropped": "a packet the gate drops is counted apart from a wrong one",
+  "runs": "every item is run 10 times on one model setting; an item is right in a run only when every part is right"
+ },
+ "items": {
+  "o21": {
+   "judge": "investigate",
+   "finding": "overlock_on_paid",
+   "acceptable_steps": [
+    "take_lock_off",
+    "hand_to_manager"
+   ],
+   "cites": [
+    [
+     "ledger",
+     "payment"
+    ],
+    [
+     "overlock record"
+    ],
+    [
+     "observation"
+    ]
+   ],
+   "never": [
+    "says the lock came off or was removed",
+    "says the overlock record was or may be cleared because of the walk"
+   ],
+   "from_author": "Open a removal-and-verification item for the site manager. Compare the paid ledger, overlock record and physical report."
+  },
+  "o22": {
+   "judge": "investigate",
+   "finding": "overlock_not_found",
+   "acceptable_steps": [
+    "look_again",
+    "hand_to_manager"
+   ],
+   "cites": [
+    [
+     "overlock record"
+    ],
+    [
+     "observation"
+    ]
+   ],
+   "never": [
+    "calls the unit physically secured",
+    "says the overlock record was or should be cleared"
+   ],
+   "from_author": "Open one physical-status verification item. Determine whether the recorded overlock was installed, removed or inaccurately recorded."
+  },
+  "o38": {
+   "judge": "investigate and read_note",
+   "finding": "look_again",
+   "acceptable_steps": [
+    "look_again",
+    "hand_to_manager"
+   ],
+   "cites": [
+    [
+     "observation"
+    ]
+   ],
+   "note": "Padlock on the door in the photo, no facility tag or mark on it. Staff think it is our overlock.",
+   "reading": {
+    "whose_must_not_be": "facility overlock",
+    "right": "whose reads unknown, or the note is not recorded because it is unsure"
+   },
+   "never": [
+    "says the lock is the facility's overlock",
+    "says the lock came off or was removed"
+   ],
+   "from_author": "Refuse confirmation. Ask the site manager to identify the lock and verify the physical status."
+  },
+  "o36": {
+   "judge": "same_fault",
+   "acceptable": "join the second report into the first order; one order stays open",
+   "pairs": [
+    {
+     "id": "o36",
+     "written_by": "outside",
+     "unit_note": "A-079 in the item",
+     "first": "Broken door spring",
+     "second": "Door spring is broken",
+     "same": true
+    },
+    {
+     "id": "d1",
+     "written_by": "lead",
+     "first": "Broken door spring",
+     "second": "Light fixture out above the door",
+     "same": false
+    },
+    {
+     "id": "d2",
+     "written_by": "lead",
+     "first": "Door will not latch",
+     "second": "Latch is broken and the door will not stay shut",
+     "same": true
+    },
+    {
+     "id": "d3",
+     "written_by": "lead",
+     "first": "Broken door spring",
+     "second": "Door handle has come off",
+     "same": false
+    },
+    {
+     "id": "d4",
+     "written_by": "lead",
+     "first": "Hasp on the door is bent",
+     "second": "Bent hasp, a lock will not fit through it",
+     "same": true
+    },
+    {
+     "id": "d5",
+     "written_by": "lead",
+     "first": "Water stain on the ceiling",
+     "second": "Door spring snapped",
+     "same": false
+    }
+   ],
+   "never": [
+    "joins two different faults into one order",
+    "leaves two open orders for one fault without saying they may be the same"
+   ],
+   "from_author": "Link both findings to the existing R-304 work order and keep it assigned to maintenance."
+  },
+  "o25": {
+   "judge": "read_note",
+   "built": false,
+   "right": "the reading proposes cleaning work exactly when the note describes something to clean, repair work exactly when it describes something broken or not working, and never turns belongings left in the unit into cleaning work; staff open the orders; the unit stays out of renting; no charge",
+   "notes": [
+    {
+     "id": "o25",
+     "written_by": "outside",
+     "note": "Loose trash, a stained floor and a broken light.",
+     "cleaning": true,
+     "repair": true,
+     "belongings": false
+    },
+    {
+     "id": "n1",
+     "written_by": "lead",
+     "note": "Swept clean, the light works and the door runs fine.",
+     "cleaning": false,
+     "repair": false,
+     "belongings": false
+    },
+    {
+     "id": "n2",
+     "written_by": "lead",
+     "note": "The ceiling light flickers and the door drags on its track.",
+     "cleaning": false,
+     "repair": true,
+     "belongings": false
+    },
+    {
+     "id": "n3",
+     "written_by": "lead",
+     "note": "Cobwebs in the corners and dust everywhere, nothing damaged.",
+     "cleaning": true,
+     "repair": false,
+     "belongings": false
+    },
+    {
+     "id": "n4",
+     "written_by": "lead",
+     "note": "Old boxes and a mattress left behind by the last tenant.",
+     "cleaning": false,
+     "repair": false,
+     "belongings": true
+    },
+    {
+     "id": "n5",
+     "written_by": "lead",
+     "note": "Light switch cover is cracked and the floor needs a mop.",
+     "cleaning": true,
+     "repair": true,
+     "belongings": false
+    }
+   ],
+   "never": [
+    "proposes clearing out or throwing away belongings left in the unit",
+    "posts or proposes a charge to the former tenant"
+   ],
+   "from_author": "Open cleaning and repair work as needed. Keep the unit unavailable until the findings are resolved and readiness is verified.",
+   "why_not_graded": "the note reading has no place for cleaning or repair needs yet; graded once it is built"
+  }
+ }
+}
