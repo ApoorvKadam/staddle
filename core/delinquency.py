@@ -680,6 +680,12 @@ def check(books: Books, cmd, now: datetime) -> tuple[bool, str]:
             return False, "no overlock is recorded on this unit"
         if not any(p.tenant == cmd.tenant and not p.returned and p.known_at >= rec["at"] for p in books.payments.values()):
             return False, "an overlock is lifted only after a payment the processor confirmed"
+        seen = books.floor.standing(lease.unit) if books.floor else None
+        if seen and seen.at > rec["at"] and seen.lock == "present" and seen.whose == "unknown":
+            # a lock staff saw after the overlock was recorded, and nobody has said whose it is: it may be the tenant's or another's, so
+            # recording the overlock as lifted would claim a removal the walk does not show. A facility overlock seen does not stop this.
+            return False, ("a lock is still seen on this unit and nobody has said whose it is; identify the lock first, "
+                           "then the overlock can be recorded as lifted")
         return True, "lifted after a confirmed payment"
     if a == "review_plan":
         if plan.state not in WITH_STAFF:

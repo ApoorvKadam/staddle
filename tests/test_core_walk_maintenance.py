@@ -25,7 +25,7 @@ def test_an_open_work_order_is_one_item_naming_the_unit_the_fault_who_reported_i
     oid = report(w, 1).made
     i = items(w)[f"maintenance:{oid}"]
     assert (i.source, i.kind, i.unit, i.role, i.state, i.attest, i.tone) == ("maintenance", "work order", PAID, "office_manager", "open", False, "act")
-    assert i.what == f"Work order on unit {PAID}: Door will not latch" and i.ref == oid and i.due == WHEN.date()
+    assert i.what == "Work order open" and "Door will not latch" in i.why and i.unit == PAID and i.ref == oid and i.due == WHEN.date()
     assert "Reported Nov 13 at 3:00 pm by front desk" in i.why and "Not triaged yet" in i.why
     assert "closed after staff checked the work" in i.closes
     move(w, 2, "triage_work_order", oid, WHEN + timedelta(hours=1))

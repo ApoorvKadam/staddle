@@ -87,3 +87,18 @@ def test_the_same_report_sent_twice_from_one_page_makes_one_work_order(fms_url, 
         other = {**form, 'text': 'Light out above the door'}     # another report from the same page is another order
         assert client.post('/walkthrough', data=other, follow_redirects=False).status_code == 303
         assert len(rent_of(fd, ident).floor.orders) == before + 2
+
+
+def test_the_observe_form_makes_staff_choose_every_field_and_offers_belongings(fms_url, sim):
+    app = site(fms_url)
+    with sign_in(app) as client:
+        fd, ident = desk_of(app, client)
+        unit = fd.ready().books(fd.stream(ident)).units[0]
+        assert step(client, 'start_walk', **{f'unit_{unit}': '1'}).status_code == 303
+        page = client.get('/walkthrough').text
+        for name in ('lock', 'whose', 'tag', 'door', 'contents'):
+            assert re.search(rf'<select name="{name}" required><option value="" selected disabled>Choose</option>', page), name
+        floor = rent_of(fd, ident).floor
+        started = max(floor.walks.values(), key=lambda w: (w.started, w.id))
+        step(client, 'observe_unit', about=started.id, unit=unit, lock='absent', whose='unknown', tag='absent', door='closed', contents='seen', text='Boxes inside')
+        assert rent_of(fd, ident).floor.walks[started.id].current(unit).contents == 'seen'

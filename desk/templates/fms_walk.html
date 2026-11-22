@@ -1,8 +1,8 @@
 {% extends "fms.html" %}
 {% block page %}Walkthrough{% endblock %}
 {% macro seen_fields() %}
-  {% for name, label, values in [('lock', 'Lock', lock), ('whose', 'Whose lock', whose), ('tag', 'Overlock tag', tag), ('door', 'Door', door)] %}
-  <label>{{ label|plain }} <select name="{{ name }}">{% for value in values %}<option value="{{ value }}">{{ value|plain }}</option>{% endfor %}</select></label>
+  {% for name, label, values in [('lock', 'Lock', lock), ('whose', 'Whose lock', whose), ('tag', 'Overlock tag', tag), ('door', 'Door', door), ('contents', 'Belongings inside', contents)] %}
+  <label>{{ label|plain }} <select name="{{ name }}" required><option value="" selected disabled>Choose</option>{% for value in values %}<option value="{{ value }}">{{ value|plain }}</option>{% endfor %}</select></label>
   {% endfor %}
   <label>Note <input name="text" maxlength="{{ note_max }}"></label>
 {% endmacro %}
@@ -13,16 +13,24 @@
   {% if walks %}{% set w = walks[0] %}
   <p>{{ staff(w.by)|plain }} started {{ clock(w.started)|plain }}. {% if w.finished %}Finished {{ clock(w.finished[1])|plain }} by {{ staff(w.finished[0])|plain }}.{% else %}Not finished.{% endif %} {{ w.route|length - w.not_checked|length }} checked, {{ w.not_checked|length }} not checked.</p>
   <p>Every observation is what staff saw and said (staff attested).</p>
-  <div class="fms-scroll"><table class="fms-table"><thead><tr><th>Unit</th><th>Lock</th><th>Whose lock</th><th>Overlock tag</th><th>Door</th><th>Note</th><th>Recorded by and when</th></tr></thead><tbody>
+  <div class="fms-scroll"><table class="fms-table"><thead><tr><th>Unit</th><th>Lock</th><th>Whose lock</th><th>Overlock tag</th><th>Door</th><th>Belongings</th><th>Note</th><th>Recorded by and when</th></tr></thead><tbody>
   {% for unit in w.route %}{% set o = w.current(unit) %}<tr><td>{{ unit|plain }}</td>{% if o %}
-    <td>{{ o.lock|plain }}{% if o.supersedes %} <span class="chip">corrected</span>{% endif %}</td><td>{{ o.whose|plain }}</td><td>{{ o.tag|plain }}</td><td>{{ o.door|plain }}</td><td>{{ o.note|plain }}
-    {% if o.supersedes %}<details><summary>Earlier observations</summary>{% for old in w.history(unit) if old.id != o.id %}<p>{{ old.lock|plain }}, {{ old.whose|plain }}, tag {{ old.tag|plain }}, door {{ old.door|plain }}. {{ old.note|plain }} {{ staff(old.by)|plain }}, {{ clock(old.at)|plain }}</p>{% endfor %}</details>{% endif %}</td><td>{{ staff(o.by)|plain }}, {{ clock(o.at)|plain }}</td>
-    {% else %}<td colspan="6">not checked</td>{% endif %}</tr>{% endfor %}</tbody></table></div>
+    <td>{{ o.lock|plain }}{% if o.supersedes %} <span class="chip">corrected</span>{% endif %}</td><td>{{ o.whose|plain }}</td><td>{{ o.tag|plain }}</td><td>{{ o.door|plain }}</td><td>{{ o.contents|plain }}</td><td>{{ o.note|plain }}
+    {% if o.supersedes %}<details><summary>Earlier observations</summary>{% for old in w.history(unit) if old.id != o.id %}<p>{{ old.lock|plain }}, {{ old.whose|plain }}, tag {{ old.tag|plain }}, door {{ old.door|plain }}, belongings {{ old.contents|plain }}. {{ old.note|plain }} {{ staff(old.by)|plain }}, {{ clock(old.at)|plain }}</p>{% endfor %}</details>{% endif %}</td><td>{{ staff(o.by)|plain }}, {{ clock(o.at)|plain }}</td>
+    {% else %}<td colspan="7">not checked</td>{% endif %}</tr>{% endfor %}</tbody></table></div>
   {% else %}<p>No walk has been started.</p>{% endif %}
 </section>
 <section class="fms-section" id="findings">
   <h2>What disagrees with the records</h2>
-  {% for finding in findings %}<article class="fms-line"><h3>Unit {{ finding.unit|plain }}: {{ finding.kind|plain }}</h3><p>{{ finding.why|plain }}</p><p>What closes it: {{ finding.closes|plain }}</p><p><a href="/today?view=all#item-{{ finding.key|urlencode }}">View this item on Today</a></p></article>
+  {% for finding in findings %}<article class="fms-line"><h3>Unit {{ finding.unit|plain }}: {{ finding.kind|plain }}</h3><p>{{ finding.why|plain }}</p><p>What closes it: {{ finding.closes|plain }}</p><p><a href="/today?view=all#item-{{ finding.key|urlencode }}">View this item on Today</a></p>
+    <div class="walk-investigation" data-key="{{ finding.key }}">
+      {% set report = reports.get(finding.key) %}<div class="walk-report" aria-live="polite">
+      {% if report %}{% if report.dropped %}<p>Not shown: {{ report.dropped|plain }}</p>{% else %}
+        <p>{{ report.summary|plain }}</p><p>Suggested next step: {{ report.step|plain }}.</p>
+        <p>Records checked by code:</p><ul>{% for record in report.records %}<li>{{ record|plain }}</li>{% endfor %}</ul>
+      {% endif %}{% endif %}</div>
+      <button type="button" class="button walk-ask">Ask {{ agent|plain }} to look into it</button><p class="walk-status" role="status"></p>
+    </div></article>
   {% else %}<p>Every unit checked agrees with the records.</p>{% endfor %}
 </section>
 <section class="fms-section" id="orders">
@@ -46,10 +54,65 @@
   {% if step_note and note_at == 'staff-forms' %}<p class="fms-status" role="status">Nothing changed. {{ step_note|plain }}</p>{% endif %}
   <details><summary>Start a walk</summary><form method="post" action="/walkthrough"><input type="hidden" name="token" value="{{ token }}">{% for building, units in groups.items() %}<fieldset><legend>Building {{ building|plain }}</legend>{% for unit in units %}<label><input type="checkbox" name="unit_{{ unit }}" value="1"> {{ unit|plain }}</label> {% endfor %}</fieldset>{% endfor %}<button class="button" name="action" value="start_walk">Start walk</button></form></details>
   {% for w in walks if not w.finished %}<details><summary>Record what was seen on the walk started {{ clock(w.started)|plain }} by {{ staff(w.by)|plain }}</summary>
+    <form class="walk-note" data-walk="{{ w.id }}">
+      <p>Describe what you saw and {{ agent|plain }} will read it into the fields below, or fill them in yourself.</p>
+      <label>Unit <select name="unit">{% for unit in w.route %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</select></label>
+      <label>What did you see? <textarea name="text" maxlength="{{ note_max }}" required></textarea></label>
+      <p>Describe the lock, overlock tag, door and anything inside in your own words. Write about one unit.</p>
+      <button type="submit" class="button">Read note</button><div class="walk-note-result" role="status"></div>
+    </form>
     <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ w.id }}"><label>Unit <select name="unit">{% for unit in w.not_checked %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="observe_unit"{% if not w.not_checked %} disabled{% endif %}>Record observation</button></form>
     <form method="post" action="/walkthrough"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ w.id }}"><button class="button" name="action" value="finish_walk">Finish walk</button></form></details>{% endfor %}
   <details><summary>Correct an observation</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Observation <select name="about">{% for w in walks %}{% for unit in w.route %}{% set o = w.current(unit) %}{% if o %}<option value="{{ o.id }}">Unit {{ unit|plain }}, walk started {{ clock(w.started)|plain }}, recorded {{ clock(o.at)|plain }}</option>{% endif %}{% endfor %}{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="correct_observation">Correct observation</button></form></details>
   <details><summary>Report a work order</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Unit <select name="unit">{% for building, units in groups.items() %}<optgroup label="Building {{ building|plain }}">{% for unit in units %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</optgroup>{% endfor %}</select></label><label>Problem <input name="text" minlength="3" maxlength="{{ note_max }}" required></label><button class="button" name="action" value="report_work_order">Report work order</button></form></details>
 </section>
 <section class="fms-section"><h2>Earlier walks</h2><details><summary>Earlier walks</summary>{% for w in walks[1:] %}<p>{{ clock(w.started)|plain }}, {{ staff(w.by)|plain }}, {{ w.route|length - w.not_checked|length }} units checked.</p>{% else %}<p>No earlier walks.</p>{% endfor %}</details></section>
+<script>
+(function () {
+  function line(parent, text, tag) { var el = document.createElement(tag || "p"); el.textContent = text; parent.appendChild(el); return el; }
+  function post(url, data) {
+    return fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)})
+      .then(function (r) { return r.json().then(function (body) { if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Something went wrong. Try again."); return body; }); });
+  }
+  document.querySelectorAll(".walk-investigation").forEach(function (box) {
+    var button = box.querySelector(".walk-ask"), status = box.querySelector(".walk-status"), report = box.querySelector(".walk-report");
+    button.addEventListener("click", function () {
+      button.hidden = true;           // the report on file stays in view until a new one replaces it
+      status.textContent = {{ (agent ~ ' is reading the finding and its records. Code then checks the report.')|plain|tojson }};
+      post("/api/fms/walk/investigate", {key: box.dataset.key}).then(function (p) {
+        status.textContent = "";
+        if (p.reason && !p.summary && !p.dropped) { status.textContent = p.reason; return; }
+        report.textContent = "";
+        if (p.dropped) { line(report, "Not shown: " + p.dropped); return; }
+        line(report, p.summary); line(report, "Suggested next step: " + p.step + ".");
+        line(report, "Records checked by code:"); var ul = document.createElement("ul"); report.appendChild(ul);
+        p.records.forEach(function (record) { line(ul, record, "li"); });
+      }).catch(function (err) { status.textContent = err.message; });
+    });
+  });
+  document.querySelectorAll(".walk-note").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault(); var button = form.querySelector("button"), result = form.querySelector(".walk-note-result");
+      button.hidden = true; result.textContent = {{ (agent ~ ' is reading the note. Code then checks the words and records what it can.')|plain|tojson }};
+      post("/api/fms/walk/note", {walk: form.dataset.walk, unit: form.elements.unit.value, text: form.elements.text.value}).then(function (p) {
+        result.textContent = "";
+        if (p.reason) line(result, p.reason);
+        if (Object.keys(p.fields).length && !p.reason) {
+          // the reading fills the form below; nothing is recorded until staff check it and press Record
+          var observe = document.querySelector('form button[value="observe_unit"]'), target = observe && observe.form;
+          if (target) {
+            if (p.unit && target.elements.unit) target.elements.unit.value = p.unit;
+            Object.keys(p.fields).forEach(function (key) { if (target.elements[key]) target.elements[key].value = p.fields[key].raw; });
+            if (target.elements.text) target.elements.text.value = form.elements.text.value;
+            var box = target.closest("details"); if (box) box.open = true;
+          }
+          line(result, "Read into the fields below. Check each one, change what is wrong, then press Record observation.");
+          var labels = {lock: "Lock", whose: "Whose lock", tag: "Overlock tag", door: "Door", contents: "Belongings inside"};
+          Object.keys(labels).forEach(function (key) { var field = p.fields[key]; if (field) line(result, labels[key] + ": " + field.value + (field.words ? " (“" + field.words + "”)" : "")); });
+        }
+      }).catch(function (err) { result.textContent = err.message; }).finally(function () { button.hidden = false; });
+    });
+  });
+})();
+</script>
 {% endblock %}

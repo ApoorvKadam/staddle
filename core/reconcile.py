@@ -9,6 +9,7 @@ This module only reads. A finding never lifts or records an overlock, ends a lea
 core/work.py turns each finding into an item of work, and staff act on the records through the commands that already exist."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
@@ -53,6 +54,24 @@ def _overlock(rec: dict | None, unit: str) -> str:
     return f"The FMS has an overlock on unit {unit} recorded {day(rec['at'])}." if rec else "The FMS has no overlock recorded on it."
 
 
+_DOOR_WORDS = re.compile(r"\b(?:door|latch|hinge|track|spring|roll-?up)\b", re.I)
+
+
+def _repair_tracked(rent, unit: str, seen_at: datetime) -> bool:
+    """Whether damage staff saw at `seen_at` is already being dealt with: a work order on the unit that is about the door (its problem or
+    a later report names it; a cleaning order is not) is open, or was checked by staff after the sighting. A check made before the
+    sighting says nothing about damage seen after it, whenever the order was closed."""
+    for o in rent.floor.orders.values():
+        if o.unit != unit or not any(_DOOR_WORDS.search(t) for t in [o.problem] + [r.text for r in o.reports]):
+            continue
+        if o.state != "closed":
+            return True
+        checked = next((c.at for c in reversed(o.changes) if c.state == "staff checked"), None)
+        if checked and checked > seen_at:
+            return True
+    return False
+
+
 def for_unit(books: Books, rent, unit: str, now: datetime) -> list[Finding]:
     """The findings on one unit: its contradictions, or the one look-again finding when it has none and something was unknown."""
     o = rent.floor.standing(unit)
@@ -86,14 +105,29 @@ def for_unit(books: Books, rent, unit: str, now: datetime) -> list[Finding]:
             found("door_open", "rented unit with an open door or no lock", f"Rented unit {unit} seen with its door open or no lock",
                   f"{seen}, staff saw the door of unit {unit} {'open' if o.door == 'open' else 'with no lock on it'}. The unit is rented to {name} "
                   "and no move-out is recorded.", "A later walk finds the door shut and locked, a move-out is recorded, or staff say what they checked.", FRONT)
-    elif status == "vacant" and o.lock == "present" and o.whose in ("tenant", "unknown"):
+    if status == "vacant":
         last = max((x.ended for x in books.leases.values() if x.unit == unit and x.ended), default=None)
-        found("lock_on_vacant", "lock on a vacant unit", f"A lock on the door of unit {unit}, which renting lists as vacant",
-              f"{seen}, staff saw a lock ({'the tenant\'s' if o.whose == 'tenant' else 'owner unknown'}) on the door of unit {unit}, which renting lists as "
-              f"vacant{f', last rented until {day(last)}' if last else ''}.",
-              "A later walk finds the unit clear, the unit is rented to the lock's owner, or staff say what they checked.", FRONT)
+        since = f", last rented until {day(last)}" if last else ""
+        if o.lock == "present" and o.whose in ("tenant", "unknown"):
+            found("lock_on_vacant", "lock on a vacant unit", f"A lock on the door of unit {unit}, which renting lists as vacant",
+                  f"{seen}, staff saw a lock ({'the tenant\'s' if o.whose == 'tenant' else 'owner unknown'}) on the door of unit {unit}, which renting lists "
+                  f"as vacant{since}.",
+                  "A later walk finds the unit clear, the unit is rented to the lock's owner, or staff say what they checked.", FRONT)
+        if o.contents == "seen":
+            found("contents_on_vacant", "belongings in a vacant unit", f"Belongings seen inside unit {unit}, which renting lists as vacant",
+                  f"{seen}, staff saw belongings inside unit {unit}, which renting lists as vacant{since}. No record shows who they belong to or "
+                  "what became of them.",
+                  "A later walk finds the unit empty, the unit is rented to the owner of what is inside, or staff say what they checked. Staff decide "
+                  "what happens to what is inside; nothing is disposed of from this finding.", OFFICE)
+    if o.door == "damaged" and not _repair_tracked(rent, unit, o.at):
+        who = (f"The unit is rented to {name}, and no record shows what damaged the door or who is responsible." if status == "occupied" and lease else
+               f"The unit is {status}" + (", so it is not offered until the door is repaired and a later look finds it sound." if status == "vacant" else "."))
+        found("door_damaged", "damaged door", f"Damaged door on unit {unit}",
+              f"{seen}, staff saw the door of unit {unit} damaged. {who} No repair is open.",
+              "A later walk shows the door is no longer damaged, or staff say what they checked. Staff decide what is done and who is responsible; "
+              "nothing is charged from this finding.", OFFICE)
     if not out:
-        unknown = [k for k in ("lock", "tag", "door") if getattr(o, k) == "unknown"] + (["whose"] if o.lock == "present" and o.whose == "unknown" else [])
+        unknown =[k for k in ("lock", "tag", "door") if getattr(o, k) == "unknown"] + (["whose"] if o.lock == "present" and o.whose == "unknown" else [])
         if unknown:
             words = [UNKNOWN_WORDS[k] for k in unknown]
             found("look_again", "unknown on the walk", f"Look again at unit {unit}: staff could not tell everything",

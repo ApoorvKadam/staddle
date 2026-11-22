@@ -17,7 +17,7 @@
       {% for u in items %}<li>{% if u.state == 'occupied' and u.who %}<a class="{{ u.chip[1] if u.chip else 'occ' }}" href="/tenants/{{ u.who.slug }}" title="{{ u.unit }}: {{ u.who.name }}{{ ', ' ~ u.chip[0] if u.chip }}"><b>{{ u.unit }}</b><small>{{ u.who.name.split(' ')[0][0] }}. {{ u.who.name.split(' ')[-1] }}</small></a>
       {% elif u.state == 'reserved' %}{% if u.who %}<a class="held" href="/tenants/{{ u.who.slug }}" title="{{ u.unit }}: reserved for {{ u.who.name }}"><b>{{ u.unit }}</b><small>{{ u.who.name.split(' ')[0][0] }}. {{ u.who.name.split(' ')[-1] }}</small></a>{% else %}<span class="held" title="{{ u.unit }}: reserved"><b>{{ u.unit }}</b><small aria-hidden="true">&nbsp;</small></span>{% endif %}
       {% elif u.state == 'blocked' %}<span class="fms-blocked" title="{{ u.unit }}: blocked"><b>{{ u.unit }}</b><small aria-hidden="true">&nbsp;</small></span>
-      {% else %}<span class="fms-vacant" title="{{ u.unit }}: vacant"><b>{{ u.unit }}</b><small aria-hidden="true">&nbsp;</small></span>{% endif %}</li>{% endfor %}
+      {% else %}<span class="fms-vacant" title="{{ u.unit }}: vacant{% if u.note %}. {{ u.note }}{% endif %}"><b>{{ u.unit }}</b><small{% if not u.note %} aria-hidden="true"{% endif %}>{% if u.note %}not ready{% else %}&nbsp;{% endif %}</small></span>{% endif %}</li>{% endfor %}
     </ul>
   </section>
   {% endfor %}

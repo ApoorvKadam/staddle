@@ -18,10 +18,11 @@ from urllib.parse import parse_qs
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from core import delinquency as col
-from core import reconcile, renting, liens as lien_core, auction, work, walk
+from core import reconcile, renting, liens as lien_core, auction, work, walk, walk_reading
 from core.case import OFF
 from core.books import ADMIN_FEE_CENTS, LATE_FEE_CENTS, RENT, REVIEW_DAYS, at_local, lines, local, month_key
 from core.billing import Refused
@@ -35,6 +36,36 @@ from .web import AGENT
 from .front_desk import ACTION_WORDS, CLAIM_WORDS, SHIFT, CaseIn, FrontDesk, RuleIn, account_words
 from .guard import LIFETIME, SLOW_DOWN, UNSET, Unreachable
 from .wording import plain
+
+class WalkInvestigationIn(BaseModel):
+    key: str
+
+
+class WalkNoteIn(BaseModel):
+    walk: str
+    unit: str | None = None
+    text: str
+
+
+def walk_report(report: dict) -> dict:
+    """Only checked, cited records and staff-facing words leave the desk."""
+    history = report.get("history") or []
+    def words(value):
+        text = str(value or "")
+        for record in history:
+            text = text.replace(record["id"], "")
+        return plain(text)
+    packet = report.get("packet")
+    if not packet:
+        reason = report.get("dropped") or (report.get("checks") or {}).get("dropped") or "the report could not be read"
+        reason = re.sub(r" \([^)]*\)", "", reason)
+        return {"dropped": words(reason)}
+    cited = set(packet.get("records") or [])
+    return {"summary": words(packet["summary"]), "contradiction": words(packet["contradiction"]),
+            "step": words(walk_reading.STEPS.get(packet["step"], "Staff decide what to do")),
+            "reason": words(walk_reading.REASONS.get(packet["reason"], "A person has to decide")),
+            "records": [words(f"{h['kind'].capitalize()}: {h['text']}") for h in history if h["id"] in cited]}
+
 
 DEMO_NAME, DEMO_PASSWORD = "dana.reyes", "northstar"
 SESSION = "staddle_session"
@@ -515,7 +546,7 @@ class Facility:
                 item["since"] = f"Empty since {day(last)}" if last else "Not rented this year"
                 why = reconcile.readiness(b, rent, u, self.now) if state == "vacant" else []
                 if why and not item["note"]:         # vacant on the books, but something on the floor or a repair keeps it off the market
-                    first = re.sub(r"\s*\(.*\)$", "", why[0].split(":")[0]).replace("work order is", "a work order is")
+                    first = re.sub(r"^work order \S+ is", "a work order is", re.sub(r"\s*\(.*\)$", "", why[0].split(":")[0]))
                     item["note"] = plain(f"Not ready to rent: {first}.")
             else:
                 p = self.people[lease.tenant]
@@ -1135,9 +1166,9 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             return source.removeprefix("staff:").removeprefix("person:").replace("_", " ").replace(".", " ").capitalize()
         moves = {before: (action, after) for action, (_, before) in walk.MOVES.items() for after in (walk.NEXT[before],)}
         return show(request, "fms_walk.html", "walkthrough", f, walks=walks, orders=orders,
-                    findings=reconcile.compare(f.b, f.rent, f.now), groups=groups, moves=moves,
+                    findings=reconcile.compare(f.b, f.rent, f.now), reports={key: walk_report(rows[-1]) for key, rows in floor.investigations.items() if rows}, groups=groups, moves=moves,
                     roles=("front_desk", "office_manager", "manager"), staff=staff, clock=clock,
-                    lock=walk.LOCK, whose=walk.WHOSE, tag=walk.TAG, door=walk.DOOR, note_max=work.NOTE_MAX,
+                    lock=walk.LOCK, whose=walk.WHOSE, tag=walk.TAG, door=walk.DOOR, contents=walk.CONTENTS, note_max=work.NOTE_MAX,
                     token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)), note_at=request.query_params.get("at", ""))
 
     @app.post("/walkthrough", include_in_schema=False)
@@ -1153,10 +1184,10 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         section = "orders" if action in walk.MOVES or (action == "report_work_order" and data.get("about")) else "staff-forms"
         # the same form sent twice (a double click, a resend) gets its first decision back; another form or other words is another command
         route = sorted(k[5:] for k, v in data.items() if k.startswith("unit_") and v)
-        what = hashlib.sha256("|".join([data.get("text") or "", ",".join(route), *(data.get(k, "") for k in ("lock", "whose", "tag", "door", "to"))]).encode()).hexdigest()[:10]
+        what = hashlib.sha256("|".join([data.get("text") or "", ",".join(route), *(data.get(k, "") for k in ("lock", "whose", "tag", "door", "contents", "to"))]).encode()).hexdigest()[:10]
         act = walk.Act(f"form:{token}:{action}:{data.get('about') or '-'}:{data.get('unit') or '-'}:{what}", action, STAFF, about=data.get("about") or None,
                        unit=data.get("unit") or None, route=[k[5:] for k, v in data.items() if k.startswith("unit_") and v],
-                       form={k: data.get(k, "") for k in ("lock", "whose", "tag", "door")},
+                       form={k: data.get(k, "") for k in ("lock", "whose", "tag", "door", "contents") if k != "contents" or data.get(k)},
                        text=data.get("text"), to=data.get("to") or None)
         def take_step():
             with fd.lock:
@@ -1207,6 +1238,40 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             with session_factory() as s:
                 return settings.daily_budget_usd - spend.spent_today(s)
         return fd.run(ident, body, live, settings.visitor_cases_per_day, budget_left)
+
+    def walk_budget_left() -> float:
+        with session_factory() as s:
+            return settings.daily_budget_usd - spend.spent_today(s)
+
+    def walk_refusal(exc: HTTPException):
+        # The desk explains the refusal; the page does not show daily counts.
+        detail = re.sub(r"today's \d+ ", "today's ", str(exc.detail))
+        raise HTTPException(exc.status_code, plain(detail)) from None
+
+    @app.post("/api/fms/walk/investigate")
+    def investigate_walk(body: WalkInvestigationIn, request: Request, ident: str = Depends(need)):
+        same_site(request)
+        try:
+            result = fd.investigate_finding(ident, body.key, live, walk_budget_left if live else None)
+        except HTTPException as exc:
+            walk_refusal(exc)
+        if result.get("off"):
+            return {"reason": plain(result["reason"])}
+        return walk_report(result)
+
+    @app.post("/api/fms/walk/note")
+    def read_walk(body: WalkNoteIn, request: Request, ident: str = Depends(need)):
+        same_site(request)
+        try:
+            # Tilden drafts and staff record: a quoted word can exist and still not mean the value read from it, so the page fills the
+            # form and staff press Record
+            result = fd.read_walk_note(ident, body.walk, body.unit, body.text, live, walk_budget_left if live else None, source=STAFF, record=False)
+        except HTTPException as exc:
+            walk_refusal(exc)
+        reading = result.get("reading")
+        fields = {name: {"value": plain(value if value != "unknown" else "not said"), "raw": value,
+                         "words": plain(reading.quotes.get(name))} for name, value in reading.fields.items()} if reading else {}
+        return {"recorded": result["recorded"], "reason": plain(result.get("reason")), "fields": fields, "unit": reading.unit if reading else None}
 
     @app.post("/api/fms/rules")
     def propose_rule(body: RuleIn, request: Request, ident: str = Depends(need)):

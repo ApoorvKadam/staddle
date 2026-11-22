@@ -4,9 +4,7 @@ on a small facility, ask what the label asks, and check the labelled decision, t
 Built as closely as the core allows, not word for word. Every offer, advertisement, reservation or move-in the author describes is a
 reservation asked through renting's unit gate, which reads the unit's readiness. A supervisor's reinspection is a later walk. A
 command the core does not have (marking a rented unit vacant, posting a charge from a finding) is asked and must be refused as unknown.
-Where the core's answer differs from the label the test stays as a strict expected failure naming what the core does instead: a damaged
-door seen on a vacant unit opens no work order (o30), belongings have no place in an observation (o31, o39), and a finding about damage
-opens no staff task (o28), and a legal stop opens no item naming counsel review (o34, o40). The items Tilden judges (o21, o22, o25, o36, o38) are left for Tilden's grading against a fixed-rule arm, which comes with
+Where the core's answer differs from the label the test stays as a strict expected failure naming what the core does instead: a legal stop opens no item naming counsel review (o34, o40). The items Tilden judges (o21, o22, o25, o36, o38) are left for Tilden's grading against a fixed-rule arm, which comes with
 Tilden's part of the walk."""
 import json
 from datetime import timedelta
@@ -127,7 +125,6 @@ def test_o28_a_damage_finding_and_an_estimate_never_become_a_charge():
     assert w.store.journal(STREAM) == before                         # charge_posted never
 
 
-@pytest.mark.xfail(strict=True, reason="A damaged door seen on a rented unit opens no item, so nobody is asked to decide responsibility.")
 def test_o28_the_damage_goes_to_staff_to_decide():
     w = Floor()
     w.walk(PAID, door="damaged", note="Looks like tenant damage; probably $150.")
@@ -147,7 +144,6 @@ def test_o29_a_scheduled_removal_is_not_a_removal():
     assert col.state(w.store.books(STREAM)).overlocks.get(w.leases[PAID])                     # removal_claimed, overlock_lifted never
 
 
-@pytest.mark.xfail(strict=True, reason="A damaged door seen on a vacant unit is not a finding and opens no work order, so the unit is offered.")
 def test_o30_a_new_fault_after_an_earlier_repair_keeps_the_unit_unavailable():
     label, w = SET["o30"]["label"], Floor()
     w.close(w.report(EMPTY, "Door repair"))
@@ -155,7 +151,6 @@ def test_o30_a_new_fault_after_an_earlier_repair_keeps_the_unit_unavailable():
     assert decided(w.reserve(EMPTY)) == label["decision"]
 
 
-@pytest.mark.xfail(strict=True, reason="An observation has no place for belongings, so belongings seen on a vacant unit stop nothing.")
 def test_o31_belongings_inside_stop_a_rental_whatever_the_repair_and_the_gate_say():
     label, w = SET["o31"]["label"], Floor()
     w.close(w.report(EMPTY, "Broken latch"))
@@ -225,7 +220,6 @@ def test_o37_a_manager_asking_for_the_income_is_not_a_finished_repair():
     assert status(w, EMPTY) == "vacant"                                                          # unit_offered never
 
 
-@pytest.mark.xfail(strict=True, reason="An observation has no place for belongings, so belongings left after a lease ended stop nothing.")
 def test_o39_belongings_left_after_the_lease_ended_keep_the_unit_off_the_market():
     label, w = SET["o39"]["label"], Floor()
     with w.store.write():

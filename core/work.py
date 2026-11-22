@@ -231,7 +231,8 @@ def _maintenance(rent: renting.Rent) -> list[Cond]:
         says = {"reported": "Not triaged yet.", "triaged": "Triaged, not assigned yet.", "assigned": f"Assigned to {_name(o.assigned_to or '')}; no work recorded yet.",
                 "work recorded": "Work is recorded; staff have not checked it yet.", "staff checked": "Staff checked the work; the order is not closed yet."}[o.state]
         again = " ".join(f"Reported again {clock(r.at)} by {_name(r.by)}: {r.text}" for r in o.reports[1:])
-        out.append(Cond(f"maintenance:{o.id}", "maintenance", o.id, "work order", f"Work order on unit {o.unit}: {o.problem if len(o.problem) <= 80 else o.problem[:77] + '...'}",
+        # the chip is short like every other item's; the problem and where the order stands are in the line below
+        out.append(Cond(f"maintenance:{o.id}", "maintenance", o.id, "work order", "Work order open",
                         f"Reported {clock(o.reported)} by {_name(o.reported_by)}: {o.problem} {says}{' ' + again if again else ''}",
                         "The order is closed after staff checked the work.", o.assigned_to if o.assigned_to in STAFF_ROLES else col.OWNER_ROLE,
                         local(o.reported).date(), "act", o.unit, closed_by="The work order was closed after staff checked the work."))

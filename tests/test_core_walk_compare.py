@@ -1,6 +1,7 @@
 """The comparison: each unit's standing observation read against the FMS records (the collections overlock record, whether the lease
 has anything past due, the unit's renting status, open work orders). Each contradiction is one finding. An unknown is never agreement
 and never a contradiction: it is one finding asking staff to look again. Nothing here writes a record."""
+import re
 from datetime import date, timedelta
 
 from core import reconcile, renting, walk
@@ -59,14 +60,19 @@ class World:
             led.emit("rental.ending", NOW, {"rental": rid, "reason": "move-out"}, "end1", source=FRONT)
             self.store.append("base", led.pending)
 
-    def walk(self, *units, stream=STREAM, at=WALKED, **seen):
-        """A walk over the units; each is observed with the same values (the defaults say a tenant's lock, no tag, a closed door)."""
+    def walk(self, *units, stream=STREAM, at=WALKED, note="", **seen):
+        """A walk over the units; each is observed with the same values (the defaults say a tenant's lock, no tag, a closed door). The note
+        is the staff member's typed words and is kept with the observation; where it says belongings are inside, the form says contents
+        seen, as a reading of the words (Tilden's, or the staff member's own) would."""
         self.n += 1
         d = walk.run(self.store, stream, walk.Act(f"s{self.n}", "start_walk", FRONT, route=list(units)), at)
         assert d.allowed, d.check
         form = {"lock": "present", "whose": "tenant", "tag": "absent", "door": "closed", **seen}
+        if "contents" not in form and re.search(r"\bbelongings\b", note, re.I):
+            form["contents"] = "seen"
         for i, u in enumerate(units):
-            o = walk.run(self.store, stream, walk.Act(f"o{self.n}{u}", "observe_unit", FRONT, about=d.made, unit=u, form=form), at + timedelta(minutes=9 * (i + 1)))
+            o = walk.run(self.store, stream, walk.Act(f"o{self.n}{u}", "observe_unit", FRONT, about=d.made, unit=u, form=form, text=note),
+                         at + timedelta(minutes=9 * (i + 1)))
             assert o.allowed, o.check
         return d.made
 
@@ -149,8 +155,8 @@ def test_a_rented_unit_with_its_door_open_or_no_lock_and_no_move_out_is_one_find
         assert (f.unit, f.slug, f.role) == (PAID, "door_open", "front_desk")
         assert "no move-out is recorded" in f.why and "Ana Alvarez" in f.why
     w = World()
-    w.walk(PAID, door="damaged")                       # a damaged door is a maintenance matter, not a contradiction with the records
-    assert w.found() == []
+    w.walk(PAID, door="damaged")                       # a damaged door is its own finding (test_core_walk_damage), never an open door
+    assert slugs(w.found()) == [(PAID, "door_damaged")]
 
 
 def test_a_unit_with_a_move_out_recorded_is_not_flagged_for_an_open_door_or_no_lock():
