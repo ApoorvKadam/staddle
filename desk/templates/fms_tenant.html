@@ -103,8 +103,8 @@
     <thead><tr><th>Unit</th><th>Overlock</th><th>Lien eligibility</th><th></th></tr></thead>
     <tbody>{% for u in col.units %}<tr>
       <td>{{ u.unit }}</td>
-      <td><span class="chip {{ u.overlock.tone }}">{{ u.overlock.words }}</span>{% if u.overlock.why %} <span class="muted">{{ u.overlock.why }}</span>{% endif %}</td>
-      <td><span class="chip {{ u.lien.tone }}">{{ u.lien.words }}</span>{% if u.lien.why %} <span class="muted">{{ u.lien.why }}</span>{% endif %}
+      <td class="why"><span class="chip {{ u.overlock.tone }}">{{ u.overlock.words }}</span>{% if u.overlock.why %} <span class="muted">{{ u.overlock.why }}</span>{% endif %}</td>
+      <td class="why"><span class="chip {{ u.lien.tone }}">{{ u.lien.words }}</span>{% if u.lien.why %} <span class="muted">{{ u.lien.why }}</span>{% endif %}
       {% if u.lien.state in ('eligible', 'recorded') and not lien_files|selectattr('case.lease', 'equalto', u.lease)|rejectattr('case.closed')|list %}
       <form method="post" action="/tenants/{{ p.slug }}/lien"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="lease" value="{{ u.lease }}">
       {% if u.lien.state == 'eligible' %}<button class="button" name="action" value="flag_lien_eligible">Flag lien eligibility</button>{% else %}<button class="button" name="action" value="open_lien_case">Open a lien file</button>{% endif %}</form>{% endif %}</td>
