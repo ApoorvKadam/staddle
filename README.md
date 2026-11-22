@@ -76,19 +76,21 @@ A serious error is a plan accepted or a promise recorded that the tenant never c
 
 Reading a reply costs about 0.03 cents.
 
-Walkthrough judgement was scored on 40 cases from an outside author: 20 pairs of repair reports on one unit and 20 move-out walk notes. The author had seen early direction notes for Staddle, but not the walkthrough code, Tilden's instructions, the fixed rules or how the cases are graded. I set the mix the author wrote to. Pairs: 7 one fault in different words, 7 two faults, 3 where the words cannot settle it, 3 adversarial. Notes: 8 ordinary, 4 saying something is fine, 4 guessing, 4 adversarial. A word list fails the second and third kinds of note by design, so the fixed-rule scores depend on this mix. Each case was labelled by hand from the author's expected handling and frozen before any run on them (pull request 121). Each ran ten times on Nov 22, for Tilden and for fixed rules on the same fixture: for pairs, the same words or any two open orders on one unit; for notes, a word list.
+Walkthrough judgement was scored on 40 cases from an outside author: 20 pairs of repair reports on one unit and 20 move-out walk notes. The author had seen early direction notes for Staddle, but not the walkthrough code, Tilden's instructions, the fixed rules or how the cases are graded. I set the mix the author wrote to. Pairs: 7 one fault in different words, 7 two faults, 3 where the words cannot settle it, 3 adversarial. Notes: 8 ordinary, 4 saying something is fine, 4 guessing, 4 adversarial. The pair rules' scores depend on this mix, as the note under the table explains. Each case was labelled by hand from the author's expected handling and frozen before any run on them (pull request 121). Each ran ten times on Nov 22, for Tilden and for fixed rules on the same fixture: for pairs, the same words or any two open orders on one unit; for notes, a word list.
 
-| What is read | Cases | Tilden right | Fixed rule right | Serious errors, Tilden | Serious errors, fixed rule |
-|---|---|---|---|---|---|
-| Two repair reports on one unit: one fault, two, or the words cannot tell | 20 | 156 of 200 | 80 of 200, either rule | 9 | 120 |
-| A move-out note: the cleaning and repair it shows | 20 | 161 of 200 | 80 of 200 | 0 | 0 |
+| What is read | Cases | Tilden right, average of 10 runs | Range | Fixed rule right | Serious errors per run, Tilden | Serious errors per run, fixed rule |
+|---|---|---|---|---|---|---|
+| Two repair reports on one unit: one fault, two, or the words cannot tell | 20 | 15.6 | 14 to 17 | 8, either rule | 1 in 9 runs, 0 in 1 | 12 |
+| A move-out note: the cleaning and repair it shows | 20 | 16.1 | 14 to 17 | 8 | 0 | 0 |
 
-A serious error is two faults joined, one fault left as two, a confident answer where the author says the words cannot settle it, belongings turned into cleaning work, or a fee in the work. Of Tilden's 161 right note runs, 34 were notes it refused whole: 10 were the note about another unit, which it should refuse, and 24 were notes that need no confirmed work.
+A serious error is two faults joined, one fault left as two, a confident answer where the author says the words cannot settle it, belongings turned into cleaning work, or a fee in the work. Of Tilden's right note runs, 34 of 161 were notes it refused whole: 10 were the note about another unit, which it should refuse, and 24 were notes that need no confirmed work.
+
+These fixed rules are deliberately simple, and the mix decides their score. Matching words is right on every two-fault pair and wrong on every one-fault pair; any two open orders is the reverse. The set holds 8 one-fault and 8 two-fault pairs, so both land on 8. The word list is right on 8 of 20 notes across every kind (3 of 8 ordinary, 1 of 4 saying something is fine, 2 of 4 guessing, 2 of 4 adversarial): its small vocabulary reads "swept" and "clean" as dirt and misses words like "sticky", "loose" and "dripping". So this shows Tilden beats rules this simple, not a careful rule-based method. A stronger rule and a fresh set whose mix the author chooses are next.
 
 Where Tilden misses:
 - Five notes also carry an order or a guess ("charge the old tenant $250", "manager approved, put it online", "might be water damage"). Tilden refused the whole note in 35 of their 50 runs, so the real cleaning and repair in them were lost.
 - Four faults described in two ways (a bent latch, a torn seal, a flickering light, a bent track): Tilden said the words cannot settle it in 29 of 40 runs. That is cautious, not serious.
-- A seal reported "ripped again" after a repair someone thinks was done: Tilden called it the same fault in 9 of 10 runs, where the author says the words cannot settle it. All 9 serious errors are this case.
+- A seal reported "ripped again" after a repair someone thinks was done: Tilden called it the same fault in 9 of 10 runs, where the author says the words cannot settle it. All 9 serious errors are this case. The test filed every pair an hour apart on one day, while the author's two reports were four days apart, so this error may come from the test; the next run uses the author's dates.
 - A report that repeats "somebody already fixed that hinge": code dropped Tilden's reading in 5 of 10 runs because it repeated that claim, which code reads as saying the repair happened.
 
 Three walk findings from the operations set were also run, but they had already run several times while this was built, so they are not a fresh test: Tilden picked an acceptable next step in 24 of 30 runs, the fixed rule in 30 of 30. Cases I wrote myself are practice and are not counted here. This set has now been seen, so changes for these misses will be measured on a fresh outside set. The ten runs cost about 14 cents.
