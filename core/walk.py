@@ -17,7 +17,10 @@ only a report: nothing it says is a record of what happened.
 
 Events (in the copy's own stream, over the facility's own): walk.started, walk.observed, walk.finished, walk.investigated, and work_order.reported,
 work_order.triaged, work_order.assigned, work_order.recorded, work_order.checked, work_order.closed. A second report joins an open order
-(work_order.reported_again) only when staff name that order; the code never decides two notes are the same fault.
+(work_order.reported_again) only when staff name that order; the code never decides two notes are the same fault. When two open orders
+stand on one unit (two staff reported one fault separately), staff can join the later one into the earlier (work_order.joined): it
+closes as joined, its reports move to the order that stays open, and nothing about the repair itself changes. Code only finds such pairs
+(pairs()); whether they are one fault is staff's call, and Tilden may say what it reads (core/walk_reading.py), never decide it.
 
 Staff write all of it through `run`, as the work queue does (core/work.py): staff roles only, a command id returns its first decision
 and a repeat writes nothing, the unit must exist, values come from the lists below, notes are capped. The commands move no money,
@@ -114,6 +117,7 @@ class WorkOrder:
     assigned_to: str | None = None
     changes: list[Change] = field(default_factory=list)     # every move, the report first
     reports: list[Report] = field(default_factory=list)     # the first report, then each one staff said is the same fault
+    joined_into: str | None = None              # closed because staff said it is the same fault as this open order
 
 
 class State:
@@ -122,6 +126,8 @@ class State:
         self.observations: dict[str, Observation] = {}
         self.orders: dict[str, WorkOrder] = {}
         self.investigations: dict[str, list[dict]] = {}     # finding key -> Tilden's reports on it, oldest first
+        self.comparisons: dict[str, list[dict]] = {}        # "first:second" order pair -> Tilden's readings of whether it is one fault
+        self.apart: set[frozenset[str]] = set()                # order pairs staff said are different faults
 
     def standing(self, unit: str) -> Observation | None:
         """What staff last saw on the unit: its observation from the newest walk that checked it (a correction already supersedes
@@ -140,6 +146,12 @@ class State:
             o = self.orders[p["order"]]
             o.reports.append(Report(p["by"], at, p["text"]))
             o.changes.append(Change("reported again", p["by"], at, p["text"]))
+        elif kind == "work_order.joined":               # closed as the same fault: its reports now belong to the order kept open
+            o, keep = self.orders[p["order"]], self.orders[p["into"]]
+            o.state, o.joined_into = "closed", keep.id
+            o.changes.append(Change("joined", p["by"], at, p.get("text", "")))
+            keep.reports.extend(o.reports)
+            keep.changes.append(Change("reported again", p["by"], at, p.get("text", "")))
         elif kind in ORDER_STATES:
             o = self.orders[p["order"]]
             o.state = ORDER_STATES[kind]
@@ -156,8 +168,28 @@ class State:
             self.walks[o.walk].observations.append(o)
         elif kind == "walk.investigated":               # a report only: nothing it says is a record of what happened
             self.investigations.setdefault(p["key"], []).append({**p, "at": at})
+        elif kind == "work_order.kept_apart":           # staff said the two are different faults: the pair is not offered again
+            self.apart.add(frozenset((p["order"], p["other"])))
+            self.orders[p["order"]].changes.append(Change("kept apart", p["by"], at, p.get("text", "")))
+        elif kind == "work_order.compared":             # a reading only: staff join orders, never this
+            self.comparisons.setdefault(p["pair"], []).append({**p, "at": at})
         elif kind == "walk.finished":
             self.walks[p["walk"]].finished = (p["by"], at)
+
+
+def pairs(wk: State) -> list[tuple[WorkOrder, WorkOrder]]:
+    """Each open work order paired with the earliest open order on the same unit that staff have not kept apart from it: two reports
+    that may be one fault. Code finds the pair; it never says they are the same."""
+    earlier: dict[str, list[WorkOrder]] = {}
+    out = []
+    for o in sorted(wk.orders.values(), key=lambda o: (o.reported, o.id)):
+        if o.state == "closed":
+            continue
+        mate = next((e for e in earlier.get(o.unit, []) if frozenset((e.id, o.id)) not in wk.apart), None)
+        if mate:
+            out.append((mate, o))
+        earlier.setdefault(o.unit, []).append(o)
+    return out
 
 
 def load(store: Store, stream: str):
@@ -174,7 +206,9 @@ def load(store: Store, stream: str):
 ACTIONS = {"start_walk": "start a walk", "observe_unit": "record what was seen on a unit", "correct_observation": "correct an observation",
            "finish_walk": "finish a walk", "report_work_order": "report a work order", "triage_work_order": "triage a work order",
            "assign_work_order": "assign a work order", "record_order_work": "record the work on an order",
-           "check_order_work": "check the work on an order", "close_work_order": "close a work order"}
+           "check_order_work": "check the work on an order", "close_work_order": "close a work order",
+           "join_work_order": "join a work order into another one for the same fault",
+           "keep_work_orders_apart": "keep two work orders apart as different faults"}
 # the move each work order command makes, and the state the order must be in first
 MOVES = {"triage_work_order": ("work_order.triaged", "reported"), "assign_work_order": ("work_order.assigned", "triaged"),
          "record_order_work": ("work_order.recorded", "assigned"), "check_order_work": ("work_order.checked", "work recorded"),
@@ -197,6 +231,7 @@ class Act:
     text: str | None = None
     to: str | None = None
     read: dict | None = None        # for an observation Tilden read from the staff member's words: the mark kept with it
+    into: str | None = None         # for join_work_order: the open order the one in `about` joins
 
 
 def _words(text: str | None) -> str:
@@ -280,6 +315,20 @@ def evaluate(books, wk: State, act: Act, now: datetime) -> tuple[bool, str]:
             return False, why
         if len(text) < 3:
             return False, "say in a few words what is wrong"
+    elif a in ("join_work_order", "keep_work_orders_apart"):
+        o, keep = wk.orders.get(act.about or ""), wk.orders.get(act.into or "")
+        if o is None or keep is None:
+            return False, "there is no such work order"
+        if o.id == keep.id:
+            return False, "a work order cannot join itself"
+        if o.unit != keep.unit:
+            return False, f"those work orders are on different units ({o.unit} and {keep.unit})"
+        if "closed" in (o.state, keep.state):
+            return False, "both work orders must still be open"
+        if a == "join_work_order" and o.state in ("work recorded", "staff checked"):      # its work would be hidden under the other order
+            return False, "work is already recorded on that order; finish it instead of joining it"
+        if a == "keep_work_orders_apart" and frozenset((o.id, keep.id)) in wk.apart:
+            return False, "those two work orders are already kept apart"
     else:
         o = wk.orders.get(act.about or "")
         if o is None:
@@ -315,6 +364,12 @@ def record(led: Ledger, wk: State, act: Act, now: datetime) -> str:
         return oid
     if a == "finish_walk":
         put("walk.finished", {"walk": act.about, "by": who}, "walk")
+        return act.about
+    if a == "join_work_order":
+        put("work_order.joined", {"order": act.about, "into": act.into, "by": who, "text": text}, "order")
+        return act.into
+    if a == "keep_work_orders_apart":
+        put("work_order.kept_apart", {"order": act.about, "other": act.into, "by": who, "text": text}, "order")
         return act.about
     if a == "report_work_order" and act.about:
         put("work_order.reported_again", {"order": act.about, "by": who, "text": text}, "order")

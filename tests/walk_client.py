@@ -27,15 +27,28 @@ def history_ids(content: str) -> list[str]:
     return re.findall(r"^(\S+-\d+) \[", content, re.M)
 
 
+def report_ids(content: str) -> dict[str, list[str]]:
+    """The record ids in a same-fault prompt, by order: {"First": [...], "Second": [...]}."""
+    out = {"First": [], "Second": []}
+    for rid, which in re.findall(r"^(\S+-\d+) (First|Second) work order", content, re.M):
+        out[which].append(rid)
+    return out
+
+
+def same_answer(ids, verdict="same", summary="Both reports describe a broken spring on the unit's door, so one repair fixes both."):
+    return {"verdict": verdict, "summary": summary, "records": list(ids)}
+
+
 def field(value="unknown", words=None):
     return {"value": value, "words": words}
 
 
-def note_answer(unit=("C335", "C335"), lock=None, whose=None, tag=None, door=None, contents=None, flags=()):
+def note_answer(unit=("C335", "C335"), lock=None, whose=None, tag=None, door=None, contents=None, flags=(), work=()):
     """What the reading call returns for a note; each field is (value, words) or left unknown."""
     return {"unit": {"value": unit[0], "words": unit[1]} if unit else {"value": None, "words": None},
             "lock": field(*(lock or ("unknown", None))), "whose": field(*(whose or ("unknown", None))), "tag": field(*(tag or ("unknown", None))),
-            "door": field(*(door or ("unknown", None))), "contents": field(*(contents or ("unknown", None))), "flags": list(flags)}
+            "door": field(*(door or ("unknown", None))), "contents": field(*(contents or ("unknown", None))), "flags": list(flags),
+            "work": [{"kind": k, "words": w} for k, w in work]}
 
 
 def packet(ids, step="check_payment", reason="ledger_shows_paid", summary="The ledger shows nothing past due for the tenant, yet the walk found "

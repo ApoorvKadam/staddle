@@ -9,19 +9,21 @@ The public report names arms, never vendors or models; the per-candidate detail 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import statistics
 import sys
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .books import local
 from .case import FIXED, OPERATOR, READ_ONLY, Arm, Result, handle
 from .cases import labels_hash, load, resolve_any
 from .evidence import Claim
 from .seed import NOW, build
-from .store import Store
+from .store import Event, Store
 
 UNKNOWN_PHONE = "+14075559999"
 LABELS = Arm("perfect reading, table decides", reader="labels", chooser="table")
@@ -242,6 +244,176 @@ def plan_replies(client, which: str, runs: int, model: str, effort: str) -> dict
                                 for i in items if sum(not g["right"] for rows in per_run for g in rows if g["id"] == i["id"]) * 2 > runs]}
 
 
+# the walkthrough items Tilden judges ----------------------------------------------------------------------------------------------
+JUDGED = os.path.join(os.path.dirname(__file__), "graded", "operations_judged.json")
+# the fixed-rule arm: one next step per kind of finding, the step an FMS would hard-code; it reads no history and writes no summary
+FIXED_STEP = {"overlock_on_paid": "take_lock_off", "overlock_not_found": "look_again", "lock_on_vacant": "look_again", "door_open": "look_again",
+              "contents_on_vacant": "look_again", "door_damaged": "work_order", "look_again": "look_again"}
+
+
+OUTSIDE = os.path.join(os.path.dirname(__file__), "graded", "walk_outside.json")
+
+
+def outside_hash() -> str:
+    with open(OUTSIDE, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def judged_hash() -> str:
+    with open(JUDGED, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def fixed_whose(note: str) -> str:
+    """The fixed-rule reading of whose lock a note names: the word decides, as a keyword form fill would."""
+    n = note.lower()
+    if re.search(r"\boverlock\b|\bfacility'?s? lock\b|\bour lock\b", n):
+        return "facility overlock"
+    return "tenant" if re.search(r"\btenant'?s? (?:own )?lock\b", n) else "unknown"
+
+
+CLEAN_WORDS = re.compile(r"\b(?:trash|dirt|dirty|stain|stains|stained|dust|dusty|mop|clean|sweep|swept|debris|cobwebs?)\b", re.I)
+REPAIR_WORDS = re.compile(r"\b(?:broken|damaged|cracked|leak|leaking|not working|flickers?|flickering|drags|stuck|won't|will not)\b", re.I)
+
+
+def fixed_work(note: str) -> set[str]:
+    """The fixed-rule reading of the work a note names: a word list, as a keyword form fill would."""
+    return {k for k, words in (("cleaning", CLEAN_WORDS), ("repair", REPAIR_WORDS)) if words.search(note)}
+
+
+def same_words(a: str, b: str) -> bool:
+    """The fixed-rule duplicate check: two reports are one fault only when their words match."""
+    norm = lambda s: " ".join(re.findall(r"[a-z0-9]+", s.lower()))
+    return norm(a) == norm(b)
+
+
+def walk_judged(client, runs: int, model: str, effort: str) -> dict:
+    """The five walkthrough items Tilden judges, built on the generated year in a scratch stream per item and run, scored against
+    core/graded/operations_judged.json for Tilden and for the fixed-rule arms. Every answer is kept, dropped ones too; what a summary
+    must never say is read by a person from the saved text, so it is not scored here."""
+    from . import delinquency as col
+    from . import reconcile, renting, walk, walk_reading
+    from .books import at_local
+    from .seed import TODAY
+    with open(JUDGED) as f:
+        rubric = json.load(f)["items"]
+    with open(OUTSIDE) as f:
+        outside = json.load(f)
+    # every case carries its set: outside-written cases are the proof; cases written here are practice and are reported apart
+    pairs = [{"id": p["id"], "first": p["first"], "second": p["second"], "label": "same" if p["same"] else "different",
+              "set": "outside" if p["written_by"] == "outside" else "practice"} for p in rubric["o36"]["pairs"]]
+    pairs += [{"id": p["id"], "first": p["first"], "second": p["second"], "label": p["label"], "set": "outside"} for p in outside["pairs"]]
+    notes = [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": [], "fee_words": [],
+              "set": "outside" if n["written_by"] == "outside" else "practice"} for n in rubric["o25"]["notes"]]
+    notes += [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": n.get("belongings_words", []),
+               "fee_words": n.get("fee_words", []), "set": "outside"} for n in outside["notes"]]
+    year = build(today=TODAY, cutoff=at_local(TODAY), standing=True)        # the live copy's year, with yesterday's seeded walk
+    store = Store()
+    with store.write():
+        store.append("base", year.led.pending)
+    at = at_local(TODAY, 10)
+    taken = {o.unit for o in walk.load(store, "base")[1].orders.values()}
+    spare = next(u for u in sorted(year.led.books.units) if u not in taken)
+    walked = {u for w in walk.load(store, "base")[1].walks.values() for u in w.route}
+    base_books = store.books("base")
+    unseen = next(x.unit for x in sorted(base_books.leases.values(), key=lambda x: x.unit)       # paid, and on no walk before (o38)
+                  if x.ended is None and x.unit not in walked and col.days_past_due(base_books, x.id, at) is None)
+    rows: list[dict] = []
+
+    def finding(stream, unit, slug):
+        books, rent = renting.load(store, stream)
+        f = next((x for x in reconcile.compare(books, rent, at) if x.unit == unit and x.slug == slug), None)
+        if f is None:
+            raise SystemExit(f"no {slug} finding on {unit}: the fixture no longer builds")
+        return books, rent, f
+
+    def staff(stream, act_id, action, when, source="staff:front_desk", **kw):
+        d = walk.run(store, stream, walk.Act(act_id, action, source, **kw), when)
+        if not d.allowed:
+            raise SystemExit(f"fixture step refused: {d.check}")
+        return d.made
+
+    for run in range(runs):
+        for cid, unit, slug in (("o21", year.walked["paid_overlocked"], "overlock_on_paid"), ("o22", year.walked["overlock_no_lock"], "overlock_not_found"),
+                                ("o38", unseen, "look_again")):
+            item, stream = rubric[cid], f"graded:walk:{cid}:{run}"
+            if cid in ("o21", "o38"):   # both items have the overlock recorded while the tenant was late, then paid; the seed's paid unit has none
+                lease = next(x for x in store.books(stream).leases.values() if x.unit == unit and x.ended is None)
+                with store.write():
+                    store.append(stream, [Event("overlock.recorded", at - timedelta(days=4), {"lease": lease.id, "tenant": lease.tenant,
+                                                "by": "staff:office_manager", "record_only": True}, f"{cid}-{run}-overlock", source="staff:office_manager")])
+            if cid == "o38":            # a later walk: a padlock seen, nobody knows whose, no tag, staff guessing in the note
+                wid = staff(stream, f"{cid}-{run}-w", "start_walk", at - timedelta(hours=1), route=[unit])
+                staff(stream, f"{cid}-{run}-o", "observe_unit", at - timedelta(minutes=50), about=wid, unit=unit,
+                      form={"lock": "present", "whose": "unknown", "tag": "absent", "door": "closed"}, text=item["note"])
+            books, rent, f = finding(stream, unit, slug)
+            token = f"{cid}r{run}"
+            history = walk_reading.build_history(books, rent, f, at, token)
+            inv = walk_reading.investigate(client, model, effort, f, history, token, facts=walk_reading.reason_facts(books, rent, f, at))
+            kinds = {h["id"]: h["kind"] for h in history}
+            p = inv.packet
+            cited = {kinds[c] for c in p["records"]} if p else set()
+            cites_ok = bool(p) and all(any(k in cited for k in group) for group in item["cites"])
+            step_ok = bool(p) and p["step"] in item["acceptable_steps"]
+            rows.append({"item": cid, "part": "investigate", "set": "outside", "arm": "tilden", "run": run, "right": step_ok and cites_ok, "step_ok": step_ok,
+                         "cites_ok": cites_ok, "dropped": inv.dropped, "critical": [], "packet": p, "raw": inv.raw, "history": history,
+                         "cents": inv.call.cents if inv.call else 0.0})
+            fixed = FIXED_STEP[f.slug]
+            rows.append({"item": cid, "part": "investigate", "set": "outside", "arm": "fixed", "run": run, "right": fixed in item["acceptable_steps"],
+                         "step": fixed, "dropped": None, "critical": [], "cents": 0.0})
+            if cid == "o38":
+                r = walk_reading.read_note(client, model, effort, item["note"], (unit,), unit)
+                whose = None if r.refusal else r.fields.get("whose", "unknown")
+                bad = whose == item["reading"]["whose_must_not_be"]
+                rows.append({"item": cid, "part": "reading", "set": "practice", "arm": "tilden", "run": run, "right": not bad, "whose": whose, "refusal": r.refusal,
+                             "quotes": r.quotes, "flags": r.flags, "dropped": None, "critical": ["ownership inferred"] if bad else [],
+                             "cents": r.call.cents if r.call else 0.0})
+                fw = fixed_whose(item["note"])
+                rows.append({"item": cid, "part": "reading", "set": "practice", "arm": "fixed", "run": run, "right": fw != item["reading"]["whose_must_not_be"],
+                             "whose": fw, "dropped": None, "critical": ["ownership inferred"] if fw == item["reading"]["whose_must_not_be"] else [],
+                             "cents": 0.0})
+        moved = year.walked["repair"]                  # the seeded unit whose tenant moved out
+        for note in notes:
+            r = walk_reading.read_note(client, model, effort, note["note"], (moved,), moved)
+            want = {k for k in ("cleaning", "repair") if note[k]}
+            for arm, kinds, extra in (("tilden", {w["kind"] for w in r.work}, {"work": r.work, "refusal": r.refusal, "contents": r.fields.get("contents"),
+                                                                            "cents": r.call.cents if r.call else 0.0}),
+                                      ("fixed", fixed_work(note["note"]), {"cents": 0.0})):
+                words = " ".join(w["words"].lower() for w in r.work if w["kind"] == "cleaning") if arm == "tilden" else ""
+                crit = ["belongings turned into cleaning work"] if ("cleaning" in kinds and not note["cleaning"] and note["belongings_words"]) or any(
+                    b in words for b in note["belongings_words"]) else []
+                crit += ["a fee in the work"] if arm == "tilden" and any(f.lower() in w["words"].lower() for w in r.work for f in note["fee_words"]) else []
+                # a refused note proposes no work, so on a note that needs none a refusal scores as right: kept apart so it can be counted
+                rows.append({"item": note["id"], "part": "move_out_note", "arm": arm, "run": run, "right": kinds == want and not crit,
+                             "right_by_refusal": arm == "tilden" and kinds == want and not want and bool(r.refusal),
+                             "kinds": sorted(kinds), "set": note["set"], "dropped": None, "critical": crit, **extra})
+        for pair in pairs:
+            stream, want = f"graded:walk:{pair['id']}:{run}", pair["label"]
+            a = staff(stream, f"{pair['id']}-{run}-1", "report_work_order", at - timedelta(hours=2), unit=spare, text=pair["first"])
+            b = staff(stream, f"{pair['id']}-{run}-2", "report_work_order", at - timedelta(hours=1), source="staff:office_manager", unit=spare, text=pair["second"])
+            wk = walk.load(store, stream)[1]
+            sf = walk_reading.same_fault(client, model, effort, wk.orders[a], wk.orders[b], f"{pair['id']}r{run}")
+            for arm, verdict, dropped in (("tilden", sf.reading["verdict"] if sf.reading else None, sf.dropped),
+                                          ("fixed_words", "same" if same_words(pair["first"], pair["second"]) else "different", None),
+                                          ("fixed_unit", "same", None)):
+                crit = (["two faults joined"] if verdict == "same" and want == "different" else ["one fault left as two"] if verdict == "different" and want == "same"
+                        else ["decided where the words cannot settle it"] if want == "unsure" and verdict in ("same", "different") else [])
+                rows.append({"item": pair["id"], "part": "same_fault", "arm": arm, "run": run, "right": verdict == want, "verdict": verdict,
+                             "set": pair["set"], "dropped": dropped, "critical": crit,
+                             **({"reading": sf.reading, "raw": sf.raw, "records": sf.records, "cents": sf.call.cents if sf.call else 0.0}
+                                if arm == "tilden" else {"cents": 0.0})})
+    table, sets = {}, {}
+    for r in rows:
+        for t in (table.setdefault(f"{r['item']} {r['part']}", {}).setdefault(r["arm"], {"right": 0, "dropped": 0, "critical": 0, "runs": 0}),
+                  sets.setdefault(f"{r['set']} {r['part']}", {}).setdefault(r["arm"], {"right": 0, "dropped": 0, "critical": 0, "runs": 0})):
+            t["runs"] += 1
+            t["right"] += r["right"]
+            t["dropped"] += bool(r["dropped"])
+            t["critical"] += len(r["critical"])
+    return {"ran_at": datetime.now(timezone.utc).isoformat(), "rubric": judged_hash(), "outside": outside_hash(), "model": f"{model}:{effort}",
+            "runs": runs, "cents": round(sum(r["cents"] for r in rows), 4), "sets": sets, "table": table, "rows": rows}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=["dev", "held", "outside"], default="dev")
@@ -253,8 +425,22 @@ def main(argv=None) -> int:
     ap.add_argument("--choosers", default="", help="comma list of model:effort compared on one shared reading")
     ap.add_argument("--owner-rules", action="store_true", help="grade the owner sentences --runs times; --out is the public result the Tests page reads")
     ap.add_argument("--plan-replies", choices=["practice", "graded"], help="grade the payment-plan replies --runs times; --out is a local file")
+    ap.add_argument("--walk-judged", action="store_true", help="grade the walkthrough items Tilden judges --runs times; --out is a local file")
+    ap.add_argument("--walk-model", default="claude-haiku-5-5:low", help="model:effort for the walk, the live setting")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
+    if a.walk_judged:
+        import anthropic
+        model, effort = (a.walk_model.split(":") + ["low"])[:2]
+        report = walk_judged(anthropic.Anthropic(max_retries=1), a.runs, model, effort)
+        with open(a.out, "w") as f:
+            json.dump(report, f, indent=1, default=str)
+        for name, arms in report["sets"].items():
+            print("SET " + name + ": " + "; ".join(f"{arm} {t['right']} of {t['runs']} right, {t['dropped']} dropped, {t['critical']} critical" for arm, t in arms.items()))
+        for name, arms in report["table"].items():
+            print(name + ": " + "; ".join(f"{arm} {t['right']} of {t['runs']} right, {t['dropped']} dropped, {t['critical']} critical" for arm, t in arms.items()))
+        print(f"rubric {report['rubric'][:12]}, {report['model']}, {report['runs']} runs, {report['cents']} cents")
+        return 0
     if a.plan_replies:
         import anthropic
         report = plan_replies(anthropic.Anthropic(max_retries=1), a.plan_replies, a.runs, a.read_model, a.read_effort)

@@ -41,6 +41,17 @@ class WalkInvestigationIn(BaseModel):
     key: str
 
 
+class WalkOrdersIn(BaseModel):
+    unit: str
+    texts: list[str]
+    token: str
+
+
+class WalkCompareIn(BaseModel):
+    first: str
+    second: str
+
+
 class WalkNoteIn(BaseModel):
     walk: str
     unit: str | None = None
@@ -65,6 +76,21 @@ def walk_report(report: dict) -> dict:
             "step": words(walk_reading.STEPS.get(packet["step"], "Staff decide what to do")),
             "reason": words(walk_reading.REASONS.get(packet["reason"], "A person has to decide")),
             "records": [words(f"{h['kind'].capitalize()}: {h['text']}") for h in history if h["id"] in cited]}
+
+
+def order_reading(report: dict) -> dict:
+    """Tilden's reading of two work orders: only a checked reading and staff-facing words leave the desk."""
+    records = report.get("records") or []
+    def words(value):
+        text = str(value or "")
+        for record in records:
+            text = text.replace(record["id"], "")
+        return plain(text)
+    reading = report.get("reading")
+    if not reading:
+        reason = report.get("dropped") or (report.get("checks") or {}).get("dropped") or "the reading could not be read"
+        return {"dropped": words(re.sub(r" \([^)]*\)", "", reason).replace("the answer", "the reading"))}
+    return {"verdict": words(walk_reading.VERDICTS.get(reading["verdict"], "The words do not settle it")), "summary": words(reading["summary"])}
 
 
 DEMO_NAME, DEMO_PASSWORD = "dana.reyes", "northstar"
@@ -1173,7 +1199,15 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 reports[x.key] = walk_report(rows[-1])
                 now_texts = [h["text"] for h in walk_reading.build_history(f.b, f.rent, x, f.now, "page")]
                 reports[x.key]["stale"] = [h["text"] for h in rows[-1].get("history", [])] != now_texts
-        return show(request, "fms_walk.html", "walkthrough", f, walks=walks, orders=orders,
+        same = []                       # two open orders on one unit: code finds the pair, staff decide, Tilden may read them
+        for first, second in walk.pairs(floor):
+            rows = floor.comparisons.get(f"{first.id}:{second.id}")
+            reading = order_reading(rows[-1]) if rows else None
+            if reading is not None:
+                now_texts = [r["text"] for r in walk_reading.order_records(first, second, "page")]
+                reading["stale"] = [r["text"] for r in rows[-1].get("records", [])] != now_texts
+            same.append({"first": first, "second": second, "reading": reading})
+        return show(request, "fms_walk.html", "walkthrough", f, walks=walks, orders=orders, same=same, order_of=floor.orders,
                     findings=found, reports=reports, groups=groups, moves=moves,
                     roles=("front_desk", "office_manager", "manager"), staff=staff, clock=clock,
                     lock=walk.LOCK, whose=walk.WHOSE, tag=walk.TAG, door=walk.DOOR, contents=walk.CONTENTS, note_max=work.NOTE_MAX,
@@ -1189,14 +1223,14 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             raise HTTPException(422, "That is not a step staff can take here.")
         if not re.fullmatch(r"[0-9a-f]{12}", token):
             raise HTTPException(422, "Reload the page and try again.")
-        section = "orders" if action in walk.MOVES or (action == "report_work_order" and data.get("about")) else "staff-forms"
+        section = "orders" if action in walk.MOVES or action in ("join_work_order", "keep_work_orders_apart") or (action == "report_work_order" and data.get("about")) else "staff-forms"
         # the same form sent twice (a double click, a resend) gets its first decision back; another form or other words is another command
         route = sorted(k[5:] for k, v in data.items() if k.startswith("unit_") and v)
-        what = hashlib.sha256("|".join([data.get("text") or "", ",".join(route), *(data.get(k, "") for k in ("lock", "whose", "tag", "door", "contents", "to"))]).encode()).hexdigest()[:10]
+        what = hashlib.sha256("|".join([data.get("text") or "", ",".join(route), *(data.get(k, "") for k in ("lock", "whose", "tag", "door", "contents", "to", "into"))]).encode()).hexdigest()[:10]
         act = walk.Act(f"form:{token}:{action}:{data.get('about') or '-'}:{data.get('unit') or '-'}:{what}", action, STAFF, about=data.get("about") or None,
                        unit=data.get("unit") or None, route=[k[5:] for k, v in data.items() if k.startswith("unit_") and v],
                        form={k: data.get(k, "") for k in ("lock", "whose", "tag", "door", "contents") if k != "contents" or data.get(k)},
-                       text=data.get("text"), to=data.get("to") or None)
+                       text=data.get("text"), to=data.get("to") or None, into=data.get("into") or None)
         def take_step():
             with fd.lock:
                 decision = walk.run(fd.ready(), fd.stream(ident), act, fd.clock())
@@ -1267,6 +1301,41 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             return {"reason": plain(result["reason"])}
         return walk_report(result)
 
+    @app.post("/api/fms/walk/orders")
+    def open_walk_orders(body: WalkOrdersIn, request: Request, ident: str = Depends(need)):
+        """The work a typed note named, opened as work orders after staff ticked them: each through the walk gate, the first refusal
+        stops the rest and comes back in plain words. The same text sent again with the same page token returns its first decision."""
+        same_site(request)
+        if not re.fullmatch(r"[0-9a-f]{12}", body.token):
+            raise HTTPException(422, "Reload the page and try again.")
+        results, made = [], []
+        with fd.lock:
+            for text in body.texts[:walk_reading.WORK_MAX]:
+                what = hashlib.sha256(text.encode()).hexdigest()[:10]
+                d = walk.run(fd.ready(), fd.stream(ident), walk.Act(f"orders:{body.token}:{body.unit}:{what}", "report_work_order", STAFF,
+                                                                     unit=body.unit, text=text), fd.clock())
+                results.append({"text": plain(text), "allowed": d.allowed, "check": plain(re.sub(r"\s*\((?:W|O|WO)\d+\)", "", d.check))})
+                if not d.allowed:
+                    break
+                made.append(d.made)
+            # staff ticked these as separate pieces of work, so they are not offered back as a possible duplicate of each other
+            for i, later in enumerate(made):
+                for earlier in made[:i]:
+                    walk.run(fd.ready(), fd.stream(ident), walk.Act(f"orders-apart:{body.token}:{earlier}:{later}", "keep_work_orders_apart", STAFF,
+                                                                    about=later, into=earlier, text="Opened as separate work from one walk note"), fd.clock())
+        return {"results": results}
+
+    @app.post("/api/fms/walk/compare")
+    def compare_walk_orders(body: WalkCompareIn, request: Request, ident: str = Depends(need)):
+        same_site(request)
+        try:
+            result = fd.compare_orders(ident, body.first, body.second, live, walk_budget_left if live else None)
+        except HTTPException as exc:
+            walk_refusal(exc)
+        if result.get("off"):
+            return {"reason": plain(result["reason"])}
+        return order_reading(result)
+
     @app.post("/api/fms/walk/note")
     def read_walk(body: WalkNoteIn, request: Request, ident: str = Depends(need)):
         same_site(request)
@@ -1279,7 +1348,9 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         reading = result.get("reading")
         fields = {name: {"value": plain(value if value != "unknown" else "not said"), "raw": value,
                          "words": plain(reading.quotes.get(name))} for name, value in reading.fields.items()} if reading else {}
-        return {"recorded": result["recorded"], "reason": plain(result.get("reason")), "fields": fields, "unit": reading.unit if reading else None}
+        work = [{"kind": walk_reading.WORK[w["kind"]], "words": plain(w["words"])} for w in reading.work] if reading else []
+        return {"recorded": result["recorded"], "reason": plain(result.get("reason")), "fields": fields, "unit": reading.unit if reading else None,
+                "work": work}
 
     @app.post("/api/fms/rules")
     def propose_rule(body: RuleIn, request: Request, ident: str = Depends(need)):

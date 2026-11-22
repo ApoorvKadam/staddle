@@ -355,6 +355,11 @@ def _closing(b: Books, rent: renting.Rent, snap: dict) -> tuple[str, str]:
         t = next((t for t in col.state(b).tasks.values() if t.id == snap["ref"]), None)
         if t and t.acknowledged and (t.ref.split(":")[0] not in CHECKED or t.ref.split(":")[0] in ATTESTED):
             return "done", "Staff acknowledged it."
+    if key.startswith("maintenance:"):              # a joined order was never worked: it ends as the same fault as an open one
+        o = rent.floor.orders.get(snap["ref"])
+        if o and o.joined_into and o.joined_into in rent.floor.orders:
+            kept = rent.floor.orders[o.joined_into]
+            return "cancelled", f"Staff said it is the same fault as the order reported {clock(kept.reported)} ({kept.problem}); that order carries both reports."
     return "done", snap["closed_by"]
 
 

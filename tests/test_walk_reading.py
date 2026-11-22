@@ -232,3 +232,43 @@ def test_a_reason_the_records_contradict_drops_the_packet_and_only_true_reasons_
 def test_a_negated_action_in_its_own_clause_is_not_a_claim_that_it_happened():
     assert not wr.says_done("The overlock was not removed.") and not wr.says_done("No lock was removed from the door.")
     assert wr.says_done("Nothing is past due, and the lock was removed.")
+
+
+def test_a_guess_in_the_note_is_not_what_was_seen_so_that_field_stays_unknown():
+    note = "Padlock on the door of C335 in the photo, no facility tag or mark on it. Staff think it is our overlock."
+    r = keep(note_answer(lock=("present", "Padlock on the door"), whose=("facility overlock", "Staff think it is our overlock"),
+                         tag=("absent", "no facility tag")), note=note)
+    assert r.refusal is None and r.fields["whose"] == "unknown" and "whose" in r.dropped
+    assert (r.fields["lock"], r.fields["tag"]) == ("present", "absent")          # what was seen is still kept
+
+
+def test_work_the_note_names_is_kept_on_its_own_words_even_when_nothing_about_the_lock_is_said():
+    note = "C335: loose trash, a stained floor and a broken light."
+    r = keep(note_answer(work=[("cleaning", "loose trash, a stained floor"), ("repair", "a broken light"), ("repair", "a leaking roof")]), note=note)
+    assert r.refusal is None
+    assert r.work == [{"kind": "cleaning", "words": "loose trash, a stained floor"}, {"kind": "repair", "words": "a broken light"}]
+
+
+def test_belongings_left_behind_never_become_cleaning_work_and_a_guess_is_no_work():
+    note = "C335: old boxes and a mattress left behind by the last tenant; the light might be broken."
+    r = keep(note_answer(contents=("seen", "old boxes and a mattress left behind"), work=[("cleaning", "old boxes and a mattress"),
+                                                                                           ("repair", "the light might be broken")]), note=note)
+    assert r.fields["contents"] == "seen" and r.work == [] and "work" in r.dropped
+
+
+def test_a_note_that_cannot_be_kept_proposes_no_work():
+    note = "C335: loose trash and a broken light."
+    r = keep(note_answer(work=[("cleaning", "loose trash"), ("repair", "a broken light")], flags=["unsure"]), note=note)
+    assert r.refusal and r.work == []
+
+
+def test_a_guess_is_read_in_its_own_sentence_so_a_plain_fact_beside_it_stays():
+    note = "C335: Door closed. Staff think it is our lock."
+    r = keep(note_answer(whose=("facility overlock", "our lock"), door=("closed", "Door closed")), note=note)
+    assert (r.fields["whose"], r.fields["door"]) == ("unknown", "closed")
+
+
+def test_cleaning_said_in_the_same_sentence_as_the_belongings_is_dropped():
+    note = "C335: Boxes and furniture remain inside. The floor is dusty."
+    r = keep(note_answer(contents=("seen", "Boxes"), work=[("cleaning", "furniture"), ("cleaning", "The floor is dusty")]), note=note)
+    assert r.work == [{"kind": "cleaning", "words": "The floor is dusty"}] and "work" in r.dropped
