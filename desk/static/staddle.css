@@ -1116,6 +1116,8 @@ body.fms > main { min-width: 0; }
 .fms-table { width: auto; border-collapse: separate; border-spacing: 0; font-size: var(--t-body); }
 .fms-table th { text-align: center; font-weight: 600; font-size: var(--t-body); color: var(--ink-2); padding: var(--s3) calc(var(--s4) + var(--extra, 0px) / 2); background: var(--bar); border-bottom: 1px solid var(--frame); white-space: nowrap; }
 .fms-table td { padding: 9px calc(var(--s4) + var(--extra, 0px) / 2); text-align: center; border-bottom: 1px solid var(--rule); vertical-align: top; white-space: nowrap; }
+.fms-table td.why { white-space: normal; }            /* a long reason wraps under its chip instead of pushing the action column out of view */
+.fms-table td.why .muted { display: block; margin-top: 4px; }
 .fms-section > p + .fms-scroll, .fms-search + p + .fms-scroll { margin-top: var(--s3); }
 .fms { accent-color: var(--blue); }
 .fms ::selection { background: var(--select); color: var(--ink); }
