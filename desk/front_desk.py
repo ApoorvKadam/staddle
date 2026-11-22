@@ -11,13 +11,15 @@ import os
 import secrets
 import threading
 from collections import OrderedDict
+from dataclasses import asdict
 import time
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
-from core import auction, delinquency, renting, work
+from core import auction, delinquency, reconcile, renting, walk_reading, work
+from core import walk as walks          # not `walk`: read_walk_note takes a walk by that name
 from core.books import ZONE, at_local, local
 from core.billing import Ledger, Refused
 from core.case import READ_ONLY, handle
@@ -36,6 +38,11 @@ WORST_CASE_CENTS = 0.1          # the most one message can cost on the live link
 RULE_WORST_CENTS = 0.2          # the most reading one owner sentence can cost (one call on Haiku, output capped)
 RULES_PER_DAY = 3               # owner sentences a visitor may have read in a day, apart from the message tries
 RULE_MODEL = ("claude-haiku-5-5", "low")
+WALK_MODEL = ("claude-haiku-5-5", "low")      # Tilden on the walk: reading a typed note, and investigating a finding; the graded set decides later
+WALK_NOTE_WORST_CENTS = 0.1     # the most reading one typed note can cost (one call on Haiku, output capped at 600 tokens)
+INVESTIGATE_WORST_CENTS = 0.3   # the most one investigation can cost (one call on Haiku with the unit's history, output capped at 900 tokens)
+WALK_NOTES_PER_DAY = 10         # typed notes a visitor may have read in a day, apart from the message and rule tries
+INVESTIGATIONS_PER_DAY = 5      # findings a visitor may have investigated in a day
 KEEP_FOR = timedelta(hours=24)
 HOLD_RETRY = 60                 # seconds before a day that cannot leave its waiting payments asks the processor again
 ACTION_WORDS = {"explain_charge": "Explained from the records", "reverse_duplicate": "Reversed the second copy",
@@ -392,7 +399,7 @@ class FrontDesk:
         """Today's tries by this visitor, each with the shift messages it ran: a shift is one try, a typed message is one try."""
         since = as_utc(spend.day_start()).isoformat()
         out: dict[str, set] = {}
-        rows = self.ready().db.execute("SELECT run, shift FROM usage WHERE visitor = ? AND at >= ? AND (shift IS NULL OR shift != 'rule')", (visitor, since))
+        rows = self.ready().db.execute("SELECT run, shift FROM usage WHERE visitor = ? AND at >= ? AND (shift IS NULL OR shift NOT IN ('rule', 'walk', 'investigate'))", (visitor, since))
         for run, shift in rows:
             out.setdefault(run, set()).add(shift)
         return out
@@ -583,6 +590,128 @@ class FrontDesk:
                 store.append(stream, led.pending)
             self._notes.pop(visitor, None)      # a refusal not yet shown is out of date once a going back succeeds
             return led.books.rules[name]["version"]
+
+    # Tilden on the walk -------------------------------------------------------------------------------------------------------
+    def _tilden_try(self, visitor: str, shift: str, per_day: int, worst_cents: float, noun: str, budget_left) -> tuple[Store, int]:
+        """What every live Tilden job on a copy passes before any call, as rule_proposal does. Call it inside the lock. The visitor's count
+        for the day and the day's budget are checked first, and a refusal costs nothing; then the try is written and its worst cost
+        reserved in one locked step, so two requests at once cannot both pass. Returns the store and the usage row to settle."""
+        store = self.ready()
+        since = as_utc(spend.day_start()).isoformat()
+        used = store.db.execute("SELECT COUNT(*) FROM usage WHERE visitor = ? AND shift = ? AND at >= ?", (visitor, shift, since)).fetchone()[0]
+        if used >= per_day:
+            raise HTTPException(429, f"You have used today's {per_day} {noun}. They come back at midnight, New York time.")
+        if budget_left is not None and budget_left() < worst_cents / 100:
+            raise HTTPException(429, "Today's budget for live runs is used up. It comes back at midnight, New York time.")
+        usage = store.db.execute("INSERT INTO usage(at, visitor, run, shift, cents) VALUES (?,?,?,?,0)",
+                                 (datetime.now(timezone.utc).isoformat(), visitor, f"{shift}:{secrets.token_hex(4)}", shift)).lastrowid
+        self.reserved += worst_cents
+        return store, usage
+
+    def _tilden_settle(self, store: Store, usage: int, call, worst_cents: float) -> None:
+        """Write what the call cost and release the reservation in one step. A failed call keeps its worst cost: it may still have been billed."""
+        with self.lock:
+            store.db.execute("UPDATE usage SET cents = ? WHERE id = ?", (call.cents if call else worst_cents, usage))
+            self.reserved -= worst_cents
+
+    def read_walk_note(self, visitor: str, walk: str, unit: str | None, text: str, live: bool = True, budget_left=None,
+                       source: str = "staff:office_manager", record: bool = True) -> dict:
+        """A note a staff member typed about one unit of a walk, read into an observation. Tilden drafts the fields from their words and
+        code keeps only what the note quotes (core/walk_reading.py). The page asks with record=False: a quoted word can exist and still
+        not mean the value read from it, so the draft fills the form and staff record it themselves. With record=True a kept draft is
+        recorded through walk.run as the typing staff member's own, staff attested, with the note verbatim and a mark that Tilden read
+        it; that path stays for a staff tool that shows the draft before sending. One that is not kept says why in plain words and
+        records nothing. Ten a day per visitor, inside the day's budget; a refused run costs nothing."""
+        text = " ".join((text or "").split())
+        with self.lock:
+            store, stream = self.ready(), self.stream(visitor)
+            w = walks.load(store, stream)[1].walks.get(walk)
+            if w is None:
+                raise HTTPException(404, "There is no such walk on your copy.")
+            if unit and unit not in w.route:
+                raise HTTPException(422, f"Unit {unit} is not on this walk's route, so nothing was recorded.")
+            if not text:
+                raise HTTPException(422, "Type what you saw first.")
+            if len(text) > walks.NOTE_MAX:
+                raise HTTPException(422, f"Keep the note under {walks.NOTE_MAX} characters.")
+            if not live or self.client is None:
+                return {"recorded": False, "off": True, "made": None, "reading": None, "cents": 0.0,
+                        "reason": "Tilden is off on this copy, so no note can be read into an observation"}
+            copy = self._resets.get(visitor, 0)
+            store, usage = self._tilden_try(visitor, "walk", WALK_NOTES_PER_DAY, WALK_NOTE_WORST_CENTS, "note readings", budget_left)
+        reading = None
+        try:
+            reading = walk_reading.read_note(self.client, WALK_MODEL[0], WALK_MODEL[1], text, w.route, unit)
+        finally:
+            self._tilden_settle(store, usage, reading.call if reading else None, WALK_NOTE_WORST_CENTS)
+        cents = reading.call.cents if reading.call else 0.0
+        with self.lock:
+            if self._resets.get(visitor, 0) != copy:        # the copy was reset while the note was read: this result is for the old one
+                raise HTTPException(409, "Your copy was started over while the note was read. Type it again.")
+            if self.ready() is not store:                    # the day turned over during the call: the copy now lives in a new day's store
+                raise HTTPException(409, "The day turned over while the note was read. Type it again.")
+            out = {"recorded": False, "off": False, "made": None, "reading": reading, "cents": cents, "reason": reading.refusal,
+                   "money": "mentions_money" in reading.flags}
+            if reading.refusal or not record:              # a draft for the page: staff check the fields and record it themselves
+                return out
+            now = self.clock()
+            standing = walks.load(store, stream)[1].walks[walk].current(reading.unit)
+            mark = {"by": "tilden", "model": WALK_MODEL[0], "effort": WALK_MODEL[1], "quotes": reading.quotes, "flags": reading.flags,
+                    "tokens_in": reading.call.tokens_in, "tokens_out": reading.call.tokens_out, "cents": round(cents, 6)}
+            act = walks.Act(f"note:{secrets.token_hex(6)}", "correct_observation" if standing else "observe_unit", source,
+                            about=standing.id if standing else walk, unit=reading.unit, form=reading.fields, text=text, read=mark)
+            d = walks.run(store, stream, act, now)       # staff's own observation: the typing staff member is its author
+            out.update(recorded=d.allowed, made=d.made, reason=None if d.allowed else d.check, corrected=bool(standing) and d.allowed)
+            return out
+
+    def investigate_finding(self, visitor: str, key: str, live: bool = True, budget_left=None) -> dict:
+        """Tilden's report on one walk finding. Code builds the unit's history as a fixed list of records with ids made for this run;
+        Tilden returns a packet, and code keeps it only when every cited id is in that history, the next step is open for this kind of
+        finding and no sentence says an action happened (core/walk_reading.py). Whatever comes back, the only record written is the
+        report itself (walk.investigated): no overlock, lease, block or money changes. Five a day per visitor; a refused run costs nothing."""
+        with self.lock:
+            store, stream = self.ready(), self.stream(visitor)
+            books, rent = renting.load(store, stream)
+            now = self.clock()
+            f = next((x for x in reconcile.compare(books, rent, now) if x.key == key), None)
+            if f is None:
+                raise HTTPException(404, "That finding is not on the list any more: the records and the walk now agree.")
+            if not live or self.client is None:
+                return {"off": True, "key": key, "packet": None, "dropped": None, "history": [], "cents": 0.0,
+                        "reason": "Tilden is off on this copy, so no finding can be investigated"}
+            # a report is a reading of the unit's records: asked again over the same records it can only differ by chance, and staff
+            # would keep the answer they liked best, so a kept report stands until something in those records changes
+            last = (rent.floor.investigations.get(key) or [None])[-1]
+            if last and last.get("packet") and [h["text"] for h in last.get("history", [])] == [h["text"] for h in walk_reading.build_history(books, rent, f, now, "same")]:
+                raise HTTPException(409, "Tilden already looked into this finding and nothing in its records has changed since; its report is below.")
+            copy = self._resets.get(visitor, 0)
+            store, usage = self._tilden_try(visitor, "investigate", INVESTIGATIONS_PER_DAY, INVESTIGATE_WORST_CENTS, "investigations", budget_left)
+            run = secrets.token_hex(4)
+            history = walk_reading.build_history(books, rent, f, now, run)
+        result = None
+        try:
+            result = walk_reading.investigate(self.client, WALK_MODEL[0], WALK_MODEL[1], f, history, run,
+                                              facts=walk_reading.reason_facts(books, rent, f, now))
+        finally:
+            self._tilden_settle(store, usage, result.call if result else None, INVESTIGATE_WORST_CENTS)
+        with self.lock:
+            if self._resets.get(visitor, 0) != copy:
+                raise HTTPException(409, "Your copy was started over while the finding was investigated. Ask again.")
+            if self.ready() is not store:
+                raise HTTPException(409, "The day turned over while the finding was investigated. Ask again.")
+            books2, rent2 = renting.load(store, stream)      # a report is for the records it read: if staff changed them meanwhile, it is stale
+            f2 = next((x for x in reconcile.compare(books2, rent2, self.clock()) if x.key == key), None)
+            if f2 is None or [h["text"] for h in walk_reading.build_history(books2, rent2, f2, self.clock(), run)] != [h["text"] for h in history]:
+                raise HTTPException(409, "The unit's records changed while Tilden read them. Ask again.")
+            payload = {"key": key, "unit": f.unit, "slug": f.slug, "run": run, "finding": {"what": f.what, "why": f.why}, "history": history,
+                       "packet": result.packet, "checks": {"kept": result.packet is not None, "dropped": result.dropped},
+                       "call": asdict(result.call) if result.call else None}
+            with store.write():                      # the only thing written: the report itself
+                led = Ledger(store.books(stream))
+                led.emit("walk.investigated", now, payload, f"investigate:{run}", source="operator")
+                store.append(stream, led.pending)
+            return {"off": False, "key": key, "packet": result.packet, "dropped": result.dropped, "history": history,
+                    "cents": result.call.cents if result.call else 0.0, "reason": result.dropped}
 
     # renting ------------------------------------------------------------------------------------------------------------------
     def add_renter(self, visitor: str, name: str, phone: str) -> str:

@@ -44,9 +44,7 @@ AGREEMENT = ("Storage rental agreement ({version})\n"
 # a renting task is its own record kind: collections folds every "task.*" event into its own tasks, with other fields. A payment
 # intent's moves are collections' to fold; renting reads them only to remember which intents were ever reported failed or closed
 KINDS = ("unit.", "reservation.", "rental.", "agreement.", "transfer.", "moveout.", "waitlist.", "access.", "op.", "rent_task.",
-         "intent.updated", "refund.paid")
-FLOOR = ("walk.", "work_order.")        # core/walk.py's records, kept beside renting's so readiness can read both
-# the refusal that means a payment checked out as this tenant's, unreturned and unrecorded, but its rental was already cancelled:
+         "intent.updated", "refund.paid")# the refusal that means a payment checked out as this tenant's, unreturned and unrecorded, but its rental was already cancelled:
 # only this refusal sets the money aside for a refund
 LATE = "the rental was cancelled before the payment came; the money is set aside for staff to refund"
 NO_HOLD = "the hold on the unit ran out, so no new payment can start on it; reserve the unit again"
@@ -303,8 +301,14 @@ class Rent:
         self.ops: dict[str, Op] = {}
         self.tasks: dict[str, Task] = {}
         self.failed_intents: set[str] = set()   # payment intents the processor ever reported failed, or closed for want of a payment
-        from . import walk                      # late: walk reads renting through work, so it cannot be imported at the top
-        self.floor = walk.State()               # what staff saw on the floor and the work orders: a unit is offered only when none stands on it
+
+    @property
+    def floor(self):
+        """What staff saw on the floor and the work orders, as the books fold them: a unit is offered only when none stands on it."""
+        if self.books.floor is None:
+            from . import walk                  # late: walk reads renting through work, so it cannot be imported at the top
+            return walk.State()
+        return self.books.floor
 
     @property
     def refunds(self) -> dict[str, dict]:
@@ -328,10 +332,7 @@ class Rent:
 
     # folding ----------------------------------------------------------------------------------------------------------
     def apply(self, kind: str, at: datetime, p: dict) -> None:
-        if kind.startswith(FLOOR):
-            self.floor.apply(kind, at, p)
-            return
-        if not kind.startswith(KINDS):
+        if not kind.startswith(KINDS):          # the walk's records are folded by the books themselves, once
             return
         if kind in MOVES:
             coll, key, state = MOVES[kind]

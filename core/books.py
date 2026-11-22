@@ -219,6 +219,7 @@ class Books:
         self.decisions: dict[str, dict] = {}              # command id -> the gate's recorded decision
         self.collections = None                           # plans, promises, exemptions, payments in flight (core/delinquency.py)
         self.liens = None                                 # lien cases, their evidence, copies, approvals and stops (core/liens.py)
+        self.floor = None                                 # what staff saw on walks, and work orders (core/walk.py); read, never written, by the checks
         self.seq = 0
         self.last_at: datetime | None = None
         self.counters: dict[str, int] = {}
@@ -342,6 +343,11 @@ class Books:
                 d.hold = p["hold"]
                 self.holds[p["hold"]] = Hold(p["hold"], d.charge, d.id, date.fromisoformat(p["review_by"]))
                 self._seen("H", p["hold"])
+        elif kind.split(".", 1)[0] in ("walk", "work_order"):
+            if self.floor is None:
+                from .walk import State          # walk reads the books through work and renting, so it cannot be imported at the top
+                self.floor = State()
+            self.floor.apply(kind, at, p)
         elif kind.split(".", 1)[0] in COLLECTION_RECORDS:
             from .delinquency import fold_event      # delinquency reads these books, so it cannot be imported at the top
             fold_event(self, kind, at, p)

@@ -5,12 +5,17 @@ stay "not checked". Each unit gets one observation per walk: whether a lock was 
 there, the state of the door, a short note, who recorded it and when. Every observation says it was staff attested. A correction is
 a new observation that supersedes the earlier one; nothing is edited or deleted.
 
-The books and collections never read it, and what staff saw never writes the overlock record, a lease, a unit block or money.
-Renting folds it only so a unit is not offered while a finding or a work order stands on it. The comparison of the two lives in core/reconcile.py, which reads this record and never writes it.
+What staff saw never writes the overlock record, a lease, a unit block or money. The books fold it (books.floor) so two checks can read
+it: renting, so a unit is not offered while a finding or a work order stands on it, and collections, which will not record an overlock as
+lifted while a lock nobody has identified is still seen on the unit. The comparison of the two lives in core/reconcile.py, which reads this record and never writes it.
 
 A work order carries a repair from reported to closed, each change with who and when.
 
-Events (in the copy's own stream, over the facility's own): walk.started, walk.observed, walk.finished, and work_order.reported,
+An observation Tilden read from a staff member's typed note (core/walk_reading.py) carries a `read` mark with the quoted words, flags,
+tokens and cost; the note is kept as typed and the staff member is its author. walk.investigated is Tilden's report on a finding, and
+only a report: nothing it says is a record of what happened.
+
+Events (in the copy's own stream, over the facility's own): walk.started, walk.observed, walk.finished, walk.investigated, and work_order.reported,
 work_order.triaged, work_order.assigned, work_order.recorded, work_order.checked, work_order.closed. A second report joins an open order
 (work_order.reported_again) only when staff name that order; the code never decides two notes are the same fault.
 
@@ -30,6 +35,7 @@ from .work import NOTE_MAX, person
 LOCK = TAG = ("present", "absent", "unknown")
 WHOSE = ("tenant", "facility overlock", "unknown")
 DOOR = ("closed", "open", "damaged", "unknown")
+CONTENTS = ("seen", "not seen", "unknown")     # belongings inside the unit; unknown unless said, so an older observation or form still reads
 
 ATTESTED = "staff attested"             # what every observation is: a person saw it and said so, no camera or sensor
 
@@ -49,6 +55,8 @@ class Observation:
     supersedes: str | None = None
     superseded_by: str | None = None
     evidence: str = ATTESTED
+    read: dict | None = None                    # set when Tilden read the note into these fields: its quotes, flags, tokens and cost
+    contents: str = "unknown"                   # belongings seen inside: seen, not seen, unknown
 
 
 @dataclass
@@ -113,6 +121,7 @@ class State:
         self.walks: dict[str, Walk] = {}
         self.observations: dict[str, Observation] = {}
         self.orders: dict[str, WorkOrder] = {}
+        self.investigations: dict[str, list[dict]] = {}     # finding key -> Tilden's reports on it, oldest first
 
     def standing(self, unit: str) -> Observation | None:
         """What staff last saw on the unit: its observation from the newest walk that checked it (a correction already supersedes
@@ -139,11 +148,14 @@ class State:
         elif kind == "walk.started":
             self.walks[p["walk"]] = Walk(p["walk"], tuple(p["route"]), p["by"], at)
         elif kind == "walk.observed":
-            o = Observation(p["observation"], p["walk"], p["unit"], p["lock"], p["whose"], p["tag"], p["door"], p["note"], p["by"], at, p["supersedes"])
+            o = Observation(p["observation"], p["walk"], p["unit"], p["lock"], p["whose"], p["tag"], p["door"], p["note"], p["by"], at, p["supersedes"],
+                            read=p.get("read"), contents=p.get("contents", "unknown"))
             if o.supersedes:
                 self.observations[o.supersedes].superseded_by = o.id
             self.observations[o.id] = o
             self.walks[o.walk].observations.append(o)
+        elif kind == "walk.investigated":               # a report only: nothing it says is a record of what happened
+            self.investigations.setdefault(p["key"], []).append({**p, "at": at})
         elif kind == "walk.finished":
             self.walks[p["walk"]].finished = (p["by"], at)
 
@@ -184,6 +196,7 @@ class Act:
     form: dict | None = None
     text: str | None = None
     to: str | None = None
+    read: dict | None = None        # for an observation Tilden read from the staff member's words: the mark kept with it
 
 
 def _words(text: str | None) -> str:
@@ -197,8 +210,8 @@ def _unit(books, unit: str | None) -> str | None:
 def _seen(form: dict | None) -> str | None:
     """What is wrong with an observation's values, in words, or None. `whose` may be left out and then reads unknown."""
     form = form or {}
-    for name, allowed in (("lock", LOCK), ("whose", WHOSE), ("tag", TAG), ("door", DOOR)):
-        if form.get(name, "unknown" if name == "whose" else None) not in allowed:
+    for name, allowed in (("lock", LOCK), ("whose", WHOSE), ("tag", TAG), ("door", DOOR), ("contents", CONTENTS)):
+        if form.get(name, "unknown" if name in ("whose", "contents") else None) not in allowed:
             return f"{name} must be one of: {', '.join(allowed)}"
     return None
 
@@ -296,7 +309,9 @@ def record(led: Ledger, wk: State, act: Act, now: datetime) -> str:
         walk_id, unit = (old.walk, old.unit) if old else (act.about, act.unit)
         oid, form = f"O{len(wk.observations) + 1:04d}", act.form
         put("walk.observed", {"walk": walk_id, "observation": oid, "unit": unit, "lock": form["lock"], "whose": form.get("whose", "unknown"),
-                              "tag": form["tag"], "door": form["door"], "note": text, "by": who, "supersedes": old.id if old else None}, "walk")
+                              "tag": form["tag"], "door": form["door"], "note": text, "by": who, "supersedes": old.id if old else None,
+                              **({"read": act.read} if act.read else {}),
+                              **({"contents": form["contents"]} if form.get("contents", "unknown") != "unknown" else {})}, "walk")
         return oid
     if a == "finish_walk":
         put("walk.finished", {"walk": act.about, "by": who}, "walk")
