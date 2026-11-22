@@ -192,8 +192,9 @@ def build_history(books, rent, f, now, token: str) -> list[dict]:
         out.append({"id": f"{token}-{len(out) + 1}", "kind": kind, "text": text})
     leases = sorted((x for x in books.leases.values() if x.unit == f.unit), key=lambda x: (x.start, x.id))[-2:]
     for x in leases:
-        add("lease", f"Lease on unit {f.unit} for {books.tenants[x.tenant].name}: rent {money(x.rent_cents)}, started {day(x.start)}, "
-                     f"{'still active' if x.ended is None else 'ended ' + day(x.ended)}.")
+        dated = lambda d: day(d) if d.year == now.year else f"{day(d)}, {d.year}"      # "started Nov 7, ended Sep 30" needs its years
+        add("lease", f"Lease on unit {f.unit} for {books.tenants[x.tenant].name}: rent {money(x.rent_cents)}, started {dated(x.start)}, "
+                     f"{'still active' if x.ended is None else 'ended ' + dated(x.ended)}.")
     for r in rent.rentals.values():
         if r.unit == f.unit and r.state in ("active", "ending", "ended"):
             m = rent.moveouts.get(r.moveout or "")

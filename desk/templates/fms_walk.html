@@ -25,6 +25,7 @@
   {% for finding in findings %}<article class="fms-line"><h3>Unit {{ finding.unit|plain }}: {{ finding.kind|plain }}</h3><p>{{ finding.why|plain }}</p><p>What closes it: {{ finding.closes|plain }}</p><p><a href="/today?view=all#item-{{ finding.key|urlencode }}">View this item on Today</a></p>
     <div class="walk-investigation" data-key="{{ finding.key }}">
       {% set report = reports.get(finding.key) %}<div class="walk-report" aria-live="polite">
+      {% if report and report.stale %}<p class="muted">{{ agent|plain }} read this before the unit's records changed; ask again for a current report.</p>{% endif %}
       {% if report %}{% if report.dropped %}<p>Not shown: {{ report.dropped|plain }}</p>{% else %}
         <p>{{ report.summary|plain }}</p><p>Suggested next step: {{ report.step|plain }}.</p>
         <p>Records checked by code:</p><ul>{% for record in report.records %}<li>{{ record|plain }}</li>{% endfor %}</ul>

@@ -617,9 +617,11 @@ class FrontDesk:
     def read_walk_note(self, visitor: str, walk: str, unit: str | None, text: str, live: bool = True, budget_left=None,
                        source: str = "staff:office_manager", record: bool = True) -> dict:
         """A note a staff member typed about one unit of a walk, read into an observation. Tilden drafts the fields from their words and
-        code keeps only what the note quotes (core/walk_reading.py). A draft that is kept is recorded through walk.run as the typing
-        staff member's own, staff attested, with the note verbatim and a mark that Tilden read it; one that is not says why in plain
-        words and records nothing. Ten a day per visitor, inside the day's budget; a refused run costs nothing."""
+        code keeps only what the note quotes (core/walk_reading.py). The page asks with record=False: a quoted word can exist and still
+        not mean the value read from it, so the draft fills the form and staff record it themselves. With record=True a kept draft is
+        recorded through walk.run as the typing staff member's own, staff attested, with the note verbatim and a mark that Tilden read
+        it; that path stays for a staff tool that shows the draft before sending. One that is not kept says why in plain words and
+        records nothing. Ten a day per visitor, inside the day's budget; a refused run costs nothing."""
         text = " ".join((text or "").split())
         with self.lock:
             store, stream = self.ready(), self.stream(visitor)

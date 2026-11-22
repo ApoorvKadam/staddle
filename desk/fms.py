@@ -58,7 +58,7 @@ def walk_report(report: dict) -> dict:
     packet = report.get("packet")
     if not packet:
         reason = report.get("dropped") or (report.get("checks") or {}).get("dropped") or "the report could not be read"
-        reason = re.sub(r" \([^)]*\)", "", reason)
+        reason = re.sub(r" \([^)]*\)", "", reason).replace("the packet", "the report")      # staff words: no internal names or codes
         return {"dropped": words(reason)}
     cited = set(packet.get("records") or [])
     return {"summary": words(packet["summary"]), "contradiction": words(packet["contradiction"]),
@@ -1165,8 +1165,16 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 return "Not assigned"
             return source.removeprefix("staff:").removeprefix("person:").replace("_", " ").replace(".", " ").capitalize()
         moves = {before: (action, after) for action, (_, before) in walk.MOVES.items() for after in (walk.NEXT[before],)}
+        found = reconcile.compare(f.b, f.rent, f.now)
+        reports = {}
+        for x in found:                 # a report read before the unit's records changed is marked so, never shown as current
+            rows = floor.investigations.get(x.key)
+            if rows:
+                reports[x.key] = walk_report(rows[-1])
+                now_texts = [h["text"] for h in walk_reading.build_history(f.b, f.rent, x, f.now, "page")]
+                reports[x.key]["stale"] = [h["text"] for h in rows[-1].get("history", [])] != now_texts
         return show(request, "fms_walk.html", "walkthrough", f, walks=walks, orders=orders,
-                    findings=reconcile.compare(f.b, f.rent, f.now), reports={key: walk_report(rows[-1]) for key, rows in floor.investigations.items() if rows}, groups=groups, moves=moves,
+                    findings=found, reports=reports, groups=groups, moves=moves,
                     roles=("front_desk", "office_manager", "manager"), staff=staff, clock=clock,
                     lock=walk.LOCK, whose=walk.WHOSE, tag=walk.TAG, door=walk.DOOR, contents=walk.CONTENTS, note_max=work.NOTE_MAX,
                     token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)), note_at=request.query_params.get("at", ""))
