@@ -102,3 +102,16 @@ def test_the_observe_form_makes_staff_choose_every_field_and_offers_belongings(f
         started = max(floor.walks.values(), key=lambda w: (w.started, w.id))
         step(client, 'observe_unit', about=started.id, unit=unit, lock='absent', whose='unknown', tag='absent', door='closed', contents='seen', text='Boxes inside')
         assert rent_of(fd, ident).floor.walks[started.id].current(unit).contents == 'seen'
+
+
+def test_each_observation_in_the_correction_list_names_its_walk_and_unit_for_the_note_reader(fms_url, sim):
+    app = site(fms_url)
+    with sign_in(app) as client:
+        fd, ident = desk_of(app, client)
+        unit = fd.ready().books(fd.stream(ident)).units[0]
+        assert step(client, 'start_walk', **{f'unit_{unit}': '1'}).status_code == 303
+        wid = max(rent_of(fd, ident).floor.walks)
+        assert step(client, 'observe_unit', about=wid, unit=unit, lock='absent', whose='unknown', tag='absent', door='closed').status_code == 303
+        html = client.get('/walkthrough').text
+        oid = rent_of(fd, ident).floor.walks[wid].current(unit).id
+        assert f'<option value="{oid}" data-walk="{wid}" data-unit="{unit}">' in html
