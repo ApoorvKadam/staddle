@@ -192,8 +192,7 @@ class _Report:
         self.locations: set[str] = set()
         whole_prior = False
         for s in _sentences(text):
-            hedged = bool(HEDGE.search(s))
-            # a request or a repair already made rules out its own clause, not the fault reported beside it
+            # a request, a repair already made or a guess rules out its own clause, not the fault reported beside it
             for clause in _clauses(s):
                 if DIRECTIVE.search(clause):
                     continue
@@ -204,7 +203,7 @@ class _Report:
                     else:
                         whole_prior = True  # "it was replaced": the repair may be to any part this report names
                     continue
-                if hedged or NOT_FAULT.search(clause):
+                if HEDGE.search(clause) or NOT_FAULT.search(clause):
                     continue
                 self.leaves |= leaves
                 self.generic |= generic

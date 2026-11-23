@@ -75,6 +75,11 @@ def test_a_hedge_gives_no_work():
     assert note_work("Door made a weird clunk one time, maybe roller issue?", UNIT) == set()
 
 
+def test_a_hedge_sets_aside_its_own_clause_and_not_the_confirmed_fault_beside_it():
+    assert pair("Maybe the seal is leaking, but the hinge is broken.", "The hinge is cracked.") == SAME
+    assert pair("Maybe the seal is leaking.", "The hinge is cracked.") == UNSURE
+
+
 def test_belongings_are_never_cleaning_or_repair_work():
     assert note_work("Tenant left a busted couch and two suitcases at the back.", UNIT) == set()
 
