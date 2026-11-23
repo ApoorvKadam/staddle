@@ -1,5 +1,5 @@
 {
- "about": "OPERATIONS-SET-3: 20 pairs of repair reports on one unit and 20 move-out notes, written by an outside author in a ChatGPT temporary chat set to Unpersonalized (it ignores memory, plugins and custom instructions; the send request carried temporary_chat_requests_personalization=false, captured at 2026-11-23T18:44:26Z). The prompt gave only the domain, the counts and the layout; the author chose the mix and wrote every label. Author reply sha256 fbb1b32cbd0422e6e2ebc8cfc1b298a26d59ad97e03ce218fb84c0c47ea6cf7c. Frozen before any run; labels are the author's, unchanged.",
+ "about": "OPERATIONS-SET-3: 20 pairs of repair reports on one unit and 20 move-out notes, written by an outside author in a temporary chat with personalization off (no saved memory, chat history or custom instructions; the setting was confirmed in the request as it was sent, at 2026-11-23T18:44:26Z). The prompt gave only the domain, the counts and the layout; the author chose the mix and wrote every label. Author reply sha256 fbb1b32cbd0422e6e2ebc8cfc1b298a26d59ad97e03ce218fb84c0c47ea6cf7c. Frozen before any run; labels are the author's, unchanged.",
  "mix": {
   "pairs": {
    "same": 7,
