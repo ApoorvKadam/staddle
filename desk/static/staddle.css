@@ -1422,3 +1422,13 @@ body.fms > main { flex: 1 0 auto; }
   .fms-side nav { flex-direction: row; flex-wrap: wrap; }
   .fms-sep { display: none; }
 }
+
+/* Inquiry forms */
+.fms-lead-form { display: grid; gap: var(--s3); max-width: 36rem; }
+.fms-lead-form label:not(.fms-consent) { display: grid; gap: var(--s1); }
+.fms-lead-form input:not([type="checkbox"]), .fms-lead-form select, .fms-lead-form textarea { width: 100%; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--frame); border-radius: 6px; padding: 8px 10px; }
+.fms-lead-form textarea, .website-form textarea { min-height: 6rem; resize: vertical; }
+.website-form textarea { width: 100%; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--frame); border-radius: 6px; padding: 8px 10px; }
+.website-form .website-consent { display: flex; align-items: baseline; gap: var(--s2); }
+.website-form .website-consent input { width: auto; flex: none; }
+.website-grid + section { margin-top: var(--s6); }

@@ -821,6 +821,12 @@ class FrontDesk:
         with self.lock:
             store, stream, now = self.ready(), self.stream(visitor), self.clock()
             intent = renting.pay_rental(store, stream, self.processor, rental, card, now)
+            from core import leads
+            with store.write():
+                books, rent = renting.load(store, stream)
+                led = Ledger(books)
+                leads.convert(led, rent, now)
+                store.append(stream, led.pending)
             self._advance(store, stream, now)
             return intent
 

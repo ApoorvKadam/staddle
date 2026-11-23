@@ -12,6 +12,7 @@ import re
 from datetime import date, datetime, timedelta
 
 from . import delinquency as col
+from . import leads
 from . import renting
 from . import liens
 from . import protection
@@ -79,9 +80,10 @@ def story_month(today: date) -> date:
 class Year:
     """Builds the year. `cast` maps a role name to its tenant, its leases and its unit."""
 
-    def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True):
+    def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True):
         # everything up to the cutoff happens: 09:00 on the fixed day; the live FMS passes midnight, so nothing is ahead of the clock
         self.today, self.now = today, cutoff or at_local(today, 9, 0)
+        self.seed_leads = seed_leads
         self.standing = standing                         # the live copy's open dispute from last week; never in the fixed books
         self.protected = standing and protected          # the live copy's protection records; they carry no money, so the year's figures are the same without them
         self.plan_tenant: dict | None = None             # the live copy's tenant on a payment plan; kept out of the cast
@@ -91,6 +93,7 @@ class Year:
         self.opened = add_months(self.story, -12)
         self.rnd = random.Random(seed)
         self.later = random.Random(seed + 1)             # the month after the story, drawn apart so it never moves the year before
+        self.inquirers = random.Random(seed + 2)         # names of the seeded inquiries, drawn apart so they never move a tenant's
         self.led = Ledger()
         self.cast: dict[str, dict] = {}
         self.habit: dict[str, str] = {}          # tenant -> on_time, sometimes_late, chronic, scripted
@@ -105,9 +108,10 @@ class Year:
         self.order += 1
         self.actions.setdefault(when.date(), []).append((when, self.order, fn))
 
-    def name(self) -> str:
+    def name(self, rnd: random.Random | None = None) -> str:
+        rnd = rnd or self.rnd
         while True:
-            n = f"{self.rnd.choice(FIRST)} {self.rnd.choice(LAST)}"
+            n = f"{rnd.choice(FIRST)} {rnd.choice(LAST)}"
             if n not in self.used_names:
                 self.used_names.add(n)
                 return n
@@ -196,7 +200,29 @@ class Year:
             self.walkthrough(rent)
             if self.protected:
                 self.protection_records()
+            if self.seed_leads:
+                self.lead_records(rent)
         return self
+
+    def lead_records(self, rent: renting.Rent) -> None:
+        """Inquiries carry no charges and use the same records as the desk."""
+        prior = self.today - timedelta(days=1)
+        caller, writer = self.name(self.inquirers), self.name(self.inquirers)
+        email = writer.lower().replace(" ", ".") + "@example.com"
+        leads.capture(self.led, at_local(prior, 20), source="website inquiry", name=caller, phone="4075550101", size="10x10", words="Looking for storage", permissions=["phone"])
+        first = leads.capture(self.led, at_local(prior, 18), source="message", name=writer, email=email, words="Do you have space?", permissions=["email"])
+        leads.capture(self.led, at_local(prior, 19), source="website inquiry", name=writer, email=email, words="Following up", permissions=["email"])
+        for rental in rent.rentals.values():
+            lease = self.led.books.leases.get(rental.lease or "")
+            tenant = self.led.books.tenants.get(rental.tenant)
+            if not lease or not lease.signed_at or not tenant or not tenant.phone:
+                continue
+            if not any(p.tenant == tenant.id and not p.returned and p.known_at >= lease.signed_at for p in self.led.books.payments.values()):
+                continue
+            lead = leads.capture(self.led, lease.signed_at - timedelta(minutes=30), source="abandoned checkout", name=tenant.name, phone=tenant.phone)
+            self.led.emit("lead.checkout_started", lease.signed_at - timedelta(minutes=30), {"rental": rental.id, "tenant": tenant.id, "lead": lead}, f"lead:checkout:{rental.id}")
+            leads.convert(self.led, rent, self.now)
+            break
 
     def price_units(self, at: datetime) -> None:
         """The live copy gives every unit a size and an asking price, as renting's price_unit records them, so a vacant unit can be
@@ -655,5 +681,5 @@ class Year:
         assert not d.allowed, "the new price was never accepted, so the gate must refuse it"
 
 
-def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True) -> Year:
-    return Year(seed, today, cutoff, standing, protected).build()
+def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True) -> Year:
+    return Year(seed, today, cutoff, standing, protected, seed_leads).build()

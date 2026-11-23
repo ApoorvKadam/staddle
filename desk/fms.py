@@ -22,10 +22,10 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from core import delinquency as col
-from core import protection, reconcile, renting, liens as lien_core, auction, work, walk, walk_reading
+from core import leads, protection, reconcile, renting, liens as lien_core, auction, work, walk, walk_reading
 from core.case import OFF
 from core.books import ADMIN_FEE_CENTS, LATE_FEE_CENTS, PROTECTION, RENT, REVIEW_DAYS, at_local, lines, local, month_key
-from core.billing import Refused
+from core.billing import Ledger, Refused
 from core.evidence import KIND_WORDS, clock, day, money, month_words
 from core.gate import ACTIONS, RENT_SCOPE, STAFF_ACTIONS, STAFF_RULE, WORK_SCOPE, Command, execute
 from core.rules import staff_words, waiver_words
@@ -99,7 +99,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("rentals", "Rentals", "door-open"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))
@@ -152,7 +152,7 @@ WORK_STATES = {"open": ("Open", "plain"), "assigned": ("Assigned", "plain"), "in
                "reopened": ("Reopened: the problem came back", "act"), "done": ("Done", "done"), "cancelled": ("Cancelled", "plain")}
 WORK_ANCHORS = {"collections": "collections", "overlock": "overlocks", "reservation": "rentals", "rental": "rentals", "refund": "rentals",
                 "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance",
-                "protection": "protection", "lien": "lien", "lien stop": "lien"}       # where Home's links land: the first item of each kind
+                "protection": "protection", "lien": "lien", "lien stop": "lien", "lead": "leads"}       # where Home's links land: the first item of each kind
 WORK_FORMS = {"acknowledge": "acknowledge_work", "start": "start_work", "assign": "assign_work", "note": "note_work", "finish": "finish_work"}
 SCOPE_WORDS = {"overlock": "overlock", "lien": "lien eligibility"}
 # the tenant's own policy and the facility's plan on the tenant's page: each state in words with its chip colour
@@ -410,6 +410,12 @@ class Facility:
                     out.append({"who": None, "words": "", "allowed": p["allowed"], "removed": False, "check": plain(p["check"]), "reason": None, "fee": "", "renting": True,
                                 "text": self.protection_sentence(p)})
                     continue
+                if (p.get("command") or "").startswith("lead-form:"):
+                    lead = leads.state(self.b).records.get(p.get("about") or "")
+                    name = lead.name if lead else "an inquiry"
+                    out.append({"who": None, "words": "", "allowed": p["allowed"], "removed": False, "check": plain(p["check"]), "reason": None, "fee": "", "renting": True,
+                                "text": plain(("Updated " if p["allowed"] else "Asked to update ") + name)})
+                    continue
                 ch = self.b.charges.get(p.get("charge") or "")
                 out.append({"who": self.people.get(p.get("tenant") or ""), "words": STAFF_WORDS.get(p["action"], p["action"]), "allowed": p["allowed"],
                             "removed": p["allowed"] and p["action"] == "remove_disputed_fee",
@@ -588,7 +594,8 @@ class Facility:
                          "tone": tone, "why": plain(i.why), "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
                          "seen": who(i.acknowledged[0]) if i.acknowledged else None,
                          "notes": [(clock(at), who(by), t) for at, by, t in i.notes],
-                         "section": "lien" if i.source in ("lien", "lien stop") else {"collections": "collections", "overlock": "collections", "protection": "protection"}.get(i.source, "renting"),
+                         "lead": leads.state(self.b).records.get(i.ref) if i.source == "lead" else None,
+                         "section": "lien" if i.source in ("lien", "lien stop") else {"lead": "leads", "collections": "collections", "overlock": "collections", "protection": "protection"}.get(i.source, "renting"),
                          "lift": i.kind == "lift overlock"})
             seen.add(anchor)
         return rows, {k: len(v) for k, v in views.items()}
@@ -930,7 +937,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
 
     def show(request: Request, name: str, nav: str, f: Facility, **ctx):
         return templates.TemplateResponse(request, name, {"nav": nav, "side": SIDE, "agent": AGENT, "f": f, "today": date_words(f.today), "live": live,
-                                                          "money": money, "day": day, **ctx})
+                                                          "money": money, "day": day, "clock": clock, "local": local, "phone": phone, **ctx})
 
     templates.env.filters["plain"] = plain
 
@@ -1009,6 +1016,107 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         shown = [u for u in units if u.size == size] if size else units
         return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size)
 
+    @app.post("/rent/inquiry", include_in_schema=False)
+    async def website_inquiry(request: Request):
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        limits = {"name": 80, "phone": 30, "email": 120, "size": 20, "start": 10, "message": 1000}       # a public form: keep each field to a sane size
+        if any(len(data.get(k, "")) > n for k, n in limits.items()):
+            raise HTTPException(422, "One of the answers is too long. Shorten it and try again.")
+        channels = (["phone", "text"] if data.get("phone") else []) + (["email"] if data.get("email") else []) if data.get("consent") == "yes" else []
+        def save_inquiry():
+            with fd.lock:
+                store, stream = fd.ready(), fd.stream(ident)
+                with store.write():
+                    led = Ledger(store.books(stream))
+                    try:
+                        leads.capture(led, fd.clock(), source="website inquiry", name=data.get("name", ""), phone=data.get("phone", ""), email=data.get("email", ""), size=data.get("size", ""), start=data.get("start", ""), words=data.get("message", ""), permissions=channels)
+                    except Refused as exc:
+                        raise HTTPException(422, str(exc)) from exc
+                    store.append(stream, led.pending)
+        await run_in_threadpool(save_inquiry)
+        return RedirectResponse("/rent?inquiry=received", status_code=303)
+
+    @app.get("/leads", include_in_schema=False)
+    def lead_list(request: Request):
+        f = Facility(fd, need(request))
+        records = sorted(leads.state(f.b).records.values(), key=lambda lead: lead.arrived, reverse=True)
+        next_steps = {}
+        for lead in records:
+            if lead.status in ("converted", "unqualified", "duplicate"):
+                continue
+            overdue = leads.due(lead, f.now)
+            steps = overdue or leads.due(lead, datetime.max.replace(tzinfo=f.now.tzinfo))
+            if steps:
+                step, when = (max if overdue else min)(steps, key=lambda item: item[1])
+                next_steps[lead.id] = f"{leads.label(step)}, {'overdue since' if overdue else 'due'} {clock(when)}"
+            else:
+                next_steps[lead.id] = "Follow-up planned" if lead.status in ("new", "contacted") else "No follow-up scheduled"
+        return show(request, "fms_leads.html", "leads", f, records=records, next_steps=next_steps, token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
+
+    @app.post("/leads/new", include_in_schema=False)
+    async def lead_new(request: Request):
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        token, action = data.get("token", ""), data.get("action", "")
+        if not re.fullmatch(r"[0-9a-f]{12}", token) or action not in ("record_call", "record_walk_in"):
+            raise HTTPException(422, "Reload the page and try again.")
+        data["permissions"] = (["phone", "text"] if data.get("phone") else []) + (["email"] if data.get("email") else []) if data.get("consent") == "yes" else []
+        def save_lead():
+            with fd.lock:
+                decision = leads.run(fd.ready(), fd.stream(ident), leads.Act(f"lead-form:{token}:{action}", action, STAFF, form=data), fd.clock())
+                if not decision.allowed:
+                    fd.keep_step_note(ident, decision.check)
+        await run_in_threadpool(save_lead)
+        return RedirectResponse("/leads", status_code=303)
+
+    @app.get("/leads/{key}", include_in_schema=False)
+    def lead_page(request: Request, key: str):
+        f = Facility(fd, need(request))
+        lead = leads.state(f.b).records.get(key)
+        if lead is None:
+            raise HTTPException(404, "No such inquiry.")
+        matches = []
+        renters = leads.matching_renters(f.b, lead)       # live: a renter created after the inquiry counts too
+        recorded = [tuple(m) for m in lead.matches]
+        for kind, ident in recorded + [("tenant", ident) for ident in renters if ("tenant", ident) not in recorded]:
+            match = leads.state(f.b).records.get(ident) if kind == "lead" else f.b.tenants.get(ident)
+            if not match:
+                continue
+            reasons = []
+            if lead.phone and lead.phone == leads.normal_phone(match.phone):
+                reasons.append("phone")
+            if lead.email and lead.email == (getattr(match, "email", "") or "").strip().lower():
+                reasons.append("email")
+            url = f"/leads/{ident}" if kind == "lead" else f"/tenants/{f.people[ident]['slug']}"
+            matches.append((kind, match, url, " and ".join(reasons) or "contact details"))
+        steps = [(c.key.removeprefix(f"lead:{lead.id}:"), leads.label(c.kind)) for c in work.conditions(f.b, f.rent, f.now).values() if c.source == "lead" and c.ref == lead.id and c.kind not in ("conversion needs review", "rental needs review")]
+        choices = [(ident, f.b.tenants[ident].name, ", ".join(sorted({r.unit for r in f.rent.rentals.values() if r.tenant == ident}))) for ident in renters]
+        settled = ("Converted. Follow-ups have stopped." if lead.status == "converted" else
+                   "This person has a signed rental and a verified payment, so follow-ups have stopped. Record the conversion above."
+                   if leads.conversion_evidence(f.b, f.rent, lead) else "")      # the core refuses follow-ups then, so the page does not offer them
+        stopped = any(other.stopped and (other.id == lead.id or (lead.phone and lead.phone == other.phone) or (lead.email and lead.email == other.email))
+                      for other in leads.state(f.b).records.values())      # the core's own test: a stop on any inquiry from this person
+        return show(request, "fms_lead.html", "leads", f, lead=lead, matches=matches, choices=choices, steps=steps, settled=settled, stopped=stopped, said=leads.said, token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
+
+    @app.post("/leads/{key}", include_in_schema=False)
+    async def lead_step(request: Request, key: str):
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        token = data.get("token", "")
+        if not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
+        def save_step():
+            with fd.lock:
+                decision = leads.run(fd.ready(), fd.stream(ident), leads.Act(f"lead-form:{token}:{data.get('action', '')}:{key}:{data.get('other', '')}", data.get("action", ""), STAFF, key, data), fd.clock())
+                if not decision.allowed:
+                    fd.keep_step_note(ident, decision.check)
+        await run_in_threadpool(save_step)
+        return RedirectResponse(f"/leads/{key}", status_code=303)
+
     @app.get("/rent/{unit}", include_in_schema=False)
     def website_rent(request: Request, unit: str):
         f = Facility(fd, need(request))
@@ -1037,6 +1145,12 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 if not held.allowed:
                     return None
                 checkout = fd.rent_step(ident, renting.Act(f"site:{token}:checkout", "start_checkout", "renter", held.made, tenant))
+                if checkout.allowed:
+                    store, stream = fd.ready(), fd.stream(ident)
+                    with store.write():
+                        led = Ledger(store.books(stream))
+                        led.emit("lead.checkout_started", fd.clock(), {"rental": checkout.made, "tenant": tenant, "size": record.size}, f"lead:checkout:{checkout.made}")
+                        store.append(stream, led.pending)
                 return checkout.made if checkout.allowed else None
 
         rental = await run_in_threadpool(begin)

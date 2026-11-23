@@ -229,3 +229,28 @@ def test_a_condition_that_did_not_change_keeps_its_first_reading_and_writes_noth
     assert mine() == before == ["work.opened", "work.acknowledged"]
     kept = items(store, later)[key]
     assert (kept.kind, kept.closes, kept.due) == (first.kind, first.closes, first.due)
+
+
+def test_expired_reservation_does_not_open_move_in_reminder():
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from core import leads
+    now = datetime(2026, 11, 23, 15, tzinfo=timezone.utc)
+    ledger = Ledger()
+    lead = leads.capture(ledger, now, source="call", name="Robin", phone="4075550123")
+    ledger.books.tenants["T1"] = SimpleNamespace(id="T1", phone="4075550123")
+    reservation = SimpleNamespace(id="RS1", tenant="T1", state="held", start=(now + timedelta(days=1)).date(), expires_at=now - timedelta(seconds=1))
+    rent = SimpleNamespace(rentals={}, agreements={}, reservations={"RS1": reservation})
+    assert not any(item.ref == lead and item.kind == "reservation reminder" for item in work._leads(ledger.books, rent, now))
+
+
+def test_unanswered_lead_has_only_latest_overdue_contact_item():
+    from core import leads, renting
+
+    ledger = Ledger()
+    lead = leads.capture(ledger, AT, source="website inquiry", name="Jordan Rivera", phone="4075550199")
+    rent = renting.Rent(ledger.books)
+    first = [item for item in work._leads(ledger.books, rent, AT + timedelta(minutes=6)) if item.ref == lead]
+    assert [item.kind for item in first] == ["first contact"]
+    escalated = [item for item in work._leads(ledger.books, rent, AT + timedelta(minutes=16)) if item.ref == lead]
+    assert [item.kind for item in escalated] == ["escalation"]

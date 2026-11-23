@@ -97,9 +97,9 @@ class Ledger:
             raise Refused("that version already says what is in force")
         self.adopt_rule(at, rule, held["version"] + 1, old["sentence"], deepcopy(old["typed"]), by, restores=version)
 
-    def add_tenant(self, at: datetime, name: str, phone: str) -> str:
+    def add_tenant(self, at: datetime, name: str, phone: str, email: str = "") -> str:
         t = self.books.next_id("T")
-        self.emit("tenant.added", at, {"tenant": t, "name": name, "phone": phone}, f"tenant:{t}", source="staff:front_desk")
+        self.emit("tenant.added", at, {"tenant": t, "name": name, "phone": phone, **({"email": email} if email else {})}, f"tenant:{t}", source="staff:front_desk")
         return t
 
     def sign_lease(self, at: datetime, tenant: str, unit: str, rent_cents: int, schedule: list[str], start: date | None = None) -> str:

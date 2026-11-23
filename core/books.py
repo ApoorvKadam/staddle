@@ -111,6 +111,7 @@ class Lease:
     start: date
     schedule: list[str]             # the fee kinds the tenant signed for
     ended: date | None = None
+    signed_at: datetime | None = None
 
 
 @dataclass
@@ -118,6 +119,7 @@ class Tenant:
     id: str
     name: str
     phone: str
+    email: str = ""
 
 
 @dataclass
@@ -221,6 +223,7 @@ class Books:
         self.collections = None                           # plans, promises, exemptions, payments in flight (core/delinquency.py)
         self.liens = None                                 # lien cases, their evidence, copies, approvals and stops (core/liens.py)
         self.floor = None                                 # what staff saw on walks, and work orders (core/walk.py); read, never written, by the checks
+        self.leads = None                                 # inquiries and their histories (core/leads.py)
         self.protection = None                            # plan versions, offers, acceptances, enrolments and policy evidence (core/protection.py)
         self.seq = 0
         self.last_at: datetime | None = None
@@ -248,10 +251,10 @@ class Books:
         elif kind == "gate.decided":
             self.decisions[p["command"]] = dict(p)
         elif kind == "tenant.added":
-            self.tenants[p["tenant"]] = Tenant(p["tenant"], p["name"], p["phone"])
+            self.tenants[p["tenant"]] = Tenant(p["tenant"], p["name"], p["phone"], p.get("email", ""))
             self._seen("T", p["tenant"])
         elif kind == "lease.signed":
-            self.leases[p["lease"]] = Lease(p["lease"], p["tenant"], p["unit"], p["rent_cents"], date.fromisoformat(p["start"]), list(p["schedule"]))
+            self.leases[p["lease"]] = Lease(p["lease"], p["tenant"], p["unit"], p["rent_cents"], date.fromisoformat(p["start"]), list(p["schedule"]), signed_at=at)
             self._seen("L", p["lease"])
         elif kind == "lease.ended":
             self.leases[p["lease"]].ended = date.fromisoformat(p["on"])
@@ -350,6 +353,13 @@ class Books:
                 from .walk import State          # walk reads the books through work and renting, so it cannot be imported at the top
                 self.floor = State()
             self.floor.apply(kind, at, p)
+        elif kind.split(".", 1)[0] == "lead":
+            if self.leads is None:
+                from .leads import State
+                self.leads = State()
+            self.leads.apply(kind, at, p)
+            if kind == "lead.captured":
+                self._seen("LEAD", p["lead"])
         elif kind.split(".", 1)[0] == "protection":
             if self.protection is None:
                 from .protection import State        # protection reads these books, so it cannot be imported at the top
