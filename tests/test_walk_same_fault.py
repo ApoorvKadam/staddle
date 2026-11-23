@@ -47,6 +47,8 @@ def test_a_reading_that_cites_both_orders_is_kept_and_the_prompt_holds_no_record
     (lambda c: same_answer(both(c), summary="The orders were merged since the first report mentions it."), "the answer says something was done, and nothing has been"),
     (lambda c: same_answer(both(c), verdict="probably"), "the answer gave no verdict from the list"),
     (lambda c: same_answer(both(c), summary="The second report says the seal was replaced: the orders were merged."), "the answer says something was done, and nothing has been"),
+    (lambda c: same_answer(both(c), summary="No repair is recorded, but staff fixed the hinge."), "the answer says something was done, and nothing has been"),
+    (lambda c: same_answer(both(c), summary="No repair is recorded; staff fixed the hinge."), "the answer says something was done, and nothing has been"),
 ])
 def test_a_reading_code_cannot_check_is_dropped_with_the_reason(answer, why):
     first, second = two()

@@ -383,11 +383,18 @@ Use only the records. Never say the orders were joined, merged or linked, or tha
 _JOINED = re.compile(r"\b(?:joined|merged|linked|combined|repaired|fixed|replaced)\b", re.I)
 # a claim attributed to one of the reports ("the second report says it was replaced"); only that clause is exempt from the done checks
 _SAYS = re.compile(r"\b(?:the\s+)?(?:first|second|earlier|later|other)\s+(?:report|order)\s+(?:says|said|claims|claimed|states|stated|mentions|mentioned)\b", re.I)
-_CLAUSE = re.compile(r"[;,:]|\s+(?:and|but|so|while|although)\s+", re.I)
+_CLAUSE_KEEP = re.compile(r"([;,:]|\s+(?:and|but|so|while|although)\s+)", re.I)
 # a colon straight after the attribution ("says: the seal was replaced") belongs to the claim, so it is not a clause break
 _SAYS_COLON = re.compile(rf"({_SAYS.pattern})\s*:", re.I)
 # a finished act stated outright ("the spring ... was repaired"): dropped whatever modal words sit elsewhere in the sentence
 _JOINED_DONE = re.compile(r"\b(?:was|were|has been|have been|had been|is now|are now|got)\s+(?:\w+\s+){0,2}?(?:joined|merged|linked|combined|repaired|fixed|replaced)\b", re.I)
+
+
+def _own_words(sentence: str) -> str:
+    """The sentence with each attributed claim cut out and every clause break kept, so the done checks still see where a negation ends
+    ("No repair is recorded, but staff fixed the hinge" is two clauses: the negation does not reach "fixed")."""
+    parts = _CLAUSE_KEEP.split(sentence)       # clause, break, clause, break, ...
+    return "".join((p[:m.start()] if (m := _SAYS.search(p)) else p) if i % 2 == 0 else p for i, p in enumerate(parts))
 
 
 def order_records(first, second, token: str) -> list[dict]:
@@ -422,7 +429,7 @@ def check_same(raw: dict, records: list[dict]) -> tuple[dict | None, str | None]
     # only the words a report's claim governs are exempt ("the second report says <claim>"); anything before it is this answer's own
     # a colon after the claim starts a separate statement, so it ends the exemption
     attributed = _SAYS_COLON.sub(r"\1", summary)
-    own = " ".join((c[:m.start()] if (m := _SAYS.search(c)) else c) for s in _SENTENCE.split(attributed) for c in _CLAUSE.split(s))
+    own = ". ".join(_own_words(s) for s in _SENTENCE.split(attributed))
     if says_done(own) or says_done(own, _JOINED) or _JOINED_DONE.search(own):
         return None, "the answer says something was done, and nothing has been"
     if loose := ungrounded(summary, " ".join(r["text"] for r in records)):
