@@ -1,0 +1,13 @@
+{% extends "fms.html" %}
+{% block page %}Leads{% endblock %}
+{% block body %}
+<header class="head"><h1>Leads</h1></header>
+{% if note %}<p class="fms-status">Nothing changed. {{ note }}</p>{% endif %}
+<section class="fms-section"><h2>Record an inquiry</h2><form class="fms-card fms-lead-form" method="post" action="/leads/new"><input type="hidden" name="token" value="{{ token }}"><label>Name <input name="name" required></label><label>Phone <input name="phone"></label><label>Email <input name="email" type="email"></label><label>Size <input name="size"></label><label>Start date <input name="start" type="date"></label><label>What they asked <input name="words"></label><label class="fms-consent"><input name="consent" value="yes" type="checkbox"> They gave permission to contact them using these details.</label><div><button class="button primary" name="action" value="record_call">Record call</button> <button class="button primary" name="action" value="record_walk_in">Record walk-in</button></div></form></section>
+<section class="fms-section">
+{% for lead in records %}
+<article class="fms-line"><p><a href="/leads/{{ lead.id }}">{{ lead.name|plain }}</a> <span class="chip plain">{{ lead.status|replace('_', ' ')|plain|capitalize }}</span></p>
+{% if lead.reason %}<p>Reason: {{ lead.reason|plain }}</p>{% endif %}<p>{{ lead.source|replace('_', ' ')|plain|capitalize }} on {{ day(lead.arrived) }}, {{ local(lead.arrived).year }} {{ clock(lead.arrived).split(' at ')[1] }}</p>{% if lead.size %}<p>{{ lead.size|plain }}</p>{% endif %}{% if lead.words %}<p>{{ lead.words|plain }}</p>{% endif %}{% if lead.start %}<p>Requested start: {{ lead.start|plain }}</p>{% endif %}<p>Next: {{ next_steps.get(lead.id, "No follow-up scheduled")|plain }}</p></article>
+{% else %}<p>No inquiries yet.</p>{% endfor %}
+</section>
+{% endblock %}

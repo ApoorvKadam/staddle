@@ -4,6 +4,7 @@
   <h1>Storage units in {{ plain(f.b.facility.city) }}</h1>
   <p class="website-lede">Where tenants rent a unit online. A unit rented here shows in the FMS at once.</p>
   {% if request.query_params.get('unavailable') %}<p class="website-notice">We could not hold that unit. Please choose a unit and try again.</p>{% endif %}
+  {% if request.query_params.get('inquiry') %}<p>Your inquiry was recorded. Thank you.</p>{% endif %}
   <nav class="website-sizes" aria-label="Unit sizes"><a href="/rent"{% if not size %} aria-current="page"{% endif %}>All</a>{% for s in sizes %}<a href="/rent?size={{ s|urlencode }}"{% if s == size %} aria-current="page"{% endif %}>{{ plain(s) }}</a>{% endfor %}</nav>
   <div class="website-grid">
     {% for unit in units %}
@@ -14,5 +15,13 @@
     </article>
     {% else %}<p>No units are available right now.</p>{% endfor %}
   </div>
+  <section><h2>Ask about storage</h2><form class="website-form" method="post" action="/rent/inquiry">
+    <label>Name <input name="name" required maxlength="80"></label><label>Phone <input name="phone" type="tel" maxlength="30"></label>
+    <label>Email <input name="email" type="email" maxlength="120"></label><label>Unit size <input name="size" maxlength="20"></label>
+    <label>Start date <input name="start" type="date"></label><label>Message <textarea name="message" maxlength="1000"></textarea></label>
+    <label class="website-consent"><input name="consent" type="checkbox" value="yes"> You may contact me using the details I provided.</label>
+    <button class="button primary">Send inquiry</button>
+  </form></section>
+
 </div>
 {% endblock %}

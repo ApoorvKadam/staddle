@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 
 from . import delinquency as col
-from . import liens, protection, reconcile, renting
+from . import leads, liens, protection, reconcile, renting
 from .billing import Ledger
 from .books import PROTECTION, Books, local
 from .evidence import clock, day, money
@@ -327,11 +327,46 @@ def _legal_stops(b: Books) -> list[Cond]:
     return out
 
 
+def _leads(b: Books, rent: renting.Rent, now: datetime) -> list[Cond]:
+    out = []
+    for lead in leads.state(b).records.values():
+        proof = leads.conversion_evidence(b, rent, lead)
+        if lead.status == "converted" and not proof:
+            out.append(Cond(f"lead:{lead.id}:missing-proof", "lead", lead.id, "conversion needs review", "Conversion needs review",
+                            f"{lead.name} is marked converted, but a signed rental and verified payment are not both on record.",
+                            "Staff check the rental and payment.", FRONT, local(now).date(), "act"))
+        elif proof and lead.status not in ("converted", "duplicate", "unqualified"):
+            out.append(Cond(f"lead:{lead.id}:rented", "lead", lead.id, "rental needs review", "Inquiry has a rental",
+                            f"{lead.name} has a signed rental and verified payment.", "Record the conversion.", FRONT, local(now).date(), "act"))
+        else:
+            if lead.status not in ("converted", "duplicate", "unqualified") and any((lead.phone and leads.normal_phone(tenant.phone) == lead.phone) or (lead.email and getattr(tenant, "email", "").strip().lower() == lead.email) for tenant in b.tenants.values()):
+                out.append(Cond(f"lead:{lead.id}:rented", "lead", lead.id, "rental needs review", "Inquiry has a rental",
+                                f"{lead.name} may match " + ("one of several renters who share this contact." if len(leads.matching_renters(b, lead)) > 1 else "an existing renter."), "Confirm the match on the inquiry.", FRONT, local(now).date(), "act"))
+            for reservation in rent.reservations.values():
+                tenant = b.tenants.get(reservation.tenant)
+                matched = tenant and ((lead.phone and leads.normal_phone(tenant.phone) == lead.phone) or
+                                      (lead.email and getattr(tenant, "email", "").strip().lower() == lead.email))
+                reminder = f"reservation reminder {reservation.id}"
+                if matched and lead.status not in ("converted", "unqualified", "duplicate") and reservation.state in ("held", "awaiting_checkout", "confirmed") and reservation.expires_at > now and local(now).date() == reservation.start - timedelta(days=1) and reminder not in lead.completed:
+                    out.append(Cond(f"lead:{lead.id}:{reminder}", "lead", lead.id, "reservation reminder", "Move-in reminder due",
+                                    f"The reserved unit is due for move-in tomorrow for {lead.name}.", "Record the reminder.", FRONT, local(now).date(), "act"))
+            due = leads.due(lead, now)
+            for step, when in [max(due, key=lambda item: item[1])] if due else []:
+                label = {"first contact": "First contact due", "escalation": "Escalation due"}.get(step, "Follow-up due")
+                words = lead.words.strip()
+                tried = sum(h["kind"] == "contacted" for h in lead.history)
+                why = (f"{lead.source.capitalize()} on {day(lead.arrived)}" + (f" about a {lead.size}" if lead.size else "")
+                       + (f': "{words}"' + ("" if words[-1] in ".?!" else ".") if words else ".")
+                       + (f" {tried} contact attempt{'s' if tried > 1 else ''} recorded." if tried else " No contact recorded yet."))
+                out.append(Cond(f"lead:{lead.id}:{step}", "lead", lead.id, step, label, why, "Record the contact attempt.", FRONT, local(when).date(), "act"))
+    return out
+
+
 def conditions(b: Books, rent: renting.Rent, now: datetime) -> dict[str, Cond]:
     """Everything staff have to do right now, by key, read off the books and the renting records."""
     today = local(now).date()
     return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)
-            + _protection(b, today) + _lien_evidence(b) + _legal_stops(b)}
+            + _protection(b, today) + _lien_evidence(b) + _legal_stops(b) + _leads(b, rent, now)}
 
 
 # the folded record -----------------------------------------------------------------------------------------------------------
@@ -425,6 +460,12 @@ class Item:
 def _closing(b: Books, rent: renting.Rent, snap: dict) -> tuple[str, str]:
     """How an item whose condition is gone ended, and what the record shows."""
     key, kind = snap["key"], snap["kind"]
+    if key.startswith("lead:"):
+        lead = leads.state(b).records.get(snap["ref"])
+        if lead and lead.status == "converted":
+            if leads.conversion_evidence(b, rent, lead):
+                return "cancelled", "The person rented, so the follow-up was cancelled."
+            return "cancelled", "The inquiry is marked converted; staff must check the rental and payment."
     if key.startswith("overlock:"):
         held = bool(col.state(b).overlocks.get(snap["lease"]))
         if kind == "lift overlock":
@@ -560,13 +601,15 @@ def _sync(led: Ledger, rent: renting.Rent, wk: State, now: datetime) -> None:
 
 
 def sweep(store: Store, stream: str, now: datetime) -> int:
-    """The daily check of the work queue against its sources, from the copy's own records. Returns the events written."""
+    """Check the queue against its sources and return the number of work events written."""
     with store.write():
         books, rent, wk = load(store, stream)
         led = Ledger(books)
+        leads.capture_abandoned(led, rent, now)
+        leads.refresh_status(led, rent, now)
         _sync(led, rent, wk, now)
         store.append(stream, led.pending)
-        return len(led.pending)
+        return sum(event.kind.startswith("work.") for event in led.pending)
 
 
 # staff commands through the gate ---------------------------------------------------------------------------------------------------
