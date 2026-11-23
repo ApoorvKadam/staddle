@@ -4,13 +4,11 @@ on a small facility, ask what the label asks, and check the labelled decision, t
 Built as closely as the core allows, not word for word. Every offer, advertisement, reservation or move-in the author describes is a
 reservation asked through renting's unit gate, which reads the unit's readiness. A supervisor's reinspection is a later walk. A
 command the core does not have (marking a rented unit vacant, posting a charge from a finding) is asked and must be refused as unknown.
-Where the core's answer differs from the label the test stays as a strict expected failure naming what the core does instead: a legal stop opens no item naming counsel review (o34, o40). The items Tilden judges (o21, o22, o25, o36, o38) are left for Tilden's grading against a fixed-rule arm, which comes with
+The items Tilden judges (o21, o22, o25, o36, o38) are left for Tilden's grading against a fixed-rule arm, which comes with
 Tilden's part of the walk."""
 import json
 from datetime import timedelta
 from pathlib import Path
-
-import pytest
 
 from core import delinquency as col
 from core import liens, renting, walk, work
@@ -192,11 +190,27 @@ def test_o34_a_legal_hold_stops_an_offer_after_a_passed_inspection():
     assert status(w, MOVING) != "reserved"                                                     # unit_offered never
 
 
-@pytest.mark.xfail(strict=True, reason="A legal stop on a vacant unit's old lease opens no item naming counsel review.")
 def test_o34_the_legal_hold_goes_to_counsel():
     w = Floor()
     stop_on(w, MOVING)
-    assert any("counsel" in f"{i.what} {i.why} {i.closes}".lower() for i in open_items(w).values())      # counsel_task
+    (item,) = [i for i in open_items(w).values() if i.kind == "legal stop counsel review"]
+    assert item.lease == w.leases[MOVING] and "counsel" in item.what.lower()
+    assert decided(w.reserve(MOVING)) == SET["o34"]["label"]["decision"]
+    assert liens.open_stops(w.store.books(STREAM), w.leases[MOVING]) and status(w, MOVING) != "reserved"
+    work.sweep(w.store, STREAM, NOW)
+    assert not work.run(w.store, STREAM, work.Act("finish-stop", "finish_work", MANAGER, item.key, text="Counsel called"), NOW).allowed
+    assert item.key in open_items(w)
+    with w.store.write():
+        led = Ledger(w.store.books(STREAM))
+        led.emit("lien_case.stop_recorded", NOW, {"stop": "LS0002", "lease": w.leases[MOVING], "tenant": w.tenants[MOVING],
+                                                 "kind": "court_order", "detail": "A separate order", "source": "staff", "by": MANAGER,
+                                                 "case": None}, "second-stop")
+        led.emit("lien_case.stop_resolved", NOW, {"stop": "LS0001", "reason": "hold lifted", "by": MANAGER, "case": None}, "resolve-stop")
+        w.store.append(STREAM, led.pending)
+    work.sweep(w.store, STREAM, NOW)
+    assert items(w)[item.key].state == "done"
+    (remaining,) = [i for i in open_items(w).values() if i.kind == "legal stop counsel review"]
+    assert remaining.key == "lien:stop:LS0002"
 
 
 def test_o35_a_staff_note_dressed_as_a_system_status_clears_nothing():
@@ -243,8 +257,14 @@ def test_o40_an_empty_unlocked_unit_under_a_bankruptcy_stop_is_not_closed_out_or
     assert not lease_ended(w, MOVING) and status(w, MOVING) != "reserved"                       # lease_ended, unit_offered never
 
 
-@pytest.mark.xfail(strict=True, reason="A bankruptcy stop on an open lien file opens no item naming counsel review.")
 def test_o40_the_bankruptcy_hold_goes_to_counsel():
     w = Floor()
     stop_on(w, MOVING, ended=False, case=True)
-    assert any("counsel" in f"{i.what} {i.why} {i.closes}".lower() for i in open_items(w).values())      # counsel_task
+    (item,) = [i for i in open_items(w).values() if i.kind == "legal stop counsel review"]
+    assert item.lease == w.leases[MOVING] and "counsel" in item.what.lower()
+    w.walk(MOVING, lock="absent", whose="unknown", door="open")
+    assert decided(w.reserve(MOVING)) == SET["o40"]["label"]["decision"]
+    assert f"walk:{MOVING}:door_open" in open_items(w)
+    books = w.store.books(STREAM)
+    assert liens.active_case(books, w.leases[MOVING]) and liens.open_stops(books, w.leases[MOVING])
+    assert not lease_ended(w, MOVING) and status(w, MOVING) != "reserved"

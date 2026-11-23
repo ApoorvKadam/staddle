@@ -151,3 +151,37 @@ def test_visiting_today_again_makes_no_second_item(fms_url, sim):
         opened = [e.payload["key"] for e in fd.ready().stream_events(fd.stream(ident)) if e.kind == "work.opened"]
         assert len(opened) == len(set(opened)) == 22            # the year's 17 and the five protection items the seed plants, all for the front desk
         assert NOW.date() == fd.today()
+
+
+def test_lien_work_links_to_the_file_and_staff_words_do_not_close_it(fms_url, sim):
+    from tests.test_fms import record_of
+    from tests.test_fms_lien_pages import step
+
+    with sign_in(site(fms_url)) as c:
+        url = record_of(c, "Tom Becker")
+        page = c.get(url).text
+        section = page.split('id="lien"', 1)[1]
+        lease = re.search(r'name="lease" value="([A-Z0-9]+)"', section).group(1)
+        case = re.search(r'name="case" value="([A-Z0-9]+)"', section).group(1)
+        assert step(c, url, page, action="record_lien_address", lease=lease, case=case,
+                    address="123 Main Street, Orlando, FL", basis="written change of address").status_code == 303
+        page = c.get(url).text
+        assert step(c, url, page, action="prepare_lien_notice", lease=lease, case=case).status_code == 303
+        page = c.get(url).text
+        assert step(c, url, page, action="record_lien_stop", lease=lease, case=case,
+                    kind="court_order", detail="Court order reported", source="Court letter").status_code == 303
+
+        page = c.get("/today").text
+        articles = [a for a in page.split("<article") if 'name="key"' in a]
+        for words in ("Publisher affidavit needed", "Legal stop: counsel review"):
+            item = next(a for a in articles if words in a)
+            text = seen(item)
+            assert "Tom Becker" in text and "What closes it:" in text
+            assert not re.search(r"\b(?:LS|LC|L|T|C)\d{4}\b|waiting for evidence", text, re.I)
+            link = re.search(r'href="(/tenants/[^"#]+#lien)"', item).group(1)
+            destination = c.get(link)
+            assert destination.status_code == 200 and 'id="lien"' in destination.text
+            assert "Lien file" in seen(destination.text.split('id="lien"', 1)[1])
+            key = re.search(r'name="key" value="([^"]+)"', item).group(1)
+            assert push(c, "finish", key, text="I checked it").status_code == 303
+            assert words in view(c)

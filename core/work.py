@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 
 from . import delinquency as col
-from . import protection, reconcile, renting
+from . import liens, protection, reconcile, renting
 from .billing import Ledger
 from .books import PROTECTION, Books, local
 from .evidence import clock, day, money
@@ -299,11 +299,39 @@ def _protection(b: Books, today: date) -> list[Cond]:
     return out
 
 
+def _lien_evidence(b: Books) -> list[Cond]:
+    out = []
+    for case in liens.state(b).cases.values():
+        if case.closed or not case.copies:
+            continue
+        ad = next((f for f in liens.findings(b, case) if f.requirement == "the newspaper advertisement"), None)
+        if ad and ad.status != "met":
+            what = "Publisher affidavit needed" if ad.status == "missing" else "Publisher affidavit needs review"      # nothing to review until one is recorded
+            out.append(Cond(f"lien:evidence:{case.id}", "lien", case.id, liens.TASK, what,
+                            f"The newspaper advertisement needs verified publisher evidence: {ad.detail}",
+                            "The lien file verifies the newspaper advertisement.", OFFICE, local(case.opened_at).date(), "act",
+                            case.unit, case.tenant, case.lease, closed_by="The lien file verifies the newspaper advertisement."))
+    return out
+
+
+def _legal_stops(b: Books) -> list[Cond]:
+    out = []
+    for stop in liens.state(b).stops.values():
+        if stop["resolved"]:
+            continue
+        lease = b.leases[stop["lease"]]
+        out.append(Cond(f"lien:stop:{stop['id']}", "lien stop", stop["id"], "legal stop counsel review",
+                        "Legal stop: counsel review", f"{liens.STOP_WORDS[stop['kind']]}: {stop['detail']}",
+                        "The legal stop is lifted on record after counsel review.", OFFICE, local(stop["at"]).date(), "act",
+                        lease.unit, stop["tenant"], lease.id, blocked=True, closed_by="The legal stop was lifted on record."))
+    return out
+
+
 def conditions(b: Books, rent: renting.Rent, now: datetime) -> dict[str, Cond]:
     """Everything staff have to do right now, by key, read off the books and the renting records."""
     today = local(now).date()
     return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)
-            + _protection(b, today)}
+            + _protection(b, today) + _lien_evidence(b) + _legal_stops(b)}
 
 
 # the folded record -----------------------------------------------------------------------------------------------------------
@@ -416,6 +444,11 @@ def _closing(b: Books, rent: renting.Rent, snap: dict) -> tuple[str, str]:
         e = protection.state(b).evidence.get(snap["ref"])
         if e is not None and e.status == "expired" and e.review is None:      # the daily check expired a document nobody read: no review happened
             return "cancelled", "The policy ended before staff reviewed it, so it is recorded as expired."
+    if key.startswith("lien:evidence:"):      # only the advertisement item closes on the file's evidence check; other lien review items keep their own rule
+        case = liens.state(b).cases.get(snap["ref"])
+        if case and case.closed:
+            return "cancelled", "The lien file closed before the advertisement was verified."
+        return "done", "The lien file verifies the newspaper advertisement."
     if key.startswith("collections:"):
         t = next((t for t in col.state(b).tasks.values() if t.id == snap["ref"]), None)
         if t and t.acknowledged and (t.ref.split(":")[0] not in CHECKED or t.ref.split(":")[0] in ATTESTED):
@@ -599,7 +632,11 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
         led = Ledger(books)
         item = next((i for i in queue(books, rent, wk, now) if i.key == act.key), None)
         ok, check = evaluate(item, act)
-        if ok:
+        keep_note = (not ok and act.action == "finish_work" and item is not None and item.kind == liens.TASK
+                     and item.state not in CLOSED and 3 <= len(" ".join((act.text or "").split())) <= NOTE_MAX
+                     and ("staff" if act.source.startswith("staff:") else act.source) in WORK_SCOPE[act.action]
+                     and check.startswith("the record closes this one"))
+        if ok or keep_note:
             if act.key not in wk.items:
                 conds = conditions(books, rent, now)
                 _emit(led, wk, "work.opened", now, {"key": act.key, "cond": _snap(conds[act.key])}, f"work:{act.key}:1", "code")
@@ -610,6 +647,8 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
             kind, payload = {"assign_work": ("work.assigned", {"to": act.to}), "acknowledge_work": ("work.acknowledged", {}),
                              "start_work": ("work.started", {}), "note_work": ("work.noted", {"text": text}),
                              "finish_work": ("work.attested", {"text": text})}[act.action]
+            if keep_note:
+                kind, payload = "work.noted", {"text": text}
             _emit(led, wk, kind, now, {"key": act.key, "by": who, **payload}, f"work:{act.id}", who, act.id)
         led.emit("gate.decided", now, {"id": act.id, "action": act.action, "source": act.source, "key": act.key, "to": act.to, "text": act.text,
                                        "command": act.id, "allowed": ok, "check": check}, f"gate:{act.id}", source=act.source, command=act.id)

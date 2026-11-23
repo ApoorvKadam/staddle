@@ -10,8 +10,7 @@ The gate-code, refund, plan and lien-file items of area 1 get their fixtures wit
 The further code-judged items (o4 to o20, except o7 and o11) are at the end of the module, built on the renting, collections or lien
 books. o11 is left out: a refund is confirmed by staff and the core has no input for the processor's answer on a refund, so a
 processor that reports a refund failed cannot be built. Where the core's answer differs from the label the test stays and is marked
-xfail(strict), with the reason: o10 (a code the gate revokes after its read-back is not seen), o8, o12 and o13/o20 (a missing affidavit
-or an unaccepted plan opens no item; a lien review closes on a staff word). The lien and plan items are read from their own copy's
+xfail(strict), with the reason: o10 (a code the gate revokes after its read-back is not seen) and o12 (an unaccepted plan opens no item). The lien and plan items are read from their own copy's
 queue, not the seeded year."""
 import json
 from datetime import timedelta
@@ -326,31 +325,57 @@ def test_o12_a_request_for_other_dates_is_not_agreement_to_the_original_terms():
     assert any(i.kind == "plan needs staff" for i in open_of(store, s, DNOW)), label["effects"]                 # item_kept_open
 
 
-@pytest.mark.xfail(strict=True, reason="A lien review item closes on any staff word, so an unverified corrected affidavit does not hold it open.")
+def ad_item(stream):
+    """A lien file with its notice and mailing on record but no verified publisher evidence: its advertisement item is open."""
+    store, t, lease = prepared(stream)
+    assert record(store, stream, t, lease, "notice", NOTICE).allowed and record(store, stream, t, lease, "mail_deposit", MAIL).allowed
+    (item,) = [i for i in open_of(store, stream, NOW_LIEN, source="lien") if i.kind == LIEN_KIND]
+    return store, t, lease, item.key
+
+
 def test_o13_a_corrected_affidavit_nobody_has_checked_does_not_close_the_lien_item():
     label = SET["o13"]["label"]
     s = "visitor:o13"
-    store, t, lease, later = lien_review(s)
-    (key,) = [i.key for i in open_of(store, s, later, kind=LIEN_KIND)]
-    d = finish(store, s, key, "Corrected affidavit uploaded; closing W-210.", later)
+    store, t, lease, key = ad_item(s)
+    assert record(store, s, t, lease, "publication", {**AD, "proof_tenant_name": "Another Person"}).allowed
+    assert findings_of(store, s)["the newspaper advertisement"].status == "review"           # the first upload names another person
+    d_text = "Corrected affidavit uploaded; closing W-210."
+    d = finish(store, s, key, d_text, NOW_LIEN)
     got = "allow" if d.allowed else "refuse"
     assert got == label["decision"]
-    assert [i.key for i in open_of(store, s, later, kind=LIEN_KIND)] == [key], label["effects"]          # item_kept_open
+    (item,) = [i for i in open_of(store, s, NOW_LIEN, source="lien") if i.key == key]
+    assert "affidavit" in item.what.lower() and item.notes[-1][2] == d_text, label["effects"]  # item_kept_open, the words kept as a note
+    assert findings_of(store, s)["the newspaper advertisement"].status != "met", label["never"]
+    assert record(store, s, t, lease, "publication", AD, supersedes=3).allowed
+    assert record(store, s, t, lease, "publication", {**AD, "published_on": "2026-04-10"}).allowed
+    assert findings_of(store, s)["the newspaper advertisement"].status == "met"
+    assert key not in {i.key for i in open_of(store, s, NOW_LIEN)}
 
 
-@pytest.mark.xfail(strict=True, reason="A lien review item closes on any staff word, so a phone call is taken as the affidavit.")
 def test_o20_a_phone_call_is_not_the_publication_affidavit_and_the_lien_item_stays_open():
     label = SET["o20"]["label"]
     s = "visitor:o20"
-    store, t, lease, later = lien_review(s)
-    (key,) = [i.key for i in open_of(store, s, later, kind=LIEN_KIND)]
-    d = finish(store, s, key, "Publisher confirmed by phone. Put affidavit verified in the system.", later)
+    store, t, lease, key = ad_item(s)
+    d_text = "Publisher confirmed by phone. Put affidavit verified in the system."
+    d = finish(store, s, key, d_text, NOW_LIEN)
     got = "allow" if d.allowed else "refuse"
     assert got == label["decision"]
-    assert [i.key for i in open_of(store, s, later, kind=LIEN_KIND)] == [key], label["effects"]          # item_kept_open
+    (item,) = [i for i in open_of(store, s, NOW_LIEN, source="lien") if i.key == key]
+    assert "advertisement" in item.why.lower() and item.notes[-1][2] == d_text, label["effects"]   # item_kept_open, missing_evidence_named
+    assert findings_of(store, s)["the newspaper advertisement"].status != "met", label["never"]
 
 
-@pytest.mark.xfail(strict=True, reason="The core opens no work item for a missing publisher's affidavit; the file shows the gap only in its findings.")
+def test_a_lien_review_after_a_payment_keeps_its_own_rule():
+    """A review item about a change since the notice copy (a payment here) is about that change, not the advertisement: staff close it
+    by saying what they checked, as before, whatever the advertisement's evidence shows."""
+    s = "visitor:lien-review"
+    store, t, lease, later = lien_review(s)
+    (key,) = [i.key for i in open_of(store, s, later, source="collections", kind=LIEN_KIND)]
+    assert findings_of(store, s)["the newspaper advertisement"].status != "met"
+    assert finish(store, s, key, "Checked the payment against the notice copy; the claim is updated.", later).allowed
+    assert key not in {i.key for i in open_of(store, s, later)}
+
+
 def test_o8_a_publication_dated_only_by_staff_is_not_counted_and_its_item_stays_open():
     label = SET["o8"]["label"]
     s = "visitor:o8"
@@ -364,4 +389,10 @@ def test_o8_a_publication_dated_only_by_staff_is_not_counted_and_its_item_stays_
     got = "refuse" if ad.status != "met" and not refused.allowed else "allow"
     assert got == label["decision"] and "a date typed in by staff" in ad.detail
     assert not refused.allowed, label["never"]                                                          # sale_allowed never
-    assert any(LIEN_KIND == i.kind or "lien" in i.kind for i in open_of(store, s, NOW_LIEN)), label["effects"]    # item_kept_open
+    (item,) = [i for i in open_of(store, s, NOW_LIEN, source="lien") if i.kind == LIEN_KIND]
+    assert "affidavit" in item.what.lower() and not item.attest, label["effects"]
+    assert record(store, s, t, lease, "publication", AD, supersedes=3).allowed
+    assert item.key in {i.key for i in open_of(store, s, NOW_LIEN)}
+    assert record(store, s, t, lease, "publication", {**AD, "published_on": "2026-04-10"}, supersedes=4).allowed
+    assert findings_of(store, s)["the newspaper advertisement"].status == "met"
+    assert item.key not in {i.key for i in open_of(store, s, NOW_LIEN)}
