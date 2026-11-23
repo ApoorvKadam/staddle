@@ -152,7 +152,7 @@ WORK_STATES = {"open": ("Open", "plain"), "assigned": ("Assigned", "plain"), "in
                "reopened": ("Reopened: the problem came back", "act"), "done": ("Done", "done"), "cancelled": ("Cancelled", "plain")}
 WORK_ANCHORS = {"collections": "collections", "overlock": "overlocks", "reservation": "rentals", "rental": "rentals", "refund": "rentals",
                 "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance",
-                "protection": "protection"}       # where Home's links land: the first item of each kind
+                "protection": "protection", "lien": "lien", "lien stop": "lien"}       # where Home's links land: the first item of each kind
 WORK_FORMS = {"acknowledge": "acknowledge_work", "start": "start_work", "assign": "assign_work", "note": "note_work", "finish": "finish_work"}
 SCOPE_WORDS = {"overlock": "overlock", "lien": "lien eligibility"}
 # the tenant's own policy and the facility's plan on the tenant's page: each state in words with its chip colour
@@ -588,7 +588,7 @@ class Facility:
                          "tone": tone, "why": plain(i.why), "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
                          "seen": who(i.acknowledged[0]) if i.acknowledged else None,
                          "notes": [(clock(at), who(by), t) for at, by, t in i.notes],
-                         "section": {"collections": "collections", "overlock": "collections", "protection": "protection"}.get(i.source, "renting"),
+                         "section": "lien" if i.source in ("lien", "lien stop") else {"collections": "collections", "overlock": "collections", "protection": "protection"}.get(i.source, "renting"),
                          "lift": i.kind == "lift overlock"})
             seen.add(anchor)
         return rows, {k: len(v) for k, v in views.items()}
