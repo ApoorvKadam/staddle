@@ -473,3 +473,37 @@ def test_a_note_stays_while_a_retained_day_file_cannot_be_checked(tmp_path):
     desk.access.note("visitor:v1@deadbeef:")
     desk._finish_cleanups()
     assert desk.access.users and desk.access.pending == ["visitor:v1@deadbeef:"]      # not found, but not everywhere checked: nothing forgotten
+
+
+def test_shop_payment_webhook_reads_the_processor_record():
+    from core import shop
+
+    desk = FrontDesk(':memory:', clock=clock)
+    store, stream = desk.ready(), 'visitor:shop'
+    quote = shop.run(store, stream, shop.Act('quote', 'quote_sale', 'staff:office_manager', 'disc lock', {'quantity': 1}), clock())
+    assert quote.allowed
+    payment = shop.pay(store, stream, desk.processor, quote.made, 'card_pending', clock())
+    desk.processor.settle(payment['outside'], 'succeeded', clock())
+    event = desk.processor.take_events()[-1]
+    assert desk.processor_event(event) == 'applied'
+    assert quote.made in shop.state(store.books(stream)).sales             # the confirmation completes the sale itself, the same step as an answer that came at once
+    assert not shop.run(store, stream, shop.Act('complete', 'complete_sale', 'staff:office_manager', quote.made), clock()).allowed
+    assert shop.state(store.books(stream)).quantity('disc lock') == 11
+    assert desk.processor_event(event) == 'duplicate'
+
+
+def test_daily_pass_recovers_shop_payment_when_reply_and_event_are_lost():
+    from core import shop
+
+    desk = FrontDesk(':memory:', clock=clock)
+    store, stream = desk.ready(), 'visitor:shop-lost'
+    quote = shop.run(store, stream, shop.Act('lost-quote', 'quote_sale', 'staff:office_manager', 'disc lock', {'quantity': 1}), clock())
+    desk.processor.lose_next_reply = True
+    assert shop.pay(store, stream, desk.processor, quote.made, 'card_ok', clock())['status'] == 'open'
+    desk.processor.take_events()
+    desk.sweep()
+    assert shop.state(store.books(stream)).payments[quote.made]['status'] == 'succeeded'
+    assert quote.made in shop.state(store.books(stream)).sales
+    assert not shop.run(store, stream, shop.Act('lost-sale', 'complete_sale', 'staff:office_manager', quote.made), clock()).allowed
+    assert len([m for m in shop.state(store.books(stream)).moves if m['kind'] == 'sold']) == 1
+    assert len(desk.processor.payments) == 1

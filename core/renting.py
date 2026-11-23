@@ -15,6 +15,7 @@ import logging
 import os
 import pickle
 import re
+import secrets
 import sqlite3
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
@@ -1340,11 +1341,59 @@ def checkout_intent(store: Store, stream: str, rental: str, now: datetime) -> st
         return op
 
 
-def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rental: str, card: str, now: datetime) -> delinquency.Intent:
+def add_shop_items(store: Store, stream: str, rental: str, items: list, source: str, now: datetime) -> list[str]:
+    """Reserve merchandise for a rental before its payment is requested."""
+    from . import shop
+    with store.write():
+        books, rent = load(store, stream)
+        r = rent.rentals.get(rental)
+        if not r or r.state not in WAITING or rent.holder(r.unit, now) != ('rental', rental) or r.pay_ops:
+            raise Refused('the rental is not available for adding merchandise')
+        if not isinstance(items, list) or not items:
+            raise Refused('choose merchandise to add')
+        led = Ledger(books)
+        quotes = []
+        for item in items:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                raise Refused('choose a product and quantity')
+            product, quantity = item
+            ident = 'checkout-shop:' + secrets.token_hex(16)
+            result = shop.command(led, shop.Act(ident, 'quote_sale', source, product, {'quantity': quantity}), now)
+            if not result.allowed:
+                raise Refused(result.check)
+            led.emit('shop.checkout_attached', now, {'quote': ident, 'rental': rental}, 'shop:checkout:' + ident, source='code')
+            quotes.append(ident)
+        store.append(stream, led.pending)
+        return quotes
+
+
+class TotalChanged(Refused):
+    """The total a checkout page showed is not what the renter would be charged now: the page must show the new one and ask again."""
+
+    def __init__(self, shown: int, total: int):
+        super().__init__(f"The total changed from {money(shown)} to {money(total)} since the page was shown. Check the new total, then confirm it again.")
+        self.total = total
+
+
+def checkout_due(books: Books, rent: "Rent", r, now: datetime) -> tuple[int, list[str], int]:
+    """What a rental in checkout asks for now: the rental's own cents, the add-on quotes still unsold and uncancelled, and the combined
+    total. The checkout page shows this total and the payment charges it, so the two cannot differ."""
+    from . import shop
+    st = shop.state(books)
+    old = rent.rentals[rent.transfers[r.transfer].rental] if r.transfer else None
+    cents = rent.short(r, now, old)
+    quotes = [q for q, owner in st.attachments.items() if owner == r.id and q not in st.sales and q not in st.cancelled]
+    return cents, quotes, cents + sum(st.quotes[q]['price'] * st.quotes[q]['quantity'] for q in quotes)
+
+
+def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rental: str, card: str, now: datetime,
+               expected_cents: int | None = None) -> delinquency.Intent:
     """A renter's move-in payment through the processor, the path every payment takes. The rental's payment record and the
     processor's intent are written in one step before any request goes out, and the request carries the intent's key, so a retry
     after a lost answer or a crash sends the same key and gets the same payment back, never a second. The answer then drives the
-    rental (settle_payments), at once or when a webhook or the daily check brings it."""
+    rental (settle_payments), at once or when a webhook or the daily check brings it. `expected_cents` is the total the renter was
+    shown: if the combined total (rental and add-ons) is different now, nothing is charged and the renter is asked again. When credit
+    covers the rental, add-ons alone are paid, with no payment recorded against the rental."""
     with store.write():
         books, rent = load(store, stream)
         r = rent.rentals.get(rental)
@@ -1358,15 +1407,26 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
                 raise Refused(NO_HOLD)          # a hold whose time is up, not yet written down by a pass, takes no new payment
             if delinquency.unsettled(books, r.tenant):
                 raise Refused("an earlier payment's outcome is not known yet; it is checked with the processor, never paid again")
-            old = rent.rentals[rent.transfers[r.transfer].rental] if r.transfer else None
-            cents = rent.short(r, now, old)
-            if not cents:
+            from . import shop
+            shop_state = shop.state(books)
+            cents, quotes, total = checkout_due(books, rent, r, now)
+            if quotes and any(q in shop_state.payments for q in quotes):
+                raise Refused('staff must review the earlier merchandise payment')
+            if not total:               # the rental and its add-ons both need nothing: credit covering the rental alone does not stop an add-on's payment
                 raise Refused("the rental is already paid for")
+            if expected_cents is not None and expected_cents != total:
+                raise TotalChanged(expected_cents, total)
             led = RentLedger(books, rent)
-            iid = delinquency.open_intent(led, stream, processor, r.tenant, cents, now)
-            op = f"{r.id}:pay:{len(r.pay_ops) + 1}"
-            led.emit("op.requested", now, {"op": op, "rental": r.id, "step": "pay", "intent": iid, "sha256": sha(f"{r.tenant}:{cents}")},
-                     f"op:{op}", source="code")
+            iid = delinquency.open_intent(led, stream, processor, r.tenant, total, now, shop_quotes=quotes)
+            for quote in quotes:
+                q = shop_state.quotes[quote]
+                led.emit('shop.payment_requested', now, {'quote': quote, 'key': delinquency.state(books).intents[iid].key,
+                         'cents': q['price'] * q['quantity'], 'status': 'open', 'intent': iid},
+                         f'shop:checkout-payment:{iid}:{quote}', source='processor')
+            if cents:                   # add-ons paid alone leave the rental's own payment operations untouched
+                op = f"{r.id}:pay:{len(r.pay_ops) + 1}"
+                led.emit("op.requested", now, {"op": op, "rental": r.id, "step": "pay", "intent": iid, "sha256": sha(f"{r.tenant}:{total}")},
+                         f"op:{op}", source="code")
             store.append(stream, led.pending)
         elif rent.ops[op].intent is None:
             raise Refused("a payment for this rental is already out, started without the processor")

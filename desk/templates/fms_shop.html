@@ -1,0 +1,155 @@
+{% extends "fms.html" %}
+{% block page %}Shop{% endblock %}
+{% macro hidden(name, value) %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endmacro %}
+{% macro refused(part) %}{% if step_note and note_at == part %}<p class="fms-status" role="status">{% if not step_partial %}Nothing changed. {% endif %}{{ step_note|plain }}</p>{% endif %}{% endmacro %}
+{% macro signed(n) %}{{ '+' if n > 0 else '' }}{{ n }}{% endmacro %}
+{% block body %}
+<header class="head"><h1>Shop</h1>
+  <p class="muted">Locks and boxes sold at the counter. Stock moves only when staff record a delivery, a give-away, a return or a reviewed count, or when a card payment is confirmed.</p></header>
+
+<section class="fms-section" id="products">
+  <h2>Products</h2>
+  {% if note_at == 'products' %}{{ refused('products') }}{% endif %}
+  <div class="fms-scroll"><table class="fms-table"><thead><tr><th>Product</th><th>Price</th><th>Cost</th><th>On hand</th><th>Held for a sale</th><th>Sold at the counter</th></tr></thead><tbody>
+  {% for p in shop.products %}<tr><td>{{ p.name|plain }}</td><td>{{ money(p.price) }}</td><td>{{ money(p.cost) }}</td><td>{{ p.on_hand }}</td><td>{{ p.held }}</td><td>{{ 'Yes' if p.active else 'No' }}</td></tr>
+  {% else %}<tr><td colspan="6">No product has been added.</td></tr>{% endfor %}</tbody></table></div>
+  {% for p in shop.products %}<article class="fms-line"><h3>{{ p.name|plain }}</h3>
+    <form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('product', p.name) }}
+      <label>Price in dollars <input name="price" value="{{ '%.2f' % (p.price / 100) }}" inputmode="decimal" required></label>
+      <label>Cost in dollars <input name="cost" value="{{ '%.2f' % (p.cost / 100) }}" inputmode="decimal" required></label>
+      <label><input type="checkbox" name="active" value="yes"{% if p.active %} checked{% endif %}> Sold at the counter</label>
+      <button class="button" name="action" value="change_price">Save the new price and cost</button>
+    </form>
+    <details><summary>Price and cost history</summary>{% for v in p.versions %}<p>{{ v.at|plain }}: price {{ money(v.price) }}, cost {{ money(v.cost) }}, {{ 'sold at the counter' if v.active else 'not sold at the counter' }}.</p>{% endfor %}</details>
+    <details><summary>Stock moves</summary>
+      {% for m in p.moves %}{% if loop.first %}<div class="fms-scroll"><table class="fms-table"><thead><tr><th>When</th><th>What happened</th><th>Quantity</th><th>Reason</th></tr></thead><tbody>{% endif %}
+      <tr><td>{{ m.at|plain }}</td><td>{{ m.kind|plain }}</td><td>{{ signed(m.quantity) }}</td><td>{{ m.reason|plain }}</td></tr>
+      {% if loop.last %}</tbody></table></div>{% endif %}{% else %}<p>No stock has moved for this product.</p>{% endfor %}
+    </details>
+  </article>{% endfor %}
+  <details><summary>Add a product</summary><form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}
+    <label>Name <input name="product" maxlength="80" required></label>
+    <label>Price in dollars <input name="price" inputmode="decimal" required></label>
+    <label>Cost in dollars <input name="cost" inputmode="decimal" required></label>
+    <label>Tax class <select name="tax_class" required><option value="">Choose a tax class</option><option value="standard">Standard</option></select></label>
+    <button class="button" name="action" value="add_product">Add the product</button></form></details>
+</section>
+
+<section class="fms-section" id="deliveries">
+  <h2>Deliveries</h2>
+  {{ refused('deliveries') }}
+  {% for r in shop.unposted_receipts %}<article class="fms-line"><p>{{ r.quantity }} {{ r.product|plain }}, counted in by staff: {{ r.reason|plain }}. Not added to stock yet.</p>
+    <form method="post" action="/shop">{{ hidden('token', token) }}{{ hidden('about', r.id) }}<button class="button" name="action" value="post_receipt">Add it to stock</button></form></article>{% endfor %}
+  {% for d in shop.deliveries %}<article class="fms-line"><p>{{ d.quantity }} {{ d.product|plain }} expected, {{ d.at|plain }}: {{ d.reason|plain }}. {{ d.got }} received so far.
+    {% if d.left <= 0 %}<span class="chip done">Received in full</span>{% else %}<span class="chip wait">{{ d.left }} not received yet</span>{% endif %}</p>
+    {% if d.left > 0 %}<form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', d.id) }}
+      <label>Quantity that arrived <input name="quantity" type="number" min="1" max="{{ d.left }}" value="{{ d.left }}" required></label>
+      <label>Note <input name="reason" maxlength="200" value="Staff counted the delivery" required></label>
+      <button class="button" name="action" value="receive_delivery">Record as received</button></form>{% endif %}
+  </article>{% else %}<p>No delivery is expected.</p>{% endfor %}
+  <details><summary>Expect a delivery</summary><form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}
+    <label>Product <select name="product">{% for p in shop.products %}<option value="{{ p.name }}">{{ p.name|plain }}</option>{% endfor %}</select></label>
+    <label>Quantity <input name="quantity" type="number" min="1" required></label>
+    <label>Note <input name="reason" maxlength="200" required></label>
+    <button class="button" name="action" value="expect_delivery">Record the delivery</button></form></details>
+</section>
+
+<section class="fms-section" id="giveaways">
+  <h2>Give-aways</h2>
+  <p class="muted">A give-away needs the approval and the handover written down. It is not a sale and takes the item out of stock.</p>
+  {{ refused('giveaways') }}
+  {% for h in shop.handovers %}<article class="fms-line"><p>{{ h.quantity }} {{ h.product|plain }}: {{ h.reason|plain }}. Approved: {{ h.approval|plain }}. Handed over: {{ h.what|plain }}.
+    {% if h.posted %}<span class="chip done">Taken out of stock</span>{% else %}<span class="chip act">Not taken out of stock yet</span>{% endif %}</p>
+    {% if not h.posted %}<form method="post" action="/shop">{{ hidden('token', token) }}{{ hidden('about', h.id) }}<button class="button" name="action" value="post_give_away">Take it out of stock</button></form>{% endif %}
+  </article>{% else %}<p>Nothing has been given away.</p>{% endfor %}
+  <details><summary>Record a give-away</summary><form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}
+    <label>Product <select name="product">{% for p in shop.products %}<option value="{{ p.name }}">{{ p.name|plain }}</option>{% endfor %}</select></label>
+    <label>Quantity <input name="quantity" type="number" min="1" required></label>
+    <label>Why <input name="reason" maxlength="200" required></label>
+    <label>Who approved it <input name="approval" maxlength="200" required></label>
+    <label>What was handed over, and to whom <input name="handover" maxlength="200" required></label>
+    <button class="button" name="action" value="give_away">Record the give-away</button></form></details>
+</section>
+
+<section class="fms-section" id="counts">
+  <h2>Stock counts</h2>
+  <p class="muted">A count is what staff found on the shelf. It never changes stock by itself: staff review the difference first.</p>
+  {{ refused('counts') }}
+  {% for c in shop.counts %}<article class="fms-line" id="count-{{ loop.index }}"><p>{{ c.product|plain }}: the books said {{ c.book }}, staff counted {{ c.counted }}{% if c.variance %}, a difference of {{ signed(c.variance) }}{% endif %}, {{ c.at|plain }}.
+    <span class="chip {{ c.state[1] }}">{{ c.state[0] }}</span></p>
+    {% if c.reason %}<p class="muted">Review: {{ c.reason|plain }}</p>{% endif %}
+    {% if c.open %}<form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', c.id) }}
+      <label>What you found when you reviewed it <input name="reason" maxlength="200" required></label>
+      {% if c.accept %}<button class="button" name="action" value="review_count">Accept the difference and post it to stock</button>{% endif %}
+      <button class="button" name="action" value="ask_recount" formnovalidate>Ask for a recount</button></form>
+    {% if not c.accept and c.why_not %}<p class="muted">{{ c.why_not|plain }}</p>{% endif %}
+    {% elif c.recount %}<p class="muted">{{ c.why_not|plain }}</p>
+    <form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', c.id) }}
+      <button class="button" name="action" value="ask_recount" formnovalidate>Ask for a recount</button></form>
+    {% elif c.state[1] == 'wait' %}<p class="muted">Record the recount with the form below.{% if c.variance %} This item stays open until a newer count is recorded.{% endif %}</p>
+    {% elif c.post %}<form method="post" action="/shop">{{ hidden('token', token) }}{{ hidden('about', c.id) }}<button class="button" name="action" value="post_difference">Post the difference to stock</button></form>
+    {% elif c.why_not and c.state[1] == 'act' %}<p class="muted">{{ c.why_not|plain }}</p>{% endif %}
+  </article>{% else %}<p>No count has been recorded.</p>{% endfor %}
+  <details><summary>Record a count</summary><form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}
+    <label>Product <select name="product">{% for p in shop.products %}<option value="{{ p.name }}">{{ p.name|plain }}</option>{% endfor %}</select></label>
+    <label>Counted on the shelf <input name="quantity" type="number" min="0" required></label>
+    <button class="button" name="action" value="record_count">Record the count</button></form></details>
+</section>
+
+<section class="fms-section" id="counter">
+  <h2>Sell at the counter</h2>
+  <p class="muted">A walk-in buyer, no lease. The sale posts once, when the card payment is confirmed.</p>
+  {{ refused('counter') }}
+  <form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('shown', shop.shown) }}
+    <label>Product <select name="product">{% for p in shop.sellable %}<option value="{{ p.name }}">{{ p.name|plain }}, {{ money(p.price) }}</option>{% endfor %}</select></label>
+    <label>Quantity <input name="quantity" type="number" min="1" value="1" required></label>
+    <label>Card <select name="card">{% for key, label in cards %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+    <button class="button primary" name="action" value="sell"{% if not shop.sellable %} disabled{% endif %}>Take the payment and sell</button></form>
+</section>
+
+<section class="fms-section" id="sales">
+  <h2>Sales at the counter</h2>
+  {{ refused('sales') }}
+  {% for s in shop.sales %}<article class="fms-line"><p>{% if s.problem %}<span class="chip act">Needs a look</span> {% endif %}{% if s.addon %}Move-in add-on: {% endif %}{{ s.quantity }} {{ s.product|plain }}, {{ money(s.total) }}, {{ s.at|plain }}. <span class="chip {{ s.pay[1] }}">{{ s.pay[0] }}</span>
+    {% if s.cancelled %}<span class="chip plain">Cancelled</span>{% elif s.written_off %}<span class="chip plain">Written off</span>{% elif s.reversed %}<span class="chip plain">Reversed as a duplicate</span>{% elif s.posted %}<span class="chip done">Sale posted</span>{% else %}<span class="chip wait">Not posted</span>{% endif %}
+    {% if s.reason %}<span class="muted">{{ s.reason|plain }}.</span>{% endif %}
+    {% if s.returned %}<span class="muted">{{ s.returned }} brought back.</span>{% endif %}</p>
+    {% if s.problem %}<p class="muted">{% if s.posted %}The sale is posted and the money is not in: collect it with a new payment, or write it off.{% else %}Nothing was sold and the stock is still held: try the payment again, or cancel the sale to release the stock.{% endif %} It stays on Today until one of these is recorded.</p>{% endif %}
+    {% for o in s.owed %}<form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}{{ hidden('key', o.key) }}
+      <p class="muted">{% if o.replaced %}A payment of {{ o.total }} came in on an earlier attempt that a newer payment replaced. It is an extra charge, owed back, and stays on Today until the refund is recorded.{% else %}A payment of {{ o.total }} came in with no sale to hold it. It is owed back and stays on Today until the refund is recorded.{% endif %}</p>
+      <label>Why the money is refunded <input name="reason" maxlength="200" required></label>
+      <button class="button" name="action" value="refund_payment">Record the refund</button></form>{% endfor %}
+    {% if s.can_resume %}<form method="post" action="/shop">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}{{ hidden('key', s.attempt) }}<button class="button" name="action" value="resume_payment">Ask the card processor again</button></form>{% endif %}
+    {% if s.can_retry %}<form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}
+      <label>Card <select name="card">{% for key, label in cards %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <button class="button" name="action" value="retry_payment">Try the payment again</button></form>{% endif %}
+    {% if s.can_cancel %}<form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}
+      <label>Why the sale is cancelled <input name="reason" maxlength="200" required></label>
+      <button class="button" name="action" value="cancel_sale">Cancel the sale and release the stock</button></form>{% endif %}
+    {% if s.can_write_off %}<form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}
+      <label>Why the money is written off <input name="reason" maxlength="200" required></label>
+      <button class="button" name="action" value="write_off_payment">Write off the payment</button></form>{% endif %}
+    {% if s.paid_unposted %}<form method="post" action="/shop">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}<button class="button" name="action" value="post_sale">Post the sale</button></form>{% endif %}
+    {% if s.can_return %}<details><summary>Record a return</summary><form method="post" action="/shop" class="fms-decide">{{ hidden('token', token) }}{{ hidden('about', s.quote) }}
+      <label>Quantity brought back <input name="quantity" type="number" min="1" max="{{ s.left }}" value="{{ s.left }}" required></label>
+      <label>Condition <select name="condition"><option value="resalable">It can be sold again</option></select></label>
+      <label>Why it came back <input name="reason" maxlength="200" required></label>
+      <button class="button" name="action" value="record_return">Record the return</button></form></details>{% endif %}
+  </article>{% else %}<p>Nothing has been sold at the counter on this copy.</p>{% endfor %}
+</section>
+
+<section class="fms-section" id="returns">
+  <h2>Returns</h2>
+  {{ refused('returns') }}
+  {% for r in shop.returns %}<article class="fms-line"><p>{{ r.quantity }} {{ r.product|plain }} brought back, {{ r.at|plain }}: {{ r.reason|plain }}.
+    {% if r.posted %}<span class="chip done">Back in stock</span>{% else %}<span class="chip act">Not back in stock yet</span>{% endif %}</p>
+    {% if not r.posted %}<form method="post" action="/shop">{{ hidden('token', token) }}{{ hidden('about', r.id) }}<button class="button" name="action" value="post_return">Put it back in stock</button></form>{% endif %}
+  </article>{% else %}<p>No return has been recorded.</p>{% endfor %}
+</section>
+
+<section class="fms-section" id="records">
+  <h2>Records that disagree</h2>
+  {% for d in shop.differences %}{% if loop.first %}<p>The daily check found these. Each clears when the step above that settles it is taken.</p><ul>{% endif %}<li>{{ d|plain }}</li>{% if loop.last %}</ul>{% endif %}
+  {% else %}<p>The shop records agree: stock, deliveries, give-aways, returns and sales.</p>{% endfor %}
+</section>
+{% endblock %}
