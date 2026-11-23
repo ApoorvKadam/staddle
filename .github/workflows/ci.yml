@@ -16,4 +16,17 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: python -m desk.evaluate --out desk/static/evaluation.json
-      - run: pytest -q
+      - run: pytest -q -n auto
+
+  evaluation:
+    # the two whole-evaluation tests, beside the main job so neither waits on the other
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/New_York
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q -m evaluation

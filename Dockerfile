@@ -27,12 +27,14 @@ CMD ["bash", "start.sh"]
 # production: docker build --target test -t staddle:test . && docker run --rm staddle:test
 FROM app AS test
 USER root
-RUN pip install --no-cache-dir "pytest>=8" "ruff>=0.5"
+RUN pip install --no-cache-dir "pytest>=8" "pytest-xdist>=3.5" "ruff>=0.5"
 COPY tests ./tests
 # undefined names only: an edit that drops a helper fails this build, not the first request that needs it
 RUN ruff check --select F821,F822,F823 --no-cache desk fmssim fms_checks core tests
 USER staddle
-CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+# the suite runs on PYTEST_WORKERS cores (6 by default); the whole-evaluation tests run with: ... python -m pytest -q -m evaluation
+ENV PYTEST_WORKERS=6
+CMD ["sh", "-c", "exec python -m pytest -q -p no:cacheprovider -n \"$PYTEST_WORKERS\""]
 
 # what a plain `docker build` produces, and what the host runs
 FROM app
