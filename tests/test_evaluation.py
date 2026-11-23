@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime
 
+import pytest
 from fastapi.testclient import TestClient
 
 from desk import evaluate, evaluate_reminders as reminders, evaluate_texts as texts, web
@@ -13,6 +14,7 @@ from desk.wording import TROUBLES
 from .test_pages import preview
 
 
+@pytest.mark.evaluation
 def test_the_evaluation_runs_clean_and_its_wrong_builds_are_caught(tmp_path):
     out = tmp_path / "evaluation.json"
     assert evaluate.main(["--out", str(out)]) == 0
@@ -126,6 +128,7 @@ def test_a_red_line_with_nothing_checked_is_not_tested_and_stops_the_build(fms_u
     assert report.ok
 
 
+@pytest.mark.evaluation
 def test_the_texts_part_counts_four_red_lines_over_real_attempts_and_catches_four_wrong_builds(tmp_path):
     out = tmp_path / "evaluation.json"
     assert evaluate.main(["--out", str(out)]) == 0

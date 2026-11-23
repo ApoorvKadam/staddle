@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 chat = ["anthropic>=2.6"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pytest-xdist>=3.5"]
 
 [build-system]
 requires = ["setuptools>=69"]
@@ -25,6 +25,9 @@ include = ["desk*", "fmssim*", "fms_checks*", "core*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# the two whole-evaluation tests take about 4 minutes each, so they run in their own job: pytest -m evaluation
+addopts = "-m 'not evaluation'"
+markers = ["evaluation: runs a whole evaluation end to end (minutes); selected with -m evaluation"]
 
 [tool.setuptools.package-data]
 desk = ["reference/*.csv", "templates/*.html", "static/*", "reading_set.json"]
