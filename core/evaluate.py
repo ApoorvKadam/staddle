@@ -292,7 +292,7 @@ def walk_judged(client, runs: int, model: str, effort: str) -> dict:
     core/graded/operations_judged.json for Tilden and for the fixed-rule arms. Every answer is kept, dropped ones too; what a summary
     must never say is read by a person from the saved text, so it is not scored here."""
     from . import delinquency as col
-    from . import reconcile, renting, walk, walk_reading
+    from . import reconcile, renting, walk, walk_reading, walk_rules
     from .books import at_local
     from .seed import TODAY
     with open(JUDGED) as f:
@@ -300,13 +300,14 @@ def walk_judged(client, runs: int, model: str, effort: str) -> dict:
     with open(OUTSIDE) as f:
         outside = json.load(f)
     # every case carries its set: outside-written cases are the proof; cases written here are practice and are reported apart
-    pairs = [{"id": p["id"], "first": p["first"], "second": p["second"], "label": "same" if p["same"] else "different",
+    pairs = [{"id": p["id"], "first": p["first"], "second": p["second"], "label": "same" if p["same"] else "different", "unit": None,
               "set": "outside" if p["written_by"] == "outside" else "practice"} for p in rubric["o36"]["pairs"]]
-    pairs += [{"id": p["id"], "first": p["first"], "second": p["second"], "label": p["label"], "set": "outside"} for p in outside["pairs"]]
-    notes = [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": [], "fee_words": [],
+    pairs += [{"id": p["id"], "first": p["first"], "second": p["second"], "label": p["label"], "set": "outside", "unit": p["unit"],
+               "gap": datetime.fromisoformat(p["second_at"]) - datetime.fromisoformat(p["first_at"]) if p.get("first_at") else None} for p in outside["pairs"]]
+    notes = [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": [], "fee_words": [], "unit": None,
               "set": "outside" if n["written_by"] == "outside" else "practice"} for n in rubric["o25"]["notes"]]
     notes += [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": n.get("belongings_words", []),
-               "fee_words": n.get("fee_words", []), "set": "outside"} for n in outside["notes"]]
+               "fee_words": n.get("fee_words", []), "set": "outside", "unit": n["unit"]} for n in outside["notes"]]
     year = build(today=TODAY, cutoff=at_local(TODAY), standing=True)        # the live copy's year, with yesterday's seeded walk
     store = Store()
     with store.write():
@@ -374,26 +375,37 @@ def walk_judged(client, runs: int, model: str, effort: str) -> dict:
                              "cents": 0.0})
         moved = year.walked["repair"]                  # the seeded unit whose tenant moved out
         for note in notes:
-            r = walk_reading.read_note(client, model, effort, note["note"], (moved,), moved)
+            unit = note["unit"] or moved                # an outside note is read for the author's own unit, as written
+            r = walk_reading.read_note(client, model, effort, note["note"], (unit,), unit)
             want = {k for k in ("cleaning", "repair") if note[k]}
-            for arm, kinds, extra in (("tilden", {w["kind"] for w in r.work}, {"work": r.work, "refusal": r.refusal, "contents": r.fields.get("contents"),
-                                                                            "cents": r.call.cents if r.call else 0.0}),
-                                      ("fixed", fixed_work(note["note"]), {"cents": 0.0})):
-                words = " ".join(w["words"].lower() for w in r.work if w["kind"] == "cleaning") if arm == "tilden" else ""
+            raw_work = [w for w in ((r.raw or {}).get("work") or []) if isinstance(w, dict)]
+            for arm, items in (("tilden", r.work), ("tilden_unchecked", raw_work), ("strong_rule", None), ("fixed", None)):
+                if items is None:
+                    kinds = walk_rules.note_work(note["note"], unit) if arm == "strong_rule" else fixed_work(note["note"])
+                else:
+                    kinds = {w.get("kind") for w in items if w.get("kind") in ("cleaning", "repair")}
+                said = " ".join(str(w.get("words") or "").lower() for w in (items or []) if w.get("kind") == "cleaning")
                 crit = ["belongings turned into cleaning work"] if ("cleaning" in kinds and not note["cleaning"] and note["belongings_words"]) or any(
-                    b in words for b in note["belongings_words"]) else []
-                crit += ["a fee in the work"] if arm == "tilden" and any(f.lower() in w["words"].lower() for w in r.work for f in note["fee_words"]) else []
+                    b in said for b in note["belongings_words"]) else []
+                crit += ["a fee in the work"] if any(f.lower() in str(w.get("words") or "").lower() for w in (items or []) for f in note["fee_words"]) else []
+                extra = {"work": r.work, "refusal": r.refusal, "contents": r.fields.get("contents"), "cents": r.call.cents if r.call else 0.0} if arm == "tilden" else {"cents": 0.0}
                 # a refused note proposes no work, so on a note that needs none a refusal scores as right: kept apart so it can be counted
                 rows.append({"item": note["id"], "part": "move_out_note", "arm": arm, "run": run, "right": kinds == want and not crit,
                              "right_by_refusal": arm == "tilden" and kinds == want and not want and bool(r.refusal),
                              "kinds": sorted(kinds), "set": note["set"], "dropped": None, "critical": crit, **extra})
         for pair in pairs:
-            stream, want = f"graded:walk:{pair['id']}:{run}", pair["label"]
-            a = staff(stream, f"{pair['id']}-{run}-1", "report_work_order", at - timedelta(hours=2), unit=spare, text=pair["first"])
-            b = staff(stream, f"{pair['id']}-{run}-2", "report_work_order", at - timedelta(hours=1), source="staff:office_manager", unit=spare, text=pair["second"])
-            wk = walk.load(store, stream)[1]
-            sf = walk_reading.same_fault(client, model, effort, wk.orders[a], wk.orders[b], f"{pair['id']}r{run}")
+            want, unit = pair["label"], pair["unit"] or spare
+            # the two orders as staff would have filed them on the author's own unit, keeping the author's time between the reports
+            second_at = at - timedelta(hours=1)
+            first_at = second_at - (pair.get("gap") or timedelta(hours=1))
+            first = walk.WorkOrder(f"{pair['id']}-1", unit, pair["first"], "staff:front_desk", first_at, reports=[walk.Report("staff:front_desk", first_at, pair["first"])])
+            second = walk.WorkOrder(f"{pair['id']}-2", unit, pair["second"], "staff:office_manager", second_at,
+                                    reports=[walk.Report("staff:office_manager", second_at, pair["second"])])
+            sf = walk_reading.same_fault(client, model, effort, first, second, f"{pair['id']}r{run}")
             for arm, verdict, dropped in (("tilden", sf.reading["verdict"] if sf.reading else None, sf.dropped),
+                                          ("tilden_unchecked", (sf.raw or {}).get("verdict"), None),
+                                          ("strong_rule", walk_rules.same_fault({"text": pair["first"], "by": "staff:front_desk", "at": first_at.isoformat(), "unit": unit},
+                                                                                {"text": pair["second"], "by": "staff:office_manager", "at": second_at.isoformat(), "unit": unit}), None),
                                           ("fixed_words", "same" if same_words(pair["first"], pair["second"]) else "different", None),
                                           ("fixed_unit", "same", None)):
                 crit = (["two faults joined"] if verdict == "same" and want == "different" else ["one fault left as two"] if verdict == "different" and want == "same"

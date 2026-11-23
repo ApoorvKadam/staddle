@@ -93,7 +93,7 @@ Where Tilden misses:
 - A seal reported "ripped again" after a repair someone thinks was done: Tilden called it the same fault in 9 of 10 runs, where the author says the words cannot settle it. All 9 serious errors are this case. The test filed every pair an hour apart on one day, while the author's two reports were four days apart, so this error may come from the test; the next run uses the author's dates.
 - A report that repeats "somebody already fixed that hinge": code dropped Tilden's reading in 5 of 10 runs because it repeated that claim, which code reads as saying the repair happened.
 
-Three walk findings from the operations set were also run, but they had already run several times while this was built, so they are not a fresh test: Tilden picked an acceptable next step in 24 of 30 runs, the fixed rule in 30 of 30. Cases I wrote myself are practice and are not counted here. This set has now been seen, so changes for these misses will be measured on a fresh outside set. The ten runs cost about 14 cents.
+Three walk findings from the operations set were also run, but they had already run several times while this was built, so they are not a fresh test: Tilden picked an acceptable next step in 24 of 30 runs, the fixed rule in 30 of 30. Cases I wrote myself are practice and are not counted here. This set has now been seen, so changes for these misses will be measured on a fresh outside set. Since then, Tilden's instructions and checks for these misses and a stronger rule-based reader were both tuned on this set, so neither is compared on it again; the next comparison runs on a fresh outside set whose mix and labels the author chose (set 3, frozen before any run). The ten runs cost about 14 cents.
 
 ## The books
 
