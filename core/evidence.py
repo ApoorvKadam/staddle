@@ -10,12 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from .books import ADMIN_FEE, CUTOFF_DAY, FEE_KINDS, LATE_FEE, RENT, Books, Charge, cutoff, local
+from .books import ADMIN_FEE, CUTOFF_DAY, FEE_KINDS, LATE_FEE, PROTECTION, RENT, Books, Charge, cutoff, local
 
 CLAIM_KINDS = ("paid_on_time", "charged_twice", "never_agreed", "challenges_record", "wants_waiver", "wrong_amount", "what_is_this",
                "payment_issue", "other")
 VERDICTS = ("supports", "contradicts", "no_record", "unresolved", "payment", "unclear")
-KIND_WORDS = {RENT: "rent", LATE_FEE: "late fee", ADMIN_FEE: "admin fee"}
+KIND_WORDS = {RENT: "rent", LATE_FEE: "late fee", ADMIN_FEE: "admin fee", PROTECTION: "protection plan charge"}
 
 
 @dataclass

@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 ZONE = ZoneInfo("America/New_York")
 RENT, LATE_FEE, ADMIN_FEE = "rent", "late_fee", "admin_fee"
+PROTECTION = "protection"           # the facility's protection plan charge (core/protection.py); not a fee, not in a lease's schedule
 FEE_KINDS = (LATE_FEE, ADMIN_FEE)
 LATE_FEE_CENTS, ADMIN_FEE_CENTS = 2000, 2500
 CUTOFF_DAY = 6          # the late fee is posted at 00:00 local on this day when rent due on the 1st is still unpaid
@@ -47,7 +48,7 @@ Line = tuple[str, int, "str | None"]
 
 
 def _income(kind: str) -> str:
-    return "income:rent" if kind == RENT else "income:fees"
+    return "income:rent" if kind == RENT else "income:protection" if kind == PROTECTION else "income:fees"
 
 
 def _moves(payload: dict) -> list[Line]:
@@ -220,6 +221,7 @@ class Books:
         self.collections = None                           # plans, promises, exemptions, payments in flight (core/delinquency.py)
         self.liens = None                                 # lien cases, their evidence, copies, approvals and stops (core/liens.py)
         self.floor = None                                 # what staff saw on walks, and work orders (core/walk.py); read, never written, by the checks
+        self.protection = None                            # plan versions, offers, acceptances, enrolments and policy evidence (core/protection.py)
         self.seq = 0
         self.last_at: datetime | None = None
         self.counters: dict[str, int] = {}
@@ -348,6 +350,11 @@ class Books:
                 from .walk import State          # walk reads the books through work and renting, so it cannot be imported at the top
                 self.floor = State()
             self.floor.apply(kind, at, p)
+        elif kind.split(".", 1)[0] == "protection":
+            if self.protection is None:
+                from .protection import State        # protection reads these books, so it cannot be imported at the top
+                self.protection = State()
+            self.protection.apply(kind, at, p)
         elif kind.split(".", 1)[0] in COLLECTION_RECORDS:
             from .delinquency import fold_event      # delinquency reads these books, so it cannot be imported at the top
             fold_event(self, kind, at, p)
@@ -357,7 +364,14 @@ class Books:
 
     # reads ------------------------------------------------------------------------------------------------------------
     def held(self, charge: str) -> bool:
-        return any(h.active and h.charge == charge for h in self.holds.values())
+        """An open dispute holds the charge, and so does a plan charge that no accepted plan covers (core/protection.py): staff correct it first."""
+        if any(h.active and h.charge == charge for h in self.holds.values()):
+            return True
+        c = self.charges.get(charge)
+        if c is not None and c.kind == PROTECTION and not c.closed:
+            from .protection import unsupported      # protection reads these books, so it cannot be imported at the top
+            return unsupported(self, charge) is not None
+        return False
 
     def tenant_charges(self, tenant: str) -> list[Charge]:
         return [self.charges[i] for i in self.of_tenant.get(tenant, ())]

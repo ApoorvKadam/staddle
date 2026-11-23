@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from . import delinquency as col
 from . import renting
 from . import liens
+from . import protection
 from . import walk
 from .gate import Command, evaluate
 from .billing import Ledger
@@ -37,7 +38,9 @@ FIRST = ["Ana", "Ben", "Carla", "Dev", "Elena", "Femi", "Grace", "Hugo", "Ines",
 LAST = ["Alvarez", "Brooks", "Chen", "Diaz", "Evans", "Foster", "Garcia", "Hayes", "Ito", "Jensen", "Khan", "Lopez", "Moreno", "Nguyen",
         "Ortiz", "Patel", "Quinn", "Rivera", "Singh", "Turner", "Usman", "Vargas", "Walsh", "Young", "Zimmer"]
 SCHEDULE = [ADMIN_FEE, LATE_FEE]
-STANDING_QUOTE = "My move-in special said no admin fee. Please take the $25 off."
+PLAN_TERMS = "Simulated protection plan: a monthly fee for the plan's own listed benefits. No insurance policy is issued."
+PLAN_TERMS_2 = "Simulated protection plan, new price: a monthly fee for the plan's own listed benefits. No insurance policy is issued."
+STANDING_QUOTE ="My move-in special said no admin fee. Please take the $25 off."
 WAIVER_RULE = ("We waive one late fee per tenant in any rolling 12 months, up to $25, when the tenant paid on time for each of the six "
                "completed billing months before the fee. It may be offered when the tenant raises the fee.")
 WAIVER_TYPED = {"action": "waive_fee", "fee_kind": LATE_FEE, "per_tenant": 1, "within_days": 365, "cap_cents": 2500,
@@ -76,10 +79,11 @@ def story_month(today: date) -> date:
 class Year:
     """Builds the year. `cast` maps a role name to its tenant, its leases and its unit."""
 
-    def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False):
+    def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True):
         # everything up to the cutoff happens: 09:00 on the fixed day; the live FMS passes midnight, so nothing is ahead of the clock
         self.today, self.now = today, cutoff or at_local(today, 9, 0)
         self.standing = standing                         # the live copy's open dispute from last week; never in the fixed books
+        self.protected = standing and protected          # the live copy's protection records; they carry no money, so the year's figures are the same without them
         self.plan_tenant: dict | None = None             # the live copy's tenant on a payment plan; kept out of the cast
         self.breached_tenant: dict | None = None         # the live copy's tenant whose plan breached; kept out of the cast
         self.walked: dict = {}                           # the live copy's walk: which unit carries which situation (never in a record)
@@ -149,11 +153,16 @@ class Year:
             col.adopt_policy(led, at_local(opened - timedelta(days=10), 9, 5), 1, PLAN_POLICY)
             col.adopt_schedule(led, at_local(opened - timedelta(days=10), 9, 5), 1, OVERLOCK_DAYS, LIEN_DAYS)
             self.price_units(at_local(opened - timedelta(days=10), 9, 10))
+        if self.protected:
+            protection.publish_version(led, protection.PRODUCT, 1200, PLAN_TERMS, opened - timedelta(days=10), "staff:office_manager",
+                                       at_local(opened - timedelta(days=10), 9, 15))
         for i in range(78):        # the first tenants move in over the first two weeks
             day = opened + timedelta(days=i % 14)
             habit = self.rnd.choices(["on_time", "sometimes_late", "chronic"], [62, 28, 10])[0]
             self.at(at_local(day, 9 + i % 9, (i * 7) % 60), lambda h=habit, d=day, k=i: self.move_in(at_local(d, 9 + k % 9, (k * 7) % 60), h))
         self.plant()
+        if self.protected:
+            self.stale_enrolment()
         if self.standing:
             self.standing_dispute()
         for month in months_between(opened, self.story):
@@ -185,6 +194,8 @@ class Year:
                     renting.record_baseline_access(adopted, rental, self.now)       # the code each tenant already holds on the simulated gate
             self.led.pending.extend(adopted.pending)
             self.walkthrough(rent)
+            if self.protected:
+                self.protection_records()
         return self
 
     def price_units(self, at: datetime) -> None:
@@ -582,5 +593,67 @@ class Year:
         do(start + timedelta(minutes=80), "finish_walk", about=wid)
 
 
-def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False) -> Year:
-    return Year(seed, today, cutoff, standing).build()
+    # protection plans and the tenant's own policy (the live copy only) ------------------------------------------------------------
+    def _protection(self, name: str, action: str, source: str, at: datetime, **kw) -> "protection.Decision":
+        """One protection command as staff would give it, decided by the gate and recorded with its decision."""
+        return protection.command(self.led, protection.Act(f"seed:protection:{name}", action, source, **kw), at)
+
+    def stale_enrolment(self) -> None:
+        """olga took the plan five months before the story month, with her explicit acceptance, and moved out on Sep 30 without it ever
+        being ended: the plan is still active on a lease that is over. No charge was ever posted under it."""
+        when = self.m(-5, 3, 11)
+
+        def go() -> None:
+            led, lease = self.led, self.lease("olga")
+            eid = protection.offer(led, lease, "staff:front_desk", when)
+            protection.accept(led, eid, led.books.leases[lease].tenant, "signed agreement", "Yes, please add the protection plan.", 1, 1200, when.date(),
+                              when + timedelta(minutes=20))
+            d = self._protection("enrol:olga", "enroll_plan", "staff:office_manager", when + timedelta(hours=1), about=eid)
+            assert d.allowed, d.check
+        self.at(when, go)
+
+    def protection_records(self) -> None:
+        """What the tenant's own policy and the plan look like on the day the live copy opens, written through the staff commands as synthetic
+        records. luis: his reviewed policy ended two weeks ago and his renewal came in two days ago, not reviewed. yara: a policy document
+        with the placeholder number TEMP. dev: a reviewed policy that ended last week, no renewal. tara: on the plan since she accepted it, no
+        charge posted yet, and a plan price change since then; billing proposed the new price for her and the gate refused it. No money moves."""
+        led, today, front, office = self.led, self.today, "staff:front_desk", "staff:office_manager"
+        at = lambda days, hour=10, minute=0: at_local(today - timedelta(days=days), hour, minute)
+        review = {"outcome": "accepted", "how": "Read the declarations page: carrier, number and dates match what was typed in.",
+                  "checked": ["carrier", "policy number", "dates"]}
+
+        def policy(role: str, name: str, when: datetime, **form) -> str:
+            d = self._protection(f"evidence:{name}", "record_policy_evidence", front, when, lease=self.lease(role), form={"document": "declarations page.pdf", **form})
+            assert d.allowed, d.check
+            return d.made
+
+        def reviewed(ev: str, name: str, when: datetime) -> None:
+            d = self._protection(f"review:{name}", "verify_policy", office, when, about=ev, form=review)
+            assert d.allowed, d.check
+        end = today - timedelta(days=14)                 # luis: the old policy ended, then the renewal arrived
+        began = led.books.leases[self.lease("luis")].start      # the policy dates are historical, but the document came and was read after he moved in
+        old = policy("luis", "luis-old", at_local(began + timedelta(days=2), 10), carrier="Sunrise Mutual", number="SM-5521077",
+                     effective=(end - timedelta(days=364)).isoformat(), expires=end.isoformat())
+        reviewed(old, "luis-old", at_local(began + timedelta(days=4), 10))
+        protection.expire_evidence(led, old, at_local(end + timedelta(days=1), 6))
+        policy("luis", "luis-renewal", at(2), carrier="Sunrise Mutual", number="SM-6630411", effective=(end + timedelta(days=1)).isoformat(),
+               expires=(end + timedelta(days=365)).isoformat(), renews=old)
+        policy("yara", "yara", at(1, 15), carrier="Harbor Mutual", number="TEMP", effective=(today - timedelta(days=30)).isoformat(),
+               expires=(today + timedelta(days=335)).isoformat())
+        end = today - timedelta(days=7)                  # dev: reviewed, then it ended and nothing replaced it
+        gone = policy("dev", "dev", at(200), carrier="Coastal Mutual", number="CM-7710422", effective=(end - timedelta(days=364)).isoformat(),
+                      expires=end.isoformat())
+        reviewed(gone, "dev", at(198))
+        protection.expire_evidence(led, gone, at_local(end + timedelta(days=1), 6))
+        lease = self.lease("tara")                       # tara: accepted at the first price, and the price changed after
+        eid = protection.offer(led, lease, front, at(12))
+        protection.accept(led, eid, led.books.leases[lease].tenant, "signed agreement", "Yes, add the protection plan for $12 a month.", 1, 1200,
+                          (today - timedelta(days=12)), at(12, 10, 20))
+        assert self._protection("enrol:tara", "enroll_plan", office, at(12, 11), about=eid).allowed
+        protection.publish_version(led, protection.PRODUCT, 1500, PLAN_TERMS_2, today - timedelta(days=8), office, at(8))
+        d = self._protection("charge:tara", "post_plan_charge", front, at(1, 8), lease=lease, period=f"{today.year:04d}-{today.month:02d}", cents=1500)
+        assert not d.allowed, "the new price was never accepted, so the gate must refuse it"
+
+
+def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True) -> Year:
+    return Year(seed, today, cutoff, standing, protected).build()

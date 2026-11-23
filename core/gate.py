@@ -13,7 +13,7 @@ from datetime import datetime
 
 from . import delinquency, liens
 from .billing import Ledger
-from .books import FEE_KINDS, LATE_FEE, RENT, Books, cutoff, fold, local
+from .books import FEE_KINDS, LATE_FEE, PROTECTION, RENT, Books, cutoff, fold, local
 from .store import Store
 
 ACTIONS = ("explain_charge", "reverse_duplicate", "correct_fee_posted_in_error", "open_dispute", "waive_fee", "hand_to_staff")
@@ -56,6 +56,7 @@ class Decision:
     repeated: bool = False
     charge: str | None = None       # the charge a tenant's ask named, for asks checked without acting
     made: str | None = None         # the record a renting command created (a reservation, rental, transfer...)
+    why: str | None = None          # the named reason of a refusal where the command has one (core/protection.py), beside the words in `check`
 
 
 def _month_of(charge) -> str | None:
@@ -232,6 +233,8 @@ def evaluate(books: Books, cmd: Command, now: datetime) -> Decision:
             return d(False, "a dispute on this charge is already open")
         if not staff and any(x.charge == ch.id and x.outcome is not None for x in books.disputes.values()):
             return d(False, "staff already decided a dispute on this charge; only staff reopen it, with new evidence")
+        if ch.kind == PROTECTION:       # the plan is the tenant's to accept: a dispute of its charge holds it until staff decide
+            return d(True, "dispute recorded and held: staff decide whether the plan charge stands", hold=True)
         hold = ch.kind in FEE_KINDS and ch.kind not in lease.schedule
         if not hold and delinquency.in_plan(books, ch.id):
             return d(True, "dispute recorded and held: the charge is in a payment plan, so its collection waits for staff", hold=True)

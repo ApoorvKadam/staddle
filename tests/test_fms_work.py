@@ -38,7 +38,7 @@ def test_a_fresh_copy_lists_the_years_work_in_four_views_and_the_money_figures_d
     with sign_in(site(fms_url)) as c:
         page = c.get("/today").text
         text = seen(page)
-        assert "Work for staff" in text and "Facility-wide 17" in text and "My work 16" in text and "Waiting 0" in text and "Done today 0" in text
+        assert "Work for staff" in text and "Facility-wide 22" in text and "My work 16" in text and "Waiting 0" in text and "Done today 0" in text
         assert "Rhea Mills Payment plan breached since Oct 26" in text and text.count("Overlock due") == 12
         assert "Each item stays here until the record it is about shows the work done" in text
         assert "What closes it: Staff reinstate or end the plan." in text and "What closes it: The overlock is recorded on the unit." in text
@@ -149,5 +149,5 @@ def test_visiting_today_again_makes_no_second_item(fms_url, sim):
         fd.sweep()
         c.get("/today")
         opened = [e.payload["key"] for e in fd.ready().stream_events(fd.stream(ident)) if e.kind == "work.opened"]
-        assert len(opened) == len(set(opened)) == 17
+        assert len(opened) == len(set(opened)) == 22            # the year's 17 and the five protection items the seed plants, all for the front desk
         assert NOW.date() == fd.today()

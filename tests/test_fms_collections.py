@@ -162,7 +162,10 @@ def test_the_rules_page_shows_the_owners_plan_settings_and_adopts_a_new_version(
 def test_no_record_id_or_test_wording_on_the_collections_pages(fms_url, sim):
     with sign_in(site(fms_url)) as c:
         for url in ("/today", "/billing", "/rules", record_of(c, "Rhea Mills"), record_of(c, "Iris Nolan"), record_of(c, "Tom Becker")):
-            text = seen(c.get(url).text)
+            page = c.get(url).text
+            if url == "/rules":      # the protection plan is labelled simulated on purpose: its published terms say so
+                page = re.sub(r'(?s)<section class="panel" id="protection-plan".*?</section>', "", page)
+            text = seen(page)
             assert not re.search(r"\b(?:PL|PR|EX|PI|TK|L|T|C)\d{4}\b", text), url
             assert not re.search(r"simulat|sim_pay|test mode", text, re.I), url
 
