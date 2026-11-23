@@ -1516,7 +1516,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                          "words": plain(reading.quotes.get(name))} for name, value in reading.fields.items()} if reading else {}
         work = [{"kind": walk_reading.WORK[w["kind"]], "words": plain(w["words"])} for w in reading.work] if reading else []
         return {"recorded": result["recorded"], "reason": plain(result.get("reason")), "fields": fields, "unit": reading.unit if reading else None,
-                "work": work}
+                "work": work, "request": bool(reading and "staff_request" in reading.flags)}
 
     @app.post("/api/fms/rules")
     def propose_rule(body: RuleIn, request: Request, ident: str = Depends(need)):

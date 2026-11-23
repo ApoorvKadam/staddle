@@ -41,7 +41,12 @@ def test_a_reading_that_cites_both_orders_is_kept_and_the_prompt_holds_no_record
     (lambda c: same_answer(both(c), summary="The second report was joined into the first one."), "the answer says something was done, and nothing has been"),
     (lambda c: same_answer(both(c), summary="Both reports describe the spring on unit B200."), "the answer names what the reports do not show (B200)"),
     (lambda c: same_answer(both(c), summary="The spring that could not lift the door was repaired."), "the answer says something was done, and nothing has been"),
+    (lambda c: same_answer(both(c), summary="The reports agree, and the spring was replaced."), "the answer says something was done, and nothing has been"),
+    (lambda c: same_answer(both(c), summary="The second report says it was replaced, and the spring was repaired."), "the answer says something was done, and nothing has been"),
+    (lambda c: same_answer(both(c), summary="The spring was repaired as the second report says."), "the answer says something was done, and nothing has been"),
+    (lambda c: same_answer(both(c), summary="The orders were merged since the first report mentions it."), "the answer says something was done, and nothing has been"),
     (lambda c: same_answer(both(c), verdict="probably"), "the answer gave no verdict from the list"),
+    (lambda c: same_answer(both(c), summary="The second report says the seal was replaced: the orders were merged."), "the answer says something was done, and nothing has been"),
 ])
 def test_a_reading_code_cannot_check_is_dropped_with_the_reason(answer, why):
     first, second = two()
@@ -62,3 +67,17 @@ def test_different_and_unsure_are_kept_as_readings_too():
         res = walk_reading.same_fault(StandIn(lambda c: same_answer(both(c), verdict=verdict, summary="The words alone do not show one part.")),
                                       "claude-haiku-5-5", "low", first, second, "r1")
         assert res.reading["verdict"] == verdict
+
+
+def test_a_bare_attributed_claim_passes_with_or_without_a_colon():
+    first, second = two()
+    for summary in ("The second report says the seal was replaced.", "The second report says: the seal was replaced."):
+        res = walk_reading.same_fault(StandIn(lambda c: same_answer(both(c), verdict="unsure", summary=summary)), "claude-haiku-5-5", "low", first, second, "r1")
+        assert res.dropped is None and res.reading["summary"] == summary
+
+
+def test_a_claim_a_report_makes_may_be_quoted_as_its_claim():
+    first, second = two()
+    summary = "The second report says maintenance replaced the spring already, so the words alone do not settle whether this is a new failure."
+    res = walk_reading.same_fault(StandIn(lambda c: same_answer(both(c), verdict="unsure", summary=summary)), "claude-haiku-5-5", "low", first, second, "r1")
+    assert res.dropped is None and res.reading["verdict"] == "unsure"

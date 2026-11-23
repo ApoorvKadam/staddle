@@ -141,6 +141,7 @@
           var labels = {lock: "Lock", whose: "Whose lock", tag: "Overlock tag", door: "Door", contents: "Belongings inside"};
           Object.keys(labels).forEach(function (key) { var field = p.fields[key]; if (field) line(result, labels[key] + ": " + field.value + (field.words ? " (“" + field.words + "”)" : "")); });
         }
+        if (p.request) line(result, "The note also asks for something to be done, such as a fee or marking the unit ready. Nothing here does that; it is left out.");
         if (p.work && p.work.length) {
           // work the note names: each is a proposal; staff open it as a work order on the unit, or leave it
           line(result, "Work the note names. Untick what you do not agree with, then open the rest as work orders:");
