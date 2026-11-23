@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
-from core import auction, delinquency, reconcile, renting, walk_reading, work
+from core import auction, delinquency, protection, reconcile, renting, walk_reading, work
 from core import walk as walks          # not `walk`: read_walk_note takes a walk by that name
 from core.books import ZONE, at_local, local
 from core.billing import Ledger, Refused
@@ -64,7 +64,7 @@ def account_words(account: str, books) -> str:
         return "Held for the tenant as credit"
     if kind == "surplus":
         return "Owed to the tenant from a sale, not credit"
-    return {"income:rent": "Rent income", "income:fees": "Fee income", "contra:waivers": "Waivers given",
+    return {"income:rent": "Rent income", "income:fees": "Fee income", "income:protection": "Protection plan income", "contra:waivers": "Waivers given",
             "clearing:card": "Card payments on the way", "clearing:auction": "Auction money on the way"}.get(account, account)
 
 
@@ -329,7 +329,8 @@ class FrontDesk:
         up on whatever fell due while nothing ran. Every record is keyed, so a pass with nothing new writes nothing. Returns the
         copies it swept. Each copy then gets the renting pass: a rental waiting on its payment moves with the answer, holds that ran
         out are written down, each gate code is carried forward on the stand-in gate, and each code is checked against its rental (a
-        task for one that never read back or that an ended rental still has)."""
+        task for one that never read back or that an ended rental still has). Then a policy past its expiry date is marked expired and the
+        work queue is checked against all of it."""
         with self.lock:
             store = self.ready()
             self._finish_cleanups()
@@ -354,7 +355,7 @@ class FrontDesk:
                 # renting reads what the pass above settled: a rental waiting on its payment moves with the answer, holds that ran out
                 # are written down and each gate code is carried forward, then each code is checked against its rental. Each step is
                 # tried alone, so a fault stops neither the steps after it, the collections pass, nor another copy.
-                for step in (renting.settle_payments, lambda st, c, n: renting.advance(st, c, self.access, n), renting.check_codes, work.sweep):
+                for step in (renting.settle_payments, lambda st, c, n: renting.advance(st, c, self.access, n), renting.check_codes, protection.sweep, work.sweep):
                     try:
                         step(store, s, now)
                     except Exception:
@@ -802,6 +803,18 @@ class FrontDesk:
             else:
                 self._keep(self._step_notes, visitor, d.check)
         return d.allowed
+
+    def staff_protection(self, visitor: str, act: protection.Act, settings: bool = False) -> bool:
+        """A staff protection step on this copy, through the gate: whether it was done. A refusal is kept to be shown once, on the tenant's
+        page or, for a plan version, on Settings."""
+        with self.lock:
+            d = protection.run(self.ready(), self.stream(visitor), act, self.clock())
+            notes = self._notes if settings else self._step_notes
+            if d.allowed:
+                notes.pop(visitor, None)
+            else:
+                self._keep(notes, visitor, d.check)
+            return d.allowed
 
     def pay_rental(self, visitor: str, rental: str, card: str):
         """A renter's card payment for a rental in checkout, through the processor; a rental it starts gets its code at once."""

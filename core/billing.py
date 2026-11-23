@@ -73,6 +73,10 @@ class Ledger:
                     raise Refused(f"the rule names a {key[:-1].replace('_', ' ')} the system does not know")
             if not (any(typed.get(k) for k in allowed) or typed.get("several_units") is True):
                 raise Refused("a staff rule needs at least one condition")
+        elif typed.get("action") == "enroll_after_missing_proof":
+            # moves a tenant onto the protection plan after the tenant's own policy proof is missing; only after a notice on record has run its days
+            if not isinstance(typed.get("notice_days"), int) or not 7 <= typed["notice_days"] <= 90:
+                raise Refused("the rule's notice_days is outside the platform's bounds")
         else:
             raise Refused("not a kind of rule the platform knows")
         payload = {"rule": rule, "version": version, "sentence": sentence, "typed": typed, "by": by}
@@ -115,13 +119,14 @@ class Ledger:
 
     # charges ----------------------------------------------------------------------------------------------------------
     def _charge(self, at: datetime, lease: str, kind: str, cents: int, obligation: str | None, due: date, source: str = "billing",
-                key: str | None = None, note: str | None = None) -> str:
+                key: str | None = None, note: str | None = None, credit: bool = True) -> str:
         c = self.books.next_id("C")
         payload = {"charge": c, "lease": lease, "kind": kind, "cents": cents, "obligation": obligation, "due": due.isoformat(), "source": source}
         if note:
             payload["note"] = note
         self.emit("charge.posted", at, payload, key or (obligation if source == "billing" and obligation else f"charge:{c}"), source=source)
-        self.apply_credit(at, self.books.leases[lease].tenant)
+        if credit:          # a caller that records the charge's authority first passes credit=False and applies the credit itself
+            self.apply_credit(at, self.books.leases[lease].tenant)
         return c
 
     def post_rent(self, month: str) -> list[str]:
@@ -147,9 +152,9 @@ class Ledger:
         return out
 
     def charge_by_hand(self, at: datetime, lease: str, kind: str, cents: int, obligation: str | None, due: date | None = None,
-                       note: str | None = None, role: str = "front_desk") -> str:
+                       note: str | None = None, role: str = "front_desk", credit: bool = True) -> str:
         """A charge a staff member posts by hand. It must name what it bills to ever be corrected automatically; it may not."""
-        return self._charge(at, lease, kind, cents, obligation, due or local(at).date(), source=f"staff:{role}", note=note)
+        return self._charge(at, lease, kind, cents, obligation, due or local(at).date(), source=f"staff:{role}", note=note, credit=credit)
 
     # payments ---------------------------------------------------------------------------------------------------------
     def _spread(self, tenant: str, cents: int) -> tuple[list[dict], int]:

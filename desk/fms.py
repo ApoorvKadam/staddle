@@ -22,9 +22,9 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from core import delinquency as col
-from core import reconcile, renting, liens as lien_core, auction, work, walk, walk_reading
+from core import protection, reconcile, renting, liens as lien_core, auction, work, walk, walk_reading
 from core.case import OFF
-from core.books import ADMIN_FEE_CENTS, LATE_FEE_CENTS, RENT, REVIEW_DAYS, at_local, lines, local, month_key
+from core.books import ADMIN_FEE_CENTS, LATE_FEE_CENTS, PROTECTION, RENT, REVIEW_DAYS, at_local, lines, local, month_key
 from core.billing import Refused
 from core.evidence import KIND_WORDS, clock, day, money, month_words
 from core.gate import ACTIONS, RENT_SCOPE, STAFF_ACTIONS, STAFF_RULE, WORK_SCOPE, Command, execute
@@ -151,9 +151,28 @@ WORK_STATES = {"open": ("Open", "plain"), "assigned": ("Assigned", "plain"), "in
                "waiting for evidence": ("Waiting for evidence", "wait"), "blocked": ("Blocked by a hold", "wait"),
                "reopened": ("Reopened: the problem came back", "act"), "done": ("Done", "done"), "cancelled": ("Cancelled", "plain")}
 WORK_ANCHORS = {"collections": "collections", "overlock": "overlocks", "reservation": "rentals", "rental": "rentals", "refund": "rentals",
-                "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance"}       # where Home's links land: the first item of each kind
+                "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance",
+                "protection": "protection"}       # where Home's links land: the first item of each kind
 WORK_FORMS = {"acknowledge": "acknowledge_work", "start": "start_work", "assign": "assign_work", "note": "note_work", "finish": "finish_work"}
 SCOPE_WORDS = {"overlock": "overlock", "lien": "lien eligibility"}
+# the tenant's own policy and the facility's plan on the tenant's page: each state in words with its chip colour
+POLICY_WORDS = {"reported": ("The tenant's words only, no document", "wait"), "received": ("Document received, not reviewed", "wait"),
+                "needs review": ("Needs review", "act"), "reviewed": ("Reviewed by staff", "done"), "rejected": ("Rejected", "plain"),
+                "expired": ("Expired", "act")}
+PLAN_STATE_WORDS = {"offered": ("Offered, waiting for the tenant's yes", "wait"), "accepted": ("Accepted, not active yet", "wait"),
+                    "active": ("Active", "done"), "ended": ("Ended", "plain")}
+PROTECTION_FORMS = ("record_policy", "review_policy", "offer_plan", "record_acceptance", "enroll_plan", "end_plan")
+# protection's staff commands as the Today list words them; an attempt the gate refused reads "Asked to ..."
+PROTECTION_WORDS = {"record_policy_evidence": ("Recorded a policy", "Asked to record a policy"),
+                    "verify_policy": ("Reviewed a policy document", "Asked to review a policy document"),
+                    "offer_plan": ("Offered the protection plan", "Asked to offer the protection plan"),
+                    "record_acceptance": ("Recorded the tenant's acceptance of the plan", "Asked to record the tenant's acceptance of the plan"),
+                    "enroll_plan": ("Enrolled in the protection plan", "Asked to enrol in the protection plan"),
+                    "end_plan": ("Ended a protection plan", "Asked to end a protection plan"),
+                    "publish_plan": ("Published a protection plan version", "Asked to publish a protection plan version"),
+                    "post_plan_charge": ("Posted a protection plan charge", "Asked to post a protection plan charge"),
+                    "collect_charge": ("Approved collecting a protection plan charge", "Asked to collect a protection plan charge"),
+                    "approve_statement": ("Approved a statement", "Asked to approve a statement")}
 STEP_FORMS = ("overlock", "lift_overlock", "review_plan", "grant_exemption", "revoke_exemption", "take_payment")
 UNIT_FORMS = ("price_unit", "reserve", "block_unit", "unblock_unit")       # what staff do to a unit on the Units page
 PAYMENT_WORDS = {"open": ("Waiting for the card processor", "wait"), "pending": ("Waiting for the card processor", "wait"), "succeeded": ("Paid", "done"),
@@ -175,6 +194,11 @@ SCHEDULE_FORM = (("overlock_days", "Overlock", "days"), ("lien_days", "Lien elig
 
 def upfirst(text: str) -> str:
     return text[:1].upper() + text[1:]
+
+
+def staff_name(source: str) -> str:
+    """A recorded source as a person reads it: staff:office_manager is the Office manager."""
+    return upfirst(source.removeprefix("staff:").replace("_", " "))
 
 
 def bounded(data: dict, fields, bounds: dict) -> tuple[dict | None, str]:
@@ -362,6 +386,17 @@ class Facility:
                 pass
         return plain(text)
 
+    def protection_sentence(self, p: dict) -> str:
+        """What a staff protection step did, or was refused, as one sentence naming the tenant when the lease, plan, policy or charge it was about
+        belongs to one."""
+        st, b = protection.state(self.b), self.b
+        about = p.get("about") or ""
+        record = st.enrolments.get(about) or st.evidence.get(about) or b.charges.get(about)
+        lease = b.leases.get(p.get("lease") or "") or b.leases.get(getattr(record, "lease", None) or "")
+        who = self.people.get(lease.tenant) if lease else None
+        text = PROTECTION_WORDS[p["action"]][0 if p["allowed"] else 1]
+        return plain(text + (f" for {who['name']}" if who else ""))
+
     def decisions(self) -> list[dict]:
         out = []
         for e in self.own:
@@ -370,6 +405,10 @@ class Facility:
                 if p["action"] in RENT_SCOPE:       # a renting step: no fee, no note, and often no tenant (pricing a unit); what was done is said from what was recorded
                     out.append({"who": self.people.get(p.get("tenant") or ""), "words": RENT_WORDS[p["action"]][0 if p["allowed"] else 1], "allowed": p["allowed"],
                                 "removed": False, "check": p["check"], "reason": None, "fee": "", "renting": True, "text": self.rent_sentence(p)})
+                    continue
+                if p["action"] in PROTECTION_WORDS:     # a protection step: said as one sentence, with the tenant it is about when the records name one
+                    out.append({"who": None, "words": "", "allowed": p["allowed"], "removed": False, "check": plain(p["check"]), "reason": None, "fee": "", "renting": True,
+                                "text": self.protection_sentence(p)})
                     continue
                 ch = self.b.charges.get(p.get("charge") or "")
                 out.append({"who": self.people.get(p.get("tenant") or ""), "words": STAFF_WORDS.get(p["action"], p["action"]), "allowed": p["allowed"],
@@ -548,7 +587,8 @@ class Facility:
                          "unit": i.unit if i.source != "collections" else None, "state": f"{text} to {who(i.assignee)}" if i.state == "assigned" else text,
                          "tone": tone, "why": plain(i.why), "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
                          "seen": who(i.acknowledged[0]) if i.acknowledged else None,
-                         "notes": [(clock(at), who(by), t) for at, by, t in i.notes], "section": "collections" if i.source in ("collections", "overlock") else "renting",
+                         "notes": [(clock(at), who(by), t) for at, by, t in i.notes],
+                         "section": {"collections": "collections", "overlock": "collections", "protection": "protection"}.get(i.source, "renting"),
                          "lift": i.kind == "lift overlock"})
             seen.add(anchor)
         return rows, {k: len(v) for k, v in views.items()}
@@ -682,6 +722,78 @@ class Facility:
                           "auction_words": auction.words(a) if a else None, "sale": sale, "surplus": surplus})
         return files
 
+    # protection -------------------------------------------------------------------------------------------------------------
+    def protection_of(self, tenant: str) -> dict:
+        """The tenant's own policies and the facility's plan as the records stand, each state in words: what was recorded, who reviewed it and
+        how, each enrolment with its acceptance and covered months, the plan's charges with any hold on them, and what staff may do next."""
+        b, st, year = self.b, protection.state(self.b), self.today.year
+        mine = {x.id: x for x in self.leases_of.get(tenant, [])}
+        full = lambda d: f"{day(d)}, {d.year}"
+        policies = []
+        for e in reversed([e for e in st.evidence.values() if e.lease in mine]):
+            words, tone = POLICY_WORDS[e.status]
+            review = e.review and {"outcome": "Reviewed" if e.review["outcome"] == "reviewed" else "Rejected", "by": staff_name(e.review["by"]), "when": clock(e.review["at"]),
+                                   "how": plain(e.review["how"]), "checked": ", ".join(e.review["checked"]), "note": plain(e.review["note"]),
+                                   "confirmation": e.review["confirmation"]}
+            policies.append({"id": e.id, "unit": e.unit, "carrier": e.carrier or "Not given", "number": e.number or "Not given",
+                             "dates": ("From " + full(e.effective) + (" to " + full(e.expires) if e.expires else ", no end date on it")) if e.effective else
+                                      ("Ends " + full(e.expires)) if e.expires else "No dates given",
+                             "document": plain(e.document) if e.document else "None", "statement": plain(e.statement), "words": words, "tone": tone,
+                             "flags": [protection.FLAG_WORDS[f] for f in e.flags], "review": review, "reviewable": e.status in protection.OPEN_STATES})
+        plans = []
+        for e in reversed([e for e in st.enrolments.values() if e.lease in mine]):
+            words, tone = PLAN_STATE_WORDS[e.state]
+            a = st.acceptances.get(e.acceptance or "")
+            ended = e.ended and {"on": full(e.ended["on"]), "reason": upfirst(e.ended["reason"]), "by": staff_name(e.ended["by"]),
+                                 "unused": f"{e.ended['unused_days']} unused days ({money(e.ended['unused_cents'])}) are on record" if e.ended["unused_days"] else ""}
+            plans.append({"id": e.id, "unit": e.unit, "version": e.version, "cents": e.cents, "price": money(e.cents), "words": words, "tone": tone, "state": e.state,
+                          "offered": f"Offered {dated(local(e.offered_at).date(), year)} by {staff_name(e.offered_by)}",
+                          "acceptance": a and {"who": self.people[a.tenant]["name"], "how": a.how, "words": plain(a.words), "starts": full(a.starts),
+                                               "at": clock(a.at)},
+                          "periods": [f"{month_words(m)} {m[:4]}" for m in e.periods(self.today)], "ended": ended,
+                          "basis": "Moved onto the plan under the owner's rule" if e.basis == "owner rule" else "", "simulated": protection.SIMULATED,
+                          "left": mine[e.lease].ended and full(mine[e.lease].ended),
+                          "stop_on": (mine[e.lease].ended + timedelta(days=1) if mine[e.lease].ended else self.today).isoformat()})
+        charges = []
+        for c in sorted((c for c in b.tenant_charges(tenant) if c.kind == PROTECTION), key=lambda c: c.due, reverse=True):
+            period = (c.obligation or "").rsplit(":", 1)[-1]
+            held = b.held(c.id)
+            why = "A dispute holds it until staff decide" if any(h.active and h.charge == c.id for h in b.holds.values()) else upfirst(protection.unsupported(b, c.id) or "")
+            charges.append({"month": f"{month_words(period)} {period[:4]}" if re.fullmatch(r"\d{4}-\d{2}", period) else day(c.due), "unit": b.leases[c.lease].unit,
+                            "amount": money(c.cents), "state": ("Removed" if c.closed == "reversed" else "Waived") if c.closed else "Paid" if not c.open_cents else "Owed",
+                            "held": held, "why": plain(why)})
+        try:
+            current = protection.version_in_force(b, protection.PRODUCT, self.today)
+        except Refused:
+            current = None
+        active = [x for x in mine.values() if x.ended is None]
+        offers = []
+        for x in active:
+            mine_plans = [e for e in st.enrolments.values() if e.lease == x.id]
+            running = next((e for e in mine_plans if e.state == "active"), None)
+            if current and not any(e.state in ("offered", "accepted") for e in mine_plans) and (running is None or running.version < current.version):
+                offers.append({"lease": x.id, "unit": x.unit, "version": current.version, "price": money(current.cents),
+                               "replaces": running.id if running else "", "old": running.version if running else None})
+        return {"show": bool(active or policies or plans or charges), "policies": policies, "plans": plans, "charges": charges, "leases": [{"id": x.id, "unit": x.unit} for x in active],
+                "offers": offers, "checks": [(f"check_{c.replace(' ', '_')}", c) for c in protection.REVIEW_CHECKS], "accept_hows": protection.ACCEPT_HOWS,
+                "end_reasons": protection.END_REASONS, "today": self.today.isoformat()}
+
+    def protection_word(self, lease: str) -> str:
+        """What protection a lease has, read from the records and never guessed: the plan if one is active, else where the tenant's own
+        policy stands (the newest record that was not rejected; a reviewed one past its end date reads expired before the daily check marks it)."""
+        st = protection.state(self.b)
+        plans = [e for e in st.enrolments.values() if e.lease == lease and e.state in ("active", "ended") and e.starts is not None]
+        if any(e.starts <= self.today and (e.ended is None or e.ended["on"] > self.today) for e in plans):
+            return "Plan active"
+        if coming := min((e.starts for e in plans if e.ended is None and e.starts > self.today), default=None):
+            return f"Plan starts {day(coming)}"          # active in the records, but coverage has not begun: this column says what the lease has now
+        e = protection.standing(st, lease)
+        if e is None:
+            return "None"
+        if e.status == "expired" or (e.status == "reviewed" and e.expires is not None and e.expires < self.today):
+            return "Own policy expired"
+        return "Own policy reviewed" if e.status == "reviewed" else "Own policy needs review"
+
     def standing(self, tenant: str) -> dict:
         """For the past-due list: the plan's state and the first unit whose overlock is not clear, with why."""
         plans = [p for p in col.state(self.b).plans.values() if p.tenant == tenant and p.terms]
@@ -757,7 +869,18 @@ class Facility:
                 "staff_rule_words": staff_words(staff_rule["typed"]) if staff_rule else [],
                 "late_fee": money(LATE_FEE_CENTS), "admin_fee": money(ADMIN_FEE_CENTS), "review_days": REVIEW_DAYS,
                 "actions": [(MAY_DO[a], a in ("reverse_duplicate", "correct_fee_posted_in_error", "waive_fee")) for a in ACTIONS],
-                "staff": [STAFF_DO[a] for a in STAFF_ACTIONS], **self.settings()}
+                "staff": [STAFF_DO[a] for a in STAFF_ACTIONS], "plan_versions": self.plan_versions(), **self.settings()}
+
+    def plan_versions(self) -> list[dict]:
+        """Every version of the protection plan, newest first: the price, the terms and the day it took or takes effect. The one in force is the
+        newest whose day has come; an older one is replaced, and a later one waits for its day."""
+        versions = protection.state(self.b).versions.get(protection.PRODUCT, [])
+        try:
+            current = protection.version_in_force(self.b, protection.PRODUCT, self.today).version
+        except Refused:
+            current = None
+        return [{"version": v.version, "price": money(v.cents), "terms": plain(v.terms), "effective": f"{day(v.effective)}, {v.effective.year}",
+                 "by": staff_name(v.by), "now": v.version == current, "waiting": v.effective > self.today} for v in reversed(versions)]
 
     def settings(self) -> dict:
         """The owner's plan policy and schedule, each as its form fields with the value in force and the fixed limits as bounds."""
@@ -1094,7 +1217,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         return show(request, "fms_tenant.html", "tenants", f, p=p, rentals=f.rentals(p["id"]), ledger=f.ledger(p["id"]), vacant=vacant,
                     cases=[c for c in f.cases() if c["who"] and c["who"]["id"] == p["id"]],
                     disputes=[d for d in f.disputes() if d["who"]["id"] == p["id"]], col=f.collections(p["id"]),
-                    renting=f.renting_of(p["id"]), lien_files=f.lien_files(p["id"]), manager=STAFF == lien_core.APPROVER, lien_kind_words=lien_core.KIND_WORDS, stop_words=lien_core.STOP_WORDS, surplus_words={"created": "The tenant has not yet been notified.", "held": "The tenant has been notified; the surplus is held.", "payout_requested": "Simulated payout requested.", "paid": "Simulated payout completed."}, token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)),
+                    renting=f.renting_of(p["id"]), prot=f.protection_of(p["id"]), lien_files=f.lien_files(p["id"]), manager=STAFF == lien_core.APPROVER, lien_kind_words=lien_core.KIND_WORDS, stop_words=lien_core.STOP_WORDS, surplus_words={"created": "The tenant has not yet been notified.", "held": "The tenant has been notified; the surplus is held.", "payout_requested": "Simulated payout requested.", "paid": "Simulated payout completed."}, token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)),
                     note_at=request.query_params.get("at", ""))
 
     @app.post("/tenants/{key}/renting", include_in_schema=False)
@@ -1127,6 +1250,48 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             about = transfer.id if transfer else ""
         await run_in_threadpool(fd.staff_rent, ident, renting.Act(f"form:{token}:{action}:{rental.id}", action, STAFF, about, args=args))
         return RedirectResponse(f"/tenants/{key}?at=renting#renting", status_code=303)
+
+    @app.post("/tenants/{key}/protection", include_in_schema=False)
+    async def tenant_protection(request: Request, key: str):
+        """A staff protection step on one tenant's page, through the one protection gate on this session's copy. The tenant comes from the
+        address and every lease, policy or plan named must be theirs. The page's token makes a second press return the first decision, and a
+        refusal is said once at the section."""
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        action, token = data.get("action", ""), data.get("token", "")
+        if action not in PROTECTION_FORMS or not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
+        f = Facility(fd, ident)
+        person = f.by_slug.get(key)
+        if person is None:
+            raise HTTPException(404, "no such tenant")
+        st = protection.state(f.b)
+        lease, plan, policy = (data.get(k, "")[:20] for k in ("lease", "plan", "policy"))
+        owned = {x.id for x in f.leases_of.get(person["id"], [])}
+        if (lease and lease not in owned) or (plan and getattr(st.enrolments.get(plan), "lease", None) not in owned) or \
+                (policy and getattr(st.evidence.get(policy), "lease", None) not in owned):
+            raise HTTPException(404, "No such record for this tenant.")
+        text = lambda k, n=300: " ".join(data.get(k, "").split())[:n]
+        number = lambda k: int(data[k]) if data.get(k, "").isdecimal() else None
+        if action == "record_policy":
+            act = protection.Act(f"form:{token}:{action}:{lease}", "record_policy_evidence", STAFF, lease=lease, text=text("statement"),
+                                 form={k: text(k, 120) for k in ("carrier", "number", "effective", "expires", "document")})
+        elif action == "review_policy":
+            checked = [c for c in protection.REVIEW_CHECKS if data.get("check_" + c.replace(" ", "_"))]
+            act = protection.Act(f"form:{token}:{action}:{policy}", "verify_policy", STAFF, about=policy, text=text("note"),
+                                 form={"outcome": text("outcome", 12), "how": text("how"), "checked": checked})
+        elif action == "offer_plan":
+            act = protection.Act(f"form:{token}:{action}:{lease}", "offer_plan", STAFF, lease=lease, form={"replaces": plan or None})
+        elif action == "record_acceptance":
+            act = protection.Act(f"form:{token}:{action}:{plan}", "record_acceptance", STAFF, about=plan, version=number("version"), cents=number("cents"),
+                                 form={"how": text("how", 40), "words": text("words"), "starts": text("starts", 10)})
+        elif action == "enroll_plan":
+            act = protection.Act(f"form:{token}:{action}:{plan}", "enroll_plan", STAFF, about=plan)
+        else:
+            act = protection.Act(f"form:{token}:{action}:{plan}", "end_plan", STAFF, about=plan, form={"on": text("on", 10), "reason": text("reason", 40)})
+        await run_in_threadpool(fd.staff_protection, ident, act)
+        return RedirectResponse(f"/tenants/{key}?at=protection#protection", status_code=303)
 
     @app.get("/billing", include_in_schema=False)
     def billing(request: Request, month: str = ""):
@@ -1170,9 +1335,9 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 lease = f.b.leases.get(r.lease or "") if r else None
                 cells = (f.people[tenant]["name"], x["unit"], x["where"][0], money(lease.rent_cents) if lease else "-",
                          money(f.b.receivable(lease.id)) if lease else "-", x["agreement"][0] if x["agreement"] else "-",
-                         x["gate"][0] if x["gate"] else "-")
+                         x["gate"][0] if x["gate"] else "-", f.protection_word(lease.id) if lease else "-")
                 rows.append({"cells": cells, "slug": f.people[tenant]["slug"]})
-        return show(request, "fms_list.html", "rentals", f, title="Rentals", heads=("Tenant", "Unit", "Where it stands", "Monthly rent", "Balance", "Agreement", "Gate code"), rows=rows,
+        return show(request, "fms_list.html", "rentals", f, title="Rentals", heads=("Tenant", "Unit", "Where it stands", "Monthly rent", "Balance", "Agreement", "Gate code", "Protection"), rows=rows,
                     filters=filters, selected=status, lede="Rentals and reservations, with their agreement and gate code records.",
                     empty="No rentals match this view.")
 
@@ -1266,7 +1431,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
     def rules(request: Request, stale: int = 0):
         ident = need(request)
         f = Facility(fd, ident)
-        return show(request, "fms_rules.html", "rules", f, stale=bool(stale), note=plain(fd.take_note(ident)), **f.rules())
+        return show(request, "fms_rules.html", "rules", f, stale=bool(stale), note=plain(fd.take_note(ident)), token=secrets.token_hex(6), today_iso=f.today.isoformat(),
+                    **f.rules())
 
     # writes ------------------------------------------------------------------------------------------------------------
     @app.post("/api/fms/messages")
@@ -1518,6 +1684,21 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         values, why = bounded(await form(request), POLICY_FORM, col.POLICY_BOUNDS)
         done = await run_in_threadpool(fd.owner_setting, ident, "policy", values, why)
         return RedirectResponse("/rules#plan-policy" if done else "/rules#in-force", status_code=303)     # a refusal is said above the panels
+
+    @app.post("/rules/protection-plan", include_in_schema=False)
+    async def protection_plan(request: Request):
+        """Staff publish the next version of the protection plan on this session's copy, through the protection gate. The old versions stay as
+        they were; a price or terms the gate refuses change nothing, and Settings says why once above the panels."""
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        token = data.get("token", "")
+        if not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
+        act = protection.Act(f"form:{token}:publish_plan", "publish_plan", STAFF,
+                             form={"cents": dollars(data.get("price", "")), "terms": " ".join(data.get("terms", "").split())[:600], "effective": data.get("effective", "")[:10]})
+        done = await run_in_threadpool(fd.staff_protection, ident, act, True)
+        return RedirectResponse("/rules#protection-plan" if done else "/rules#in-force", status_code=303)
 
     @app.post("/rules/schedule", include_in_schema=False)
     async def schedule(request: Request):

@@ -72,10 +72,117 @@
 </section>
 {% endif %}
 
+{% if prot.show or note_at == 'protection' %}
+<section class="fms-section" id="protection" aria-labelledby="h-protection">
+  <h2 id="h-protection">Protection</h2>
+  {% if step_note and note_at == 'protection' %}<p class="fms-status" role="status">Nothing changed. {{ step_note }}</p>{% endif %}
+
+  <h3>The tenant's own policy</h3>
+  {% if prot.policies %}
+  <div class="fms-scroll" tabindex="0" role="region" aria-label="The tenant's own policies"><table class="fms-table">
+    <thead><tr><th>Unit</th><th>Carrier</th><th>Policy number</th><th>Dates</th><th>Document</th><th>Where it stands</th></tr></thead>
+    <tbody>{% for x in prot.policies %}<tr>
+      <td>{{ x.unit }}</td><td>{{ x.carrier }}</td><td>{{ x.number }}</td><td class="why">{{ x.dates }}</td><td>{{ x.document }}</td>
+      <td class="fms-state"><span class="chip {{ x.tone }}">{{ x.words }}</span>
+        {% for flag in x.flags %}<span class="fms-why">{{ flag }}</span>{% endfor %}
+        {% if x.statement %}<span class="fms-why">The tenant said: <q>{{ x.statement }}</q></span>{% endif %}
+        {% if x.review %}<span class="fms-why">{{ x.review.outcome }} by {{ x.review.by }}, {{ x.review.when }}. {{ x.review.how }}{{ '' if x.review.how.endswith('.') else '.' }}{% if x.review.checked %} Checked: {{ x.review.checked }}.{% endif %}{% if x.review.note %} {{ x.review.note }}{{ '' if x.review.note.endswith('.') else '.' }}{% endif %}</span>
+        <span class="fms-why">{{ x.review.confirmation }}.</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% for x in prot.policies if x.reviewable %}
+  <article class="fms-card">
+    <h3>Review this policy, unit {{ x.unit }}</h3>
+    <form method="post" action="/tenants/{{ p.slug }}/protection" class="fms-exempt">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="review_policy"><input type="hidden" name="policy" value="{{ x.id }}">
+      <label for="rv-how-{{ loop.index }}">How you checked the document</label>
+      <input id="rv-how-{{ loop.index }}" name="how" required minlength="10" maxlength="300" placeholder="For example: read the declarations page against what was typed in">
+      <span class="fms-checks">{% for name, label in prot.checks %}<label><input type="checkbox" name="{{ name }}" value="1"> {{ label|upfirst }} matches</label>{% endfor %}</span>
+      <select name="outcome" aria-label="Outcome"><option value="accepted">Accept it</option><option value="rejected">Reject it</option></select>
+      <input name="note" aria-label="Note" maxlength="300" placeholder="Note (needed to reject it)">
+      <button class="button primary" type="submit">Record the review</button>
+    </form>
+  </article>{% endfor %}
+  {% else %}<p class="muted">No policy of the tenant's own is on file.</p>{% endif %}
+  {% if prot.leases %}
+  <details class="fms-change"><summary>Record a policy</summary>
+    <form method="post" action="/tenants/{{ p.slug }}/protection" class="fms-exempt">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="record_policy">
+      {% if prot.leases|length == 1 %}<input type="hidden" name="lease" value="{{ prot.leases[0].id }}">{% else %}<label>Unit <select name="lease">{% for l in prot.leases %}<option value="{{ l.id }}">Unit {{ l.unit }}</option>{% endfor %}</select></label>{% endif %}
+      <label>Carrier <input name="carrier" maxlength="120"></label>
+      <label>Policy number <input name="number" maxlength="120"></label>
+      <label>Starts <input type="date" name="effective"></label>
+      <label>Ends <input type="date" name="expires"></label>
+      <label>What came with it, if anything <input name="document" maxlength="120" placeholder="For example: declarations page.pdf"></label>
+      <label>What the tenant said <input name="statement" maxlength="300"></label>
+      <button class="button" type="submit">Record the policy</button>
+    </form>
+  </details>{% endif %}
+
+  <h3>The facility's protection plan</h3>
+  {% if prot.plans %}
+  <div class="fms-scroll" tabindex="0" role="region" aria-label="The facility's protection plan"><table class="fms-table">
+    <thead><tr><th>Unit</th><th>Version</th><th class="num">Monthly price</th><th>Where it stands</th><th>Months it covers</th><th>The tenant's acceptance</th></tr></thead>
+    <tbody>{% for x in prot.plans %}<tr>
+      <td>{{ x.unit }}</td><td>Version {{ x.version }}</td><td class="num">{{ x.price }} a month</td>
+      <td class="fms-state"><span class="chip {{ x.tone }}">{{ x.words }}</span><span class="fms-why">{{ x.offered }}.</span><span class="fms-why">{{ x.simulated }}.</span>
+        {% if x.basis %}<span class="fms-why">{{ x.basis }}.</span>{% endif %}
+        {% if x.ended %}<span class="fms-why">Stops covering from {{ x.ended.on }}. Reason: {{ x.ended.reason }}, by {{ x.ended.by }}.{% if x.ended.unused %} {{ x.ended.unused }}.{% endif %}</span>{% endif %}</td>
+      <td class="why{% if not x.periods %} muted{% endif %}">{% if x.periods %}{{ x.periods|join(', ') }}{% else %}&ndash;{% endif %}</td>
+      <td class="why{% if not x.acceptance %} muted{% endif %}">{% if x.acceptance %}{{ x.acceptance.who }}, {{ x.acceptance.how }}, {{ x.acceptance.at }}<span class="fms-why"><q>{{ x.acceptance.words }}</q></span><span class="fms-why">Covers from {{ x.acceptance.starts }}.</span>{% else %}&ndash;{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% for x in prot.plans %}{% if x.state != 'ended' %}
+  <article class="fms-card">
+    <h3>Unit {{ x.unit }}, version {{ x.version }}</h3>
+    {% if x.state == 'offered' %}
+    <form method="post" action="/tenants/{{ p.slug }}/protection" class="fms-exempt">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="record_acceptance"><input type="hidden" name="plan" value="{{ x.id }}">
+      <input type="hidden" name="version" value="{{ x.version }}"><input type="hidden" name="cents" value="{{ x.cents }}">
+      <label for="ac-words-{{ loop.index }}">The tenant's own words</label>
+      <input id="ac-words-{{ loop.index }}" name="words" required minlength="3" maxlength="300" placeholder="For example: Yes, please add the protection plan">
+      <select name="how" aria-label="How the tenant said yes">{% for h in prot.accept_hows %}<option value="{{ h }}">{{ h|upfirst }}</option>{% endfor %}</select>
+      <label>Covers from <input type="date" name="starts" required value="{{ prot.today }}"></label>
+      <button class="button primary" type="submit">Record the tenant's acceptance</button>
+    </form>
+    <p class="muted">Only the tenant's own yes counts: a signed agreement, a message from the tenant or their online form. An offer or a staff tick is not acceptance.</p>
+    {% elif x.state == 'accepted' %}
+    <form method="post" action="/tenants/{{ p.slug }}/protection" class="fms-decide">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="enroll_plan"><input type="hidden" name="plan" value="{{ x.id }}">
+      <button class="button primary" type="submit">Make the plan active</button>
+    </form>
+    {% else %}
+    <form method="post" action="/tenants/{{ p.slug }}/protection" class="fms-exempt">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="end_plan"><input type="hidden" name="plan" value="{{ x.id }}">
+      {% if x.left %}<p class="muted">The lease on unit {{ x.unit }} ended {{ x.left }}, so the plan stops covering the day after.</p>{% endif %}
+      <label>Stops covering from <input type="date" name="on" required value="{{ x.stop_on }}"></label>
+      <select name="reason" aria-label="Reason">{% for r in prot.end_reasons %}<option value="{{ r }}">{{ r|upfirst }}</option>{% endfor %}</select>
+      <button class="button" type="submit">End the plan</button>
+    </form>
+    {% endif %}
+  </article>{% endif %}{% endfor %}
+  {% else %}<p class="muted">The tenant is not on the plan and none is offered.</p>{% endif %}
+  {% for o in prot.offers %}
+  <form method="post" action="/tenants/{{ p.slug }}/protection" class="fms-decide">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="offer_plan"><input type="hidden" name="lease" value="{{ o.lease }}">{% if o.replaces %}<input type="hidden" name="plan" value="{{ o.replaces }}">{% endif %}
+    <button class="button" type="submit">Offer version {{ o.version }} at {{ o.price }} a month for unit {{ o.unit }}{% if o.replaces %}, in place of version {{ o.old }}{% endif %}</button>
+  </form>{% endfor %}
+
+  {% if prot.charges %}
+  <h3>Plan charges</h3>
+  <div class="fms-scroll" tabindex="0" role="region" aria-label="Protection plan charges"><table class="fms-table">
+    <thead><tr><th>Month</th><th>Unit</th><th class="num">Amount</th><th>Where it stands</th><th>Hold</th></tr></thead>
+    <tbody>{% for c in prot.charges %}<tr><td>{{ c.month }}</td><td>{{ c.unit }}</td><td class="num">{{ c.amount }}</td><td>{{ c.state }}</td>
+      <td class="{{ 'fms-state' if c.held else 'muted' }}">{% if c.held %}<span class="chip act">Held</span>{% if c.why %}<span class="fms-why">{{ c.why }}.</span>{% endif %}{% else %}No hold{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if col.show %}{% set plan = col.plan %}
 <section class="fms-section" id="collections" aria-labelledby="h-collections">
   <h2 id="h-collections">Collections</h2>
-  {% if step_note and note_at not in ('renting', 'lien') %}<p class="fms-status" role="status">Nothing changed. {{ step_note }}</p>{% endif %}
+  {% if step_note and note_at not in ('renting', 'lien', 'protection') %}<p class="fms-status" role="status">Nothing changed. {{ step_note }}</p>{% endif %}
   {% if plan %}
   <article class="fms-card">
     <p class="fms-card-head"><b>Payment plan</b> <span class="chip {{ plan.tone }}">{{ plan.words }}</span> <span class="muted">{{ plan.total }} in all, under plan policy version {{ plan.policy }}</span></p>

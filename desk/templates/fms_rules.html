@@ -86,6 +86,28 @@
       </form>
     </details>
   </section>
+  <section class="panel" id="protection-plan" aria-labelledby="h-plan">
+    <h2 id="h-plan">Protection plan</h2>
+    {% if plan_versions %}
+    <ol class="fms-versions">
+      {% for v in plan_versions %}
+      <li>
+        <p class="fms-card-head"><b>Plan version {{ v.version }}</b>{% if v.now %}<span class="chip done">In force</span>{% elif v.waiting %}<span class="chip wait">Waiting for its day</span>{% endif %}<span class="muted">{{ v.price }} a month. Takes effect {{ v.effective }}. Published by {{ v.by }}.</span></p>
+        <p>{{ v.terms }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="muted">No version of the plan is published, so none can be offered.</p>{% endif %}
+    <details class="fms-change"><summary>Publish a new version</summary>
+      <form method="post" action="/rules/protection-plan" class="fms-settings">
+        <input type="hidden" name="token" value="{{ token }}">
+        <label for="pl-price">Monthly price</label><input id="pl-price" name="price" required inputmode="decimal" pattern="[0-9]{1,7}(\.[0-9]{1,2})?" placeholder="12.00"><span class="muted">dollars</span>
+        <label for="pl-terms">Terms</label><textarea id="pl-terms" name="terms" required rows="3" maxlength="600"></textarea><span></span>
+        <label for="pl-day">Takes effect</label><input id="pl-day" name="effective" type="date" required value="{{ today_iso }}"><span></span>
+        <button class="button primary" type="submit">Publish the new version</button>
+      </form>
+    </details>
+  </section>
   {% if waiver %}
   <section class="panel" aria-labelledby="h-owner">
     <h2 id="h-owner">The owner's waiver rule{% if waiver.version > 1 %} <span class="chip done">Version {{ waiver.version }}</span>{% endif %}</h2>

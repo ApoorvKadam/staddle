@@ -9,20 +9,21 @@ An item closes only when its completion check reads true on the record it is abo
 code is read back). Acknowledging is not finishing. Where no record can show the work (a call made, a promise judged), staff finish
 the item by saying what they checked, and the item says it was staff attested. If the problem comes back the same item reopens.
 
-Sources: collections, overlock, reservation, rental, refund, access, turnover, and walk (what staff saw on the floor against the records).
+Sources: collections, overlock, reservation, rental, refund, access, turnover, walk (what staff saw on the floor against the records), maintenance,
+and protection (policy evidence to review or lapsing, a plan charge nothing covers, a disputed plan charge, a plan still active after move-out).
 
 Events (all in the copy's own stream): work.opened, work.closed, work.reopened, work.changed, work.cleared written by `sweep`, and work.assigned, work.acknowledged,
 work.started, work.noted, work.attested written by a staff command through the gate (`run`). The books and renting ignore them."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from . import delinquency as col
-from . import reconcile, renting
+from . import protection, reconcile, renting
 from .billing import Ledger
-from .books import Books, local
-from .evidence import clock, day
+from .books import PROTECTION, Books, local
+from .evidence import clock, day, money
 from .gate import STAFF_ROLES, WHO, WORK_SCOPE, Decision
 from .store import Store
 
@@ -61,6 +62,7 @@ class Cond:
     blocked: bool = False           # a hold stops the work until it is settled
     attest: bool = False            # staff may finish it by saying what they checked
     closed_by: str = "The record no longer shows it."
+    stale_through: str | None = None    # a staff word said on or before this day (ISO) does not hold the item: the condition became a new problem that day
 
 
 def _dated(d: date, year: int) -> str:
@@ -239,10 +241,69 @@ def _maintenance(rent: renting.Rent) -> list[Cond]:
     return out
 
 
+def _protection(b: Books, today: date) -> list[Cond]:
+    """Policy evidence staff have not reviewed, a reviewed policy ending or ended with no renewal reviewed, a plan charge no accepted plan covers
+    (the books hold it, so collecting it is refused), a plan charge under a dispute, and a plan still active after its lease ended. Each is read
+    off the protection records and closes when they show the work done."""
+    st, out = protection.state(b), []
+
+    def about(lease: str) -> dict:
+        x = b.leases[lease]
+        return {"unit": x.unit, "tenant": x.tenant, "lease": x.id}
+    for e in st.evidence.values():
+        if e.status not in protection.OPEN_STATES or (e.document is None and protection.document_arrived(st, e)):
+            continue            # a statement's request closes when the document uploaded against it passes review
+        who, due = b.tenants[e.tenant].name, local(e.recorded_at).date() + timedelta(days=protection.REVIEW_DUE_DAYS)
+        if e.document is None:
+            what, why = "Policy document needed", (f'{who} said on {day(e.recorded_at)}: "{e.statement}" No document is on file for unit {e.unit}, so there is '
+                                                   "nothing to review yet; ask for the policy document.")
+            closes = "The document arrives and staff review it, or staff reject the statement."
+        else:
+            flags = "".join(f" {protection.FLAG_WORDS[f]}" for f in e.flags)
+            what ="Policy number looks like a placeholder" if "placeholder number" in e.flags else "Policy to review"
+            why = (f"{who} gave a policy document for unit {e.unit} on {day(e.recorded_at)}: {e.carrier}, policy number {e.number}"
+                   f"{', ends ' + day(e.expires) if e.expires else ''}. Staff have not reviewed it.{flags}")
+            closes = "Staff review the document and record the result."
+        out.append(Cond(f"protection:review:{e.id}", "protection", e.id, "policy to review", what, why, closes, FRONT, due, "act", **about(e.lease),
+                        closed_by="Staff reviewed the document and recorded the result."))
+    for lease in dict.fromkeys(e.lease for e in st.evidence.values()):
+        e = protection.last_reviewed(st, lease)
+        if e is None or e.expires is None or b.leases[lease].ended is not None:
+            continue
+        lapsed = e.status == "expired" or e.expires < today
+        if lapsed or e.expires <= today + timedelta(days=protection.EXPIRY_WINDOW_DAYS):
+            out.append(Cond(f"protection:expiring:{e.id}", "protection", e.id, "policy expiring", "Policy expired" if lapsed else "Policy expires soon",
+                            f"{b.tenants[e.tenant].name}'s own policy ({e.carrier}, number {e.number}) {'ended' if lapsed else 'ends'} {day(e.expires)}. Until a "
+                            "renewal is reviewed, there is no reviewed policy on file for unit " + e.unit + ".",
+                            "A renewal is reviewed, or staff say they asked the tenant.", FRONT, e.expires, "act", **about(lease), attest=True,
+                            closed_by="A renewal was reviewed.",
+                            stale_through=e.expires.isoformat() if lapsed else None))     # "we asked for a renewal" was about the policy running, not the lapse
+    for c in b.charges.values():
+        if c.kind == PROTECTION and (why := protection.unsupported(b, c.id)):
+            out.append(Cond(f"protection:charge:{c.id}", "protection", c.id, "plan charge without plan", "Plan charge with no plan behind it",
+                            f"The {money(c.cents)} protection plan charge due {day(c.due)} on unit {b.leases[c.lease].unit} has nothing behind it: {why}. "
+                            "Collecting it is held until staff correct it.", "The charge is corrected, or an accepted plan covers it.", OFFICE, c.due, "act",
+                            **about(c.lease), blocked=True, closed_by="The charge was corrected or an accepted plan now covers it."))
+    for d in b.disputes.values():
+        c = b.charges[d.charge]
+        if d.outcome is None and c.kind == PROTECTION:
+            out.append(Cond(f"protection:dispute:{d.id}", "protection", d.id, "plan charge disputed", "Plan charge disputed",
+                            f'{b.tenants[d.tenant].name} disputes the {money(c.cents)} protection plan charge: "{d.quote}" The charge is held until staff decide.',
+                            "Staff decide the dispute.", OFFICE, d.review_by, "act", **about(c.lease), blocked=True, closed_by="Staff decided the dispute."))
+    for e in st.enrolments.values():
+        x = b.leases[e.lease]
+        if e.state == "active" and x.ended is not None:
+            out.append(Cond(f"protection:ended-lease:{e.id}", "protection", e.id, "plan active after move-out", "Plan still active after move-out",
+                            f"The lease on unit {x.unit} ended {day(x.ended)}, but the protection plan {e.id} is still active, so charges could run on.",
+                            "Staff end the plan at the move-out date.", FRONT, x.ended, "act", **about(e.lease), closed_by="The plan was ended."))
+    return out
+
+
 def conditions(b: Books, rent: renting.Rent, now: datetime) -> dict[str, Cond]:
     """Everything staff have to do right now, by key, read off the books and the renting records."""
     today = local(now).date()
-    return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)}
+    return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)
+            + _protection(b, today)}
 
 
 # the folded record -----------------------------------------------------------------------------------------------------------
@@ -351,6 +412,10 @@ def _closing(b: Books, rent: renting.Rent, snap: dict) -> tuple[str, str]:
         r = rent.rentals.get(snap["ref"])
         return ("done", "The code was read back from the access system.") if r and r.state in ("active", "ending") else (
             "cancelled", "The rental ended; the unit is listed for the old code to be revoked instead.")
+    if key.startswith("protection:review:"):
+        e = protection.state(b).evidence.get(snap["ref"])
+        if e is not None and e.status == "expired" and e.review is None:      # the daily check expired a document nobody read: no review happened
+            return "cancelled", "The policy ended before staff reviewed it, so it is recorded as expired."
     if key.startswith("collections:"):
         t = next((t for t in col.state(b).tasks.values() if t.id == snap["ref"]), None)
         if t and t.acknowledged and (t.ref.split(":")[0] not in CHECKED or t.ref.split(":")[0] in ATTESTED):
@@ -368,7 +433,8 @@ def _live(b: Books, rent: renting.Rent, wk: State, now: datetime) -> tuple[dict[
     conds, said = conditions(b, rent, now), {}
     for key, c in list(conds.items()):
         rec = wk.items.get(key)
-        if c.attest and rec and rec.attested:               # said done for this condition: it stays done while the books still show it
+        if c.attest and rec and rec.attested and not (c.stale_through and local(rec.attested["at"]).date().isoformat() <= c.stale_through):
+            # said done for this condition: it stays done while the books still show it
             said[key] = conds.pop(key).__dict__
     return conds, said
 
