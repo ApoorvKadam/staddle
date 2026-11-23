@@ -222,7 +222,7 @@ def says_done(text: str, pattern: re.Pattern = _DONE) -> bool:
     be in the action's own clause: "the lock was not removed" is fine, "staff removed the lock, and no payment is due" is not."""
     for s in re.split(r"(?<=[.!?;])\s+", text):
         for m in pattern.finditer(s):
-            start = max(s.rfind(",", 0, m.start()), s.rfind(" and ", 0, m.start()), s.rfind(" but ", 0, m.start()))
+            start = max(s.rfind(",", 0, m.start()), s.rfind(":", 0, m.start()), s.rfind(" and ", 0, m.start()), s.rfind(" but ", 0, m.start()))
             if not _UNDONE.search(s[start + 1 if start >= 0 else 0:m.end()]):
                 return True
     return False
