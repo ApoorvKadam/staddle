@@ -33,10 +33,10 @@ def change(**over):
     return pl.PriceChange(**{**base, **over})
 
 
-def notice(led, **over):
+def notice(led, at=NOW, **over):
     args = {"new_cents": 10500, "effective_on": date(2026, 12, 23), "change": "PC1", "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": ADDRESS,
             "attempted_on": TODAY, "dispatch_accepted": True, "certificate_of_mailing": True, "postage_prepaid": True, "by": "staff:front_desk"}
-    return pl.record_notice(led, NOW, **{**args, **over})
+    return pl.record_notice(led, at, **{**args, **over})
 
 
 def check(led, point="activation", at=at_local(date(2026, 12, 24), 10), **over):
@@ -81,7 +81,10 @@ def test_a_florida_increase_follows_the_notice_the_agreement_states(hypothetical
     notice(led)
     res = check(led)
     assert res.outcome == "allow" and res.versions["FL-notice"] == 1
-    short = check(led, at=at_local(date(2026, 12, 22), 10))
+    short_ledger = northstar()
+    terms(short_ledger)
+    notice(short_ledger, at=at_local(date(2026, 11, 24), 10), attempted_on=date(2026, 11, 24))
+    short = check(short_ledger, at=at_local(date(2026, 12, 23), 10))
     assert [r.code for r in short.reasons] == ["NOTICE_PERIOD_TOO_SHORT"]
 
 
