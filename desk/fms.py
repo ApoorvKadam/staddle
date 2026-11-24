@@ -463,12 +463,12 @@ class Facility:
             rows.append({"who": self.people[p.tenant], "amount": money(p.cents), "on": day(p.effective_at), "returned": p.returned,
                          "learned": day(p.known_at) if local(p.known_at).date() != local(p.effective_at).date() else None,
                          "to": " and ".join(kinds) + (" and credit" if p.credit_cents else "") if kinds else ("credit" if p.credit_cents else "")})
-        # the month's charges add up: every cent billed is paid, removed (reversed or waived) or still open
+        # the month's charges add up: every cent billed is paid, removed (reversed, waived or conceded by a deal) or still open
         return {"key": key, "name": f"{month_words(key)} {key[:4]}",
                 "rent": sum(c.cents for c in charges if c.kind == RENT),
                 "fees": sum(c.cents for c in charges if c.kind != RENT),
                 "paid": sum(c.paid for c in charges),
-                "removed": sum(c.cents - c.paid for c in charges if c.closed),
+                "removed": sum(c.cents - c.paid if c.closed else c.conceded for c in charges),
                 "collected": sum(p.cents for p in pays if not p.returned),
                 "returned": sum(1 for p in pays if p.returned),
                 "declined": [{"who": self.people[x["tenant"]], "on": day(x["at"]), "amount": money(x["cents"])} for x in declined],
