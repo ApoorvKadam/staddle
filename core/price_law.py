@@ -194,6 +194,7 @@ class Commitment:
     disclosed_on: date
     evidence_sha256: str
     at: datetime
+    first_page: bool = False
 
 
 @dataclass(frozen=True)
@@ -340,7 +341,7 @@ class State:
                 p["price_promise_max_cents"], p["rent_change_allowed"], at))
         elif kind == "price_law.commitment_recorded":
             self.commitments.setdefault(p["lease"], []).append(Commitment(
-                p["id"], p["lease"], p["kind"], p["max_cents"], day("covers_from"), day("covers_to"), day("disclosed_on"), p["evidence_sha256"], at))
+                p["id"], p["lease"], p["kind"], p["max_cents"], day("covers_from"), day("covers_to"), day("disclosed_on"), p["evidence_sha256"], at, p.get("first_page", False)))
             return "PLC", p["id"]
         elif kind == "price_law.emergency_declared":
             self.emergencies[p["id"]] = Restriction(p["id"], p["place"], p["name"], p["source"], day("starts"), day("ends"),
@@ -441,7 +442,9 @@ def record_terms(led: Ledger, at: datetime, *, lease: str, signed_on, agreement_
 
 
 def record_commitment(led: Ledger, at: datetime, *, lease: str, kind: str, max_cents: int, covers_from, covers_to, disclosed_on,
-                      evidence_sha256: str) -> str:
+                      evidence_sha256: str, first_page: bool = False) -> str:
+    if not isinstance(first_page, bool):
+        raise Refused("first-page evidence must be a boolean")
     if kind not in COMMITMENT_KINDS or not isinstance(max_cents, int) or isinstance(max_cents, bool) or max_cents <= 0:
         raise Refused("a disclosed maximum is first-year or anniversary and a positive amount")
     start, end, told = _date(covers_from, "start date"), _date(covers_to, "end date"), _date(disclosed_on, "disclosure date")
@@ -450,7 +453,7 @@ def record_commitment(led: Ledger, at: datetime, *, lease: str, kind: str, max_c
     sha = _sha(evidence_sha256, "disclosure")
     ident = led.books.next_id("PLC")
     led.emit("price_law.commitment_recorded", at, {"id": ident, "lease": lease, "kind": kind, "max_cents": max_cents, "covers_from": start.isoformat(),
-                                                   "covers_to": end.isoformat(), "disclosed_on": told.isoformat(), "evidence_sha256": sha}, f"price_law:{ident}")
+                                                   "covers_to": end.isoformat(), "disclosed_on": told.isoformat(), "evidence_sha256": sha, "first_page": first_page}, f"price_law:{ident}")
     return ident
 
 
@@ -844,9 +847,9 @@ def _disclosed(run: _Run, terms: Terms) -> None:
     run.records.extend(f"commitment:{m.id}" for m in covering)
     for rs in (r for r in run.sets if r.topic == "disclosure"):
         name = PLACE_NAMES.get(rs.place, rs.place)
-        if rs.first_year_max and terms.signed_on >= rs.effective_from and in_first and not any(m.kind == "first_year" for m in covering):
+        if rs.first_year_max and terms.signed_on >= rs.effective_from and in_first and not any(m.kind == "first_year" and (not rs.first_page or m.first_page) for m in covering):
             run.refuse("DISCLOSURE_MISSING_OR_INVALID", f"The agreement was signed {day_words(terms.signed_on)}, after {rs.citation} began, so it had to state a "
-                                                        "first-year maximum and none is on file.", rs)
+                                                        "first-year maximum" + (" on the first page" if rs.first_page else "") + " and none is on file.", rs)
         if rs.annual_max_notice_days and c.effective_on > first_end:
             years = c.effective_on.year - terms.signed_on.year
             anniversary = _add_months(terms.signed_on, years * 12)
@@ -1171,7 +1174,7 @@ def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | Non
         elif act.action == "record_commitment":
             made = record_commitment(led, now, lease=f.get("lease", ""), kind=f.get("kind"), max_cents=f.get("max_cents"),
                                      covers_from=_when(f.get("covers_from"), "start date"), covers_to=_when(f.get("covers_to"), "end date"),
-                                     disclosed_on=_when(f.get("disclosed_on"), "disclosure date"), evidence_sha256=f.get("evidence_sha256"))
+                                     disclosed_on=_when(f.get("disclosed_on"), "disclosure date"), evidence_sha256=f.get("evidence_sha256"), first_page=f.get("first_page", False))
             check = "Disclosed maximum recorded."
         elif act.action == "record_notice":
             made = record_notice(led, now, change=f.get("change", ""), lease=f.get("lease", ""), document_sha256=f.get("document_sha256"),

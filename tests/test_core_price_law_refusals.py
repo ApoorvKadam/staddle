@@ -107,7 +107,7 @@ def test_california_counts_email_only_when_the_agreement_authorizes_it():
 
 def commit(led, **over):
     args = {"lease": "L0001", "kind": "first_year", "max_cents": 12000, "covers_from": date(2026, 3, 2), "covers_to": date(2027, 3, 1),
-            "disclosed_on": date(2026, 3, 2), "evidence_sha256": SHA}
+            "disclosed_on": date(2026, 3, 2), "evidence_sha256": SHA, "first_page": True}
     return pl.record_commitment(led, NOW, **{**args, **over})
 
 
@@ -212,6 +212,14 @@ def test_a_first_year_maximum_must_have_been_disclosed_on_a_new_california_agree
     notice(led)
     commit(led, max_cents=10500)
     assert verdict(led, change(), CA)[:2] == ("allow", [])
+
+
+def test_california_requires_first_page_evidence_for_first_year_maximum():
+    led = book(CA)
+    terms(led)
+    notice(led)
+    commit(led, first_page=False)
+    assert "DISCLOSURE_MISSING_OR_INVALID" in verdict(led, change(), CA)[1]
 
 
 def test_an_agreement_signed_before_the_california_disclosure_rule_began_needs_no_first_year_maximum():

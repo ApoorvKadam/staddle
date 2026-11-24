@@ -85,7 +85,7 @@ def test_california_walks_an_increase_to_a_posted_invoice_and_stops_at_its_discl
     d = Desk("Synthetic California facility", "Sacramento, CA", pl.SYNTHETIC_PROFILES["CA"])
     assert d.checked("CA").allowed and d.terms().allowed
     assert d.go("record_commitment", lease="L0001", kind="first_year", max_cents=11000, covers_from="2026-03-02", covers_to="2027-03-01",
-                disclosed_on="2026-03-02", evidence_sha256=SHA).allowed
+                disclosed_on="2026-03-02", evidence_sha256=SHA, first_page=True).allowed
     walk = d.walk()
     assert all(allowed(walk).values()), {k: v.check for k, v in walk.items() if not v.allowed}
     books = d.books()
@@ -111,7 +111,7 @@ def test_new_york_city_walks_an_increase_with_sixty_days_and_refuses_thirty():
     d = Desk("Synthetic New York City facility", "New York, NY", pl.SYNTHETIC_PROFILES["NYC"])
     assert d.checked("NYC").allowed and d.terms(designated_method="first_class_mail").allowed
     assert d.go("record_commitment", lease="L0001", kind="first_year", max_cents=11000, covers_from="2026-03-02", covers_to="2027-03-01",
-                disclosed_on="2026-03-02", evidence_sha256=SHA).allowed
+                disclosed_on="2026-03-02", evidence_sha256=SHA, first_page=True).allowed
     walk = d.walk(effective=date(2027, 1, 22))
     assert all(allowed(walk).values()), {k: v.check for k, v in walk.items() if not v.allowed}
     short = d.change("check_price_change", "proposal", NOW, about="PC2", effective_on="2026-12-23")
