@@ -97,7 +97,7 @@ RULE_SETS: tuple[RuleSet, ...] = (
             notice_days=60, methods=("hand", "first_class_mail", "email"), designated_method=True),
     RuleSet("NYC-disclosure", 1, "NYC", "disclosure", "New York City disclosed maximum occupancy fee",
             "New York City Administrative Code 20-566.4 and the city's rules under it", LONG_IN_FORCE, None, "demonstration", _PENDING, None,
-            "advisor research, 2026-11-23", first_year_max=True, annual_max_notice_days=60, recurring_fee=True),
+            "advisor research, 2026-11-23", first_year_max=True, first_page=True, annual_max_notice_days=60, recurring_fee=True),
     RuleSet("FL-notice", 1, "FL", "notice", "Florida ordinary rent increase: the signed agreement's own terms",
             "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "pending", _DESIGN_REVIEW, None,
             "advisor research, 2026-11-23: no statewide statutory notice duration established", agreement_specific=True, email_needs_agreement=True),

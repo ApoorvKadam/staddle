@@ -486,3 +486,15 @@ def test_exception_for_one_declaration_does_not_clear_another():
     outcome, codes, result = verdict(led, c, CA, 'publication', NOW)
     assert outcome == 'hold' and 'PRICE_BASELINE_UNPROVEN' in codes
     assert any(r.code == 'EMERGENCY_EXCEPTION_RECORDED' for r in result.reasons)
+
+
+def test_nyc_first_year_maximum_requires_first_page_evidence():
+    led = book(NYC)
+    terms(led, signed_on=date(2026, 11, 2), designated_method="first_class_mail")
+    commit(led, covers_from=date(2026, 11, 2), covers_to=date(2027, 11, 1), disclosed_on=date(2026, 11, 2), first_page=False)
+    notice(led, effective_on=date(2027, 1, 22))
+    at = at_local(date(2027, 1, 22), 10)
+    assert "DISCLOSURE_MISSING_OR_INVALID" in verdict(led, change(effective_on=date(2027, 1, 22)), NYC, at=at)[1]
+    commit(led, covers_from=date(2026, 11, 2), covers_to=date(2027, 11, 1), disclosed_on=date(2026, 11, 2), first_page=True)
+    assert verdict(led, change(effective_on=date(2027, 1, 22)), NYC, at=at)[:2] == ("allow", [])
+    assert "DISCLOSURE_MISSING_OR_INVALID" in verdict(led, street(first_page=False), NYC, "quote_acceptance", NOW)[1]
