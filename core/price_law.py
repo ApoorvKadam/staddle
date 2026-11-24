@@ -849,8 +849,14 @@ def _disclosed(run: _Run, terms: Terms) -> None:
             run.refuse("DISCLOSURE_MISSING_OR_INVALID", f"The agreement was signed {day_words(terms.signed_on)}, after {rs.citation} began, so it had to state a "
                                                         "first-year maximum and none is on file.", rs)
         if rs.annual_max_notice_days and c.effective_on > first_end:
-            yearly = [m for m in covering if m.kind == "anniversary"]
-            timely = [m for m in yearly if m.disclosed_on <= m.covers_from - timedelta(days=rs.annual_max_notice_days)]
+            years = c.effective_on.year - terms.signed_on.year
+            anniversary = _add_months(terms.signed_on, years * 12)
+            if anniversary > c.effective_on:
+                years -= 1
+                anniversary = _add_months(terms.signed_on, years * 12)
+            period_end = _add_months(terms.signed_on, (years + 1) * 12) - timedelta(days=1)
+            yearly = [m for m in covering if m.kind == "anniversary" and m.covers_from <= anniversary and m.covers_to >= period_end]
+            timely = [m for m in yearly if m.disclosed_on <= anniversary - timedelta(days=rs.annual_max_notice_days)]
             untimely = {m.id for m in yearly} - {m.id for m in timely}
             if not yearly:
                 run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
@@ -858,7 +864,7 @@ def _disclosed(run: _Run, terms: Terms) -> None:
             elif not timely:
                 last = max(yearly, key=lambda m: m.id)
                 run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
-                                                        f"the notice for the year starting {day_words(last.covers_from)} was given {day_words(last.disclosed_on)}.", rs)
+                                                        f"the notice for the year starting {day_words(anniversary)} was given {day_words(last.disclosed_on)}.", rs)
     for kind, words in (("first_year", "first-year"), ("anniversary", "yearly")):
         binding = [m for m in covering if m.kind == kind and m.id not in untimely]
         if binding:
