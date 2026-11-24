@@ -144,16 +144,16 @@ def test_a_posted_invoice_keeps_the_rule_snapshot_it_was_decided_on(monkeypatch)
     assert first.allowed
     with d.store.write():
         led = Ledger(d.books())
-        pl.post_invoice(led, at_local(date(2026, 12, 23), 10), decision=first.made)
+        pl.post_invoice(led, at_local(date(2026, 12, 23), 10), decision=first.made, profile=d.profile)
         d.store.append(STREAM, led.pending)
     basis = pl.posted_basis(d.books(), "L0001:2026-12")
-    assert basis.id == first.made and basis.versions["UT-notice"] == 1 and basis.outcome == "allow"
+    assert basis.id != first.made and basis.versions["UT-notice"] == 1 and basis.outcome == "allow"
     recorded = len(d.books().price_law.decisions)
     updated = tuple(replace(rs, version=2, notice_days=45) if rs.id == "UT-notice" else rs for rs in pl.RULE_SETS)
     monkeypatch.setattr(pl, "RULE_SETS", updated)
     on = at_local(date(2026, 12, 23), 10)
     again = d.change("check_price_change", "invoice", on, invoice="L0001:2026-12")
-    assert again.allowed and again.made == first.made
+    assert again.allowed and again.made == basis.id
     assert len(d.books().price_law.decisions) == recorded
     assert pl.posted_basis(d.books(), "L0001:2026-12").versions["UT-notice"] == 1
     fresh = d.change("check_price_change", "invoice", at_local(date(2027, 1, 23), 10), about="PC5", invoice="L0001:2027-01", effective_on="2027-01-23")
@@ -264,7 +264,7 @@ def test_posted_basis_is_not_reused_for_different_changes_or_bad_invoices():
     first = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12')
     with d.store.write():
         led = Ledger(d.books())
-        pl.post_invoice(led, on, decision=first.made)
+        pl.post_invoice(led, on, decision=first.made, profile=d.profile)
         d.store.append(STREAM, led.pending)
     for args in ({'about': 'PC2'}, {'new_cents': 12000}, {'lease': 'L0002'}):
         result = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12', **args)
@@ -384,3 +384,15 @@ def test_invoice_current_rent_must_match_billing_state():
     assert not forged.allowed
     unchanged = d.change('check_price_change', 'invoice', on, current_cents=10000, new_cents=10000, invoice='L0001:2026-12')
     assert unchanged.allowed
+
+
+def test_unposted_invoice_is_rechecked_when_emergency_status_expires():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT', valid_until='2026-12-31').allowed and d.terms().allowed and d.notice().allowed
+    on = at_local(date(2026, 12, 23), 10)
+    decision = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12')
+    assert decision.allowed
+    led = Ledger(d.books())
+    with pytest.raises(pl.Refused):
+        pl.post_invoice(led, at_local(date(2027, 1, 5), 10), decision=decision.made, profile=d.profile)
+    assert not led.pending

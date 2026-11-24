@@ -268,15 +268,17 @@ def test_posted_basis_does_not_expose_mutable_decision_data():
     led = book('Salt Lake City, UT')
     tenant = led.add_tenant(NOW, 'Pat Tenant', '5550100')
     led.sign_lease(NOW, tenant, 'A1', 10000, [])
-    c = change(invoice='L0001:2027-02', disclosure={'nested': {'value': 1}})
+    lease_terms(led)
+    checked(led, 'UT', valid_until=date(2027, 1, 31))
+    c = change(invoice='L0001:2027-02', new_cents=10000, disclosure={'nested': {'value': 1}})
     ident = pl.record_decision(led, NOW, change=c.id, point='invoice', outcome='allow', reasons=[], records=[],
                                versions={'rule': 1}, lease=c.lease, invoice=c.invoice, snapshot=pl._snapshot(c))
-    pl.post_invoice(led, at_local(date(2027, 1, 15), 10), decision=ident)
+    pl.post_invoice(led, at_local(date(2027, 1, 15), 10), decision=ident, profile=UT)
     basis = pl.posted_basis(led.books, c.invoice)
-    basis.versions['rule'] = 2
+    basis.versions['UT-notice'] = 2
     basis.snapshot['disclosure']['nested']['value'] = 2
     again = pl.posted_basis(led.books, c.invoice)
-    assert again.versions == {'rule': 1} and again.snapshot['disclosure']['nested']['value'] == 1
+    assert again.versions['UT-notice'] == 1 and again.snapshot['disclosure']['nested']['value'] == 1
 
 
 def test_direct_invoice_evaluation_requires_a_matching_lease_and_month():

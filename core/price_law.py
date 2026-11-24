@@ -1084,7 +1084,7 @@ def posted_basis(books: Books, invoice: str) -> Recorded | None:
     return deepcopy(basis)
 
 
-def post_invoice(led: Ledger, at: datetime, *, decision: str) -> str:
+def post_invoice(led: Ledger, at: datetime, *, decision: str, profile: FacilityProfile | None = None) -> str:
     """Post the amount of an allowed invoice decision and bind the charge to it atomically."""
     basis = next((r for r in state(led.books).decisions if r.id == decision), None)
     if not basis or basis.point != "invoice" or basis.outcome != "allow" or not _valid_invoice(basis.invoice, basis.lease):
@@ -1098,8 +1098,14 @@ def post_invoice(led: Ledger, at: datetime, *, decision: str) -> str:
     due = _when(snap.get("effective_on"), "effective date")
     if local(at).date() < due:
         raise Refused("the change is not effective yet")
+    change = _change_from(basis.change, snap)
+    current = evaluate(led.books, change, at, point="invoice", profile=profile)
+    if not current.allowed:
+        raise Refused("the invoice no longer passes the price-change check: " + current.words)
+    decision = record_decision(led, at, change=change.id, point="invoice", outcome=current.outcome, reasons=current.reasons,
+                               records=current.records, versions=current.versions, lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
     charge = led._charge(at, basis.lease, "rent", snap["new_cents"], "rent:" + basis.invoice, due)
-    led.emit("price_law.invoice_posted", at, {"invoice": basis.invoice, "decision": basis.id, "charge": charge},
+    led.emit("price_law.invoice_posted", at, {"invoice": basis.invoice, "decision": decision, "charge": charge},
              f"price_law:posting:{basis.invoice}")
     return charge
 
