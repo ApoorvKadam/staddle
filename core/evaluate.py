@@ -254,9 +254,29 @@ FIXED_STEP = {"overlock_on_paid": "take_lock_off", "overlock_not_found": "look_a
 OUTSIDE = os.path.join(os.path.dirname(__file__), "graded", "walk_outside.json")
 
 
-def outside_hash() -> str:
-    with open(OUTSIDE, "rb") as f:
+def outside_hash(path: str = OUTSIDE) -> str:
+    with open(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
+
+
+NOTE_KINDS = ("cleaning", "repair")
+
+
+def not_work_words(text) -> list[str]:
+    """The author's NOT WORK words: each quoted phrase, or the whole text when nothing is quoted; "none" gives nothing."""
+    text = str(text or "").strip()
+    if not text or text.lower().strip(". ") in ("none", "nothing", "nothing else"):
+        return []
+    return [p.strip().lower() for p in (re.findall(r'"([^"]+)"', text) or [text]) if p.strip()]
+
+
+def outside_note(n: dict) -> dict:
+    """One outside move-out note in the runner's shape. Set 3 adds check (the note is not sure, so staff look before deciding) to the
+    labels and NOT WORK words; set 2 labels only cleaning and repair, so a check answer is not scored there."""
+    kinds = NOTE_KINDS + ("check",) if "check" in n else NOTE_KINDS
+    return {"id": n["id"], "note": n["note"], **{k: bool(n[k]) for k in kinds}, "kinds": kinds,
+            "belongings_words": n.get("belongings_words", []), "fee_words": n.get("fee_words", []),
+            "not_work": not_work_words(n.get("not_work")), "set": "outside", "unit": n["unit"]}
 
 
 def judged_hash() -> str:
@@ -287,7 +307,7 @@ def same_words(a: str, b: str) -> bool:
     return norm(a) == norm(b)
 
 
-def walk_judged(client, runs: int, model: str, effort: str) -> dict:
+def walk_judged(client, runs: int, model: str, effort: str, outside_path: str = OUTSIDE) -> dict:
     """The five walkthrough items Tilden judges, built on the generated year in a scratch stream per item and run, scored against
     core/graded/operations_judged.json for Tilden and for the fixed-rule arms. Every answer is kept, dropped ones too; what a summary
     must never say is read by a person from the saved text, so it is not scored here."""
@@ -297,17 +317,16 @@ def walk_judged(client, runs: int, model: str, effort: str) -> dict:
     from .seed import TODAY
     with open(JUDGED) as f:
         rubric = json.load(f)["items"]
-    with open(OUTSIDE) as f:
+    with open(outside_path) as f:
         outside = json.load(f)
     # every case carries its set: outside-written cases are the proof; cases written here are practice and are reported apart
     pairs = [{"id": p["id"], "first": p["first"], "second": p["second"], "label": "same" if p["same"] else "different", "unit": None,
               "set": "outside" if p["written_by"] == "outside" else "practice"} for p in rubric["o36"]["pairs"]]
     pairs += [{"id": p["id"], "first": p["first"], "second": p["second"], "label": p["label"], "set": "outside", "unit": p["unit"],
                "gap": datetime.fromisoformat(p["second_at"]) - datetime.fromisoformat(p["first_at"]) if p.get("first_at") else None} for p in outside["pairs"]]
-    notes = [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": [], "fee_words": [], "unit": None,
-              "set": "outside" if n["written_by"] == "outside" else "practice"} for n in rubric["o25"]["notes"]]
-    notes += [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "belongings_words": n.get("belongings_words", []),
-               "fee_words": n.get("fee_words", []), "set": "outside", "unit": n["unit"]} for n in outside["notes"]]
+    notes = [{"id": n["id"], "note": n["note"], "cleaning": n["cleaning"], "repair": n["repair"], "kinds": NOTE_KINDS, "belongings_words": [],
+              "fee_words": [], "not_work": [], "unit": None, "set": "outside" if n["written_by"] == "outside" else "practice"} for n in rubric["o25"]["notes"]]
+    notes += [outside_note(n) for n in outside["notes"]]
     year = build(today=TODAY, cutoff=at_local(TODAY), standing=True)        # the live copy's year, with yesterday's seeded walk
     store = Store()
     with store.write():
@@ -377,17 +396,22 @@ def walk_judged(client, runs: int, model: str, effort: str) -> dict:
         for note in notes:
             unit = note["unit"] or moved                # an outside note is read for the author's own unit, as written
             r = walk_reading.read_note(client, model, effort, note["note"], (unit,), unit)
-            want = {k for k in ("cleaning", "repair") if note[k]}
+            want = {k for k in note["kinds"] if note[k]}
             raw_work = [w for w in ((r.raw or {}).get("work") or []) if isinstance(w, dict)]
             for arm, items in (("tilden", r.work), ("tilden_unchecked", raw_work), ("strong_rule", None), ("fixed", None)):
                 if items is None:
-                    kinds = walk_rules.note_work(note["note"], unit) if arm == "strong_rule" else fixed_work(note["note"])
+                    kinds = (walk_rules.note_work(note["note"], unit) if arm == "strong_rule" else fixed_work(note["note"])) & set(note["kinds"])
                 else:
-                    kinds = {w.get("kind") for w in items if w.get("kind") in ("cleaning", "repair")}
+                    kinds = {w.get("kind") for w in items if w.get("kind") in note["kinds"]}
                 said = " ".join(str(w.get("words") or "").lower() for w in (items or []) if w.get("kind") == "cleaning")
                 crit = ["belongings turned into cleaning work"] if ("cleaning" in kinds and not note["cleaning"] and note["belongings_words"]) or any(
                     b in said for b in note["belongings_words"]) else []
                 crit += ["a fee in the work"] if any(f.lower() in str(w.get("words") or "").lower() for w in (items or []) for f in note["fee_words"]) else []
+                # the author's NOT WORK words must never become cleaning or repair: a reading is judged by its own words, a rule (which has
+                # no words) by proposing cleaning or repair the label does not have on a note that carries such words
+                done = [str(w.get("words") or "").lower() for w in (items or []) if w.get("kind") in ("cleaning", "repair")]
+                crit += ["not-work words turned into work"] if note["not_work"] and (
+                    any(p in d for d in done for p in note["not_work"]) if items is not None else bool((kinds - {"check"}) - want)) else []
                 extra = {"work": r.work, "refusal": r.refusal, "contents": r.fields.get("contents"), "cents": r.call.cents if r.call else 0.0} if arm == "tilden" else {"cents": 0.0}
                 # a refused note proposes no work, so on a note that needs none a refusal scores as right: kept apart so it can be counted
                 rows.append({"item": note["id"], "part": "move_out_note", "arm": arm, "run": run, "right": kinds == want and not crit,
@@ -422,7 +446,8 @@ def walk_judged(client, runs: int, model: str, effort: str) -> dict:
             t["right"] += r["right"]
             t["dropped"] += bool(r["dropped"])
             t["critical"] += len(r["critical"])
-    return {"ran_at": datetime.now(timezone.utc).isoformat(), "rubric": judged_hash(), "outside": outside_hash(), "model": f"{model}:{effort}",
+    return {"ran_at": datetime.now(timezone.utc).isoformat(), "rubric": judged_hash(), "outside": outside_hash(outside_path),
+            "outside_file": os.path.basename(outside_path), "model": f"{model}:{effort}",
             "runs": runs, "cents": round(sum(r["cents"] for r in rows), 4), "sets": sets, "table": table, "rows": rows}
 
 
@@ -439,12 +464,13 @@ def main(argv=None) -> int:
     ap.add_argument("--plan-replies", choices=["practice", "graded"], help="grade the payment-plan replies --runs times; --out is a local file")
     ap.add_argument("--walk-judged", action="store_true", help="grade the walkthrough items Tilden judges --runs times; --out is a local file")
     ap.add_argument("--walk-model", default="claude-haiku-5-5:low", help="model:effort for the walk, the live setting")
+    ap.add_argument("--walk-set", default=OUTSIDE, help="the outside-written walkthrough set to grade (set 2 by default)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     if a.walk_judged:
         import anthropic
         model, effort = (a.walk_model.split(":") + ["low"])[:2]
-        report = walk_judged(anthropic.Anthropic(max_retries=1), a.runs, model, effort)
+        report = walk_judged(anthropic.Anthropic(max_retries=1), a.runs, model, effort, a.walk_set)
         with open(a.out, "w") as f:
             json.dump(report, f, indent=1, default=str)
         for name, arms in report["sets"].items():
