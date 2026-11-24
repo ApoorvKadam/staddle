@@ -511,6 +511,8 @@ def record_notice(led: Ledger, at: datetime, *, change: str, lease: str, documen
         raise Refused("enter the amount stated in the notice")
     effective = _date(effective_on, "effective date stated in the notice")
     tried = _date(attempted_on, "date it was sent")
+    if any(d is not None and _date(d, "service date") > local(at).date() for d in (tried, delivered_on, acknowledged_on)):
+        raise Refused("notice service dates cannot be in the future")
     sha = _sha(document_sha256, "notice")
     out = [(_date(d, "date").isoformat() if d else None) for d in (delivered_on, acknowledged_on)]
     ident = led.books.next_id("PLN")
@@ -525,6 +527,8 @@ def update_notice(led: Ledger, at: datetime, *, change: str, notice: str, confir
     """A later stage of the same notice: a confirmation, the delivery, the tenant's acknowledgment. The notice record is never rewritten."""
     if not any(n.id == notice for n in state(led.books).notices.get(change, ())):
         raise Refused("that notice is not on file for this change")
+    if any(d is not None and _date(d, "service date") > local(at).date() for d in (delivered_on, acknowledged_on)):
+        raise Refused("notice service dates cannot be in the future")
     out = [(_date(d, "date").isoformat() if d else None) for d in (delivered_on, acknowledged_on)]
     led.emit("price_law.notice_updated", at, {"change": change, "notice": notice, "confirmation": confirmation, "delivered_on": out[0], "acknowledged_on": out[1]},
              f"price_law:{notice}:update:{state(led.books).counts.get(notice, 0) + 1}")
@@ -926,6 +930,8 @@ def _notice(run: _Run, terms: Terms) -> None:
     for n in notices:
         run.records.append(f"notice:{n.id}")
         when, problem = _served(rule, terms, n, law)
+        if when and when > run.today:
+            when, problem = None, ("refuse", "NOTICE_SERVICE_UNPROVEN", "Notice service has not occurred by the check date.")
         (served.append(when) if when else problems.append(problem))
     if not served:
         kind, code, words = problems[0]

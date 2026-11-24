@@ -300,3 +300,27 @@ def test_notice_evidence_requires_actual_booleans(field):
     assert not result.allowed
     assert not d.books().price_law or not d.books().price_law.notices
     assert any(e.kind == 'gate.decided' and not e.payload['allowed'] for e in d.store._rows(STREAM))
+
+
+@pytest.mark.parametrize('field', ['attempted_on', 'delivered_on', 'acknowledged_on'])
+def test_notice_rejects_future_service_evidence(field):
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert not d.notice(**{field: '2026-12-01'}).allowed
+    assert not d.books().price_law or not d.books().price_law.notices
+
+
+def test_notice_update_rejects_future_delivery_and_acknowledgment():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    notice = d.notice().made
+    for field in ('delivered_on', 'acknowledged_on'):
+        assert not d.go('update_notice', change='PC1', notice=notice, **{field: '2026-12-01'}).allowed
+    assert d.books().price_law.notices['PC1'][0].delivered_on is None
+
+
+def test_service_after_the_check_does_not_count():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    later = at_local(date(2026, 12, 1), 10)
+    assert d.notice(at=later, attempted_on='2026-12-01', effective_on='2027-01-01').allowed
+    result = d.change('check_price_change', 'notice_completion', NOW, effective_on='2027-01-01')
+    assert not result.allowed

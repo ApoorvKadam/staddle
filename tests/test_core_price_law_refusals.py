@@ -33,10 +33,10 @@ def terms(led, **over):
     return pl.record_terms(led, NOW, **{**args, **over})
 
 
-def notice(led, change="PC1", **over):
+def notice(led, change="PC1", at=NOW, **over):
     args = {"new_cents": 10500, "effective_on": date(2026, 12, 23), "change": change, "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": ADDRESS,
             "attempted_on": TODAY, "dispatch_accepted": True, "certificate_of_mailing": True, "postage_prepaid": True, "by": "staff:front_desk"}
-    return pl.record_notice(led, NOW, **{**args, **over})
+    return pl.record_notice(led, at, **{**args, **over})
 
 
 def change(**over):
@@ -142,7 +142,7 @@ def test_a_hand_delivery_counts_from_the_day_it_was_delivered_and_not_before_and
     commit(led)
     n = notice(led, channel="hand", sent_to="in person", certificate_of_mailing=False, postage_prepaid=False)
     assert verdict(led, change(), CA)[:2] == ("refuse", ["NOTICE_SERVICE_UNPROVEN"])
-    pl.update_notice(led, NOW, change="PC1", notice=n, delivered_on=date(2026, 11, 25))
+    pl.update_notice(led, at_local(date(2026, 11, 25), 10), change="PC1", notice=n, delivered_on=date(2026, 11, 25))
     out, codes, res = verdict(led, change(), CA)
     assert (out, codes) == ("refuse", ["NOTICE_PERIOD_TOO_SHORT"]) and "Nov 25" in res.words
     led = book(UT)
@@ -234,7 +234,7 @@ def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_eac
     led = book(NYC)
     terms(led, designated_method="first_class_mail", last_known_address="5 Broad St, New York, NY 10004")
     commit(led, kind="first_year", max_cents=12000)
-    notice(led, sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5))
+    notice(led, at=at_local(date(2027, 1, 5), 10), sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5))
     c = change(effective_on=date(2027, 4, 5))
     at = at_local(date(2027, 4, 5), 10)
     pl.record_emergency_check(led, NOW, place="NYC", checked_on=date(2027, 4, 1), valid_until=date(2027, 4, 30), by="staff:manager", source="city page", active=[])
@@ -245,7 +245,7 @@ def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_eac
     assert late[:2] == ("refuse", ["ANNUAL_MAX_NOTICE_MISSING"]) and "Jan 20" in late[2].words
     commit(led, kind="anniversary", max_cents=12500, covers_from=date(2027, 3, 2), covers_to=date(2028, 3, 1), disclosed_on=date(2026, 12, 20))
     assert verdict(led, c, NYC, "activation", at)[:2] == ("allow", [])
-    notice(led, sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5), new_cents=12600)
+    notice(led, at=at_local(date(2027, 1, 5), 10), sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5), new_cents=12600)
     assert verdict(led, change(effective_on=date(2027, 4, 5), new_cents=12600), NYC, "activation", at)[1] == ["DISCLOSED_MAX_EXCEEDED"]
 
 
