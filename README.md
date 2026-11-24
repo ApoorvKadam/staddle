@@ -95,6 +95,15 @@ Where Tilden misses:
 
 Three walk findings from the operations set were also run, but they had already run several times while this was built, so they are not a fresh test: Tilden picked an acceptable next step in 24 of 30 runs, the fixed rule in 30 of 30. Cases I wrote myself are practice and are not counted here. This set has now been seen, so changes for these misses will be measured on a fresh outside set. Since then, Tilden's instructions and checks for these misses and a stronger rule-based reader were both tuned on this set, so neither is compared on it again; the next comparison runs on a fresh outside set whose mix and labels the author chose (set 3, frozen before any run). The ten runs cost about 14 cents.
 
+A fresh outside set was then run once, on Nov 24. It holds 40 new cases: 20 repair-report pairs and 20 move-out notes. They were written in a temporary chat with personalization off. The author chose the mix and wrote every label: 7 one-fault pairs, 7 two-fault pairs, 6 that the words cannot settle; 7 notes with cleaning, 8 with repair, 7 that need a look first, 11 holding words that must never become work. The set was frozen before any run (pull request 132). This time the rival is the stronger rule-based reader, not the word lists. Both readers were last changed in pull request 136, from cases I wrote myself, before the run. Nothing changed after it. Tilden ran ten times on the cheap model at low effort.
+
+| What is read | Cases | Tilden right, average of 10 runs | Stronger rule right | Difference, with 95% interval | Serious errors, Tilden, in 200 runs |
+|---|---|---|---|---|---|
+| Two repair reports on one unit: one fault, two, or the words cannot tell | 20 | 19.3 | 12 | +36.5 points, 14 to 60 | 6 |
+| A move-out note: cleaning, repair, or a look first | 20 | 18.9 | 10 | +44.5 points, 24 to 66 | 0 |
+
+The claim rule was written down before the run. Tilden beats the rule on a part only with no serious error, at least 10 points more, and an interval above zero. The interval comes from resampling the 20 cases 20,000 times. The claim holds for move-out notes. It does not hold for repair-report pairs. All 6 serious errors there are one pair the author says cannot be settled, where Tilden called them two faults in 6 of 10 runs. The stronger rule made 30 serious errors on the pairs. The three walk findings ran again too, and they are not a fresh test: Tilden picked an acceptable step in 24 of 30 runs, the fixed rule in 30 of 30. The run cost about 17 cents.
+
 ## The books
 
 The `core` package keeps the facility's records:
