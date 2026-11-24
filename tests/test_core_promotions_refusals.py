@@ -169,3 +169,14 @@ def test_a_deal_already_given_in_full_has_nothing_left_to_carry_and_just_ends():
     assert red.state == "ended"
     new = lease_of(store, target)
     assert charges(store, new)[0][3] == 0                         # the new unit's own stub gets no second helping
+
+
+def test_recheck_uses_frozen_rent_after_asking_rent_changes():
+    store, t = facility(terms(price_cents=None, percent=50, covers="first_full_month", proration="none", max_concession_cents=6000))
+    reservation = reserve(store, t["ana"], "B201", "first-month")
+    assert reservation.allowed
+    rental = ok(store, act("start_checkout", "renter", reservation.made, t["ana"]), NOW)
+    assert rent(store).rentals[rental].quote["rent_cents"] == 12000
+    ok(store, act("price_unit", "staff:manager", "B201", rent_cents=20000, size="10x10"), NOW)
+    decision = accept(store, t["ana"], rental)
+    assert decision.allowed, decision.check

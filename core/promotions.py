@@ -272,7 +272,7 @@ def _claims(books: Books, rent, now: datetime, promotion: str, own: set[str]) ->
 
 
 def price(books: Books, rent, ids: list[str], *, unit: str, tenant: str, start: date, now: datetime, pinned: dict[str, int] | None = None,
-          own: set[str] | None = None) -> dict:
+          own: set[str] | None = None, rent_cents: int | None = None) -> dict:
     """Check every promotion named for this unit, tenant and start day, and price them: the quote's promotion part. Raises PromotionRefused
     (code and plain words) and writes nothing. `pinned` holds the versions a quote already froze, which are not re-read for expiry; `own` the
     reservation and rental that already hold a use, so a re-check does not count them twice."""
@@ -292,7 +292,8 @@ def price(books: Books, rent, ids: list[str], *, unit: str, tenant: str, start: 
             if b.promotion not in a.terms["stacks_with"] or a.promotion not in b.terms["stacks_with"]:
                 raise PromotionRefused(STACK_CONFLICT, f"{a.terms['name']} and {b.terms['name']} cannot be combined: stacking needs both offers to name each other")
     size = rent.unit(unit).size
-    rent_cents = rent.units[unit].rent_cents
+    if rent_cents is None:
+        rent_cents = rent.units[unit].rent_cents
     periods = {}
     for v in versions:
         t, name = v.terms, v.terms["name"]
@@ -333,7 +334,7 @@ def recheck(books: Books, rent, rental, now: datetime) -> Words | None:
     own = {rental.id} | ({rental.reservation} if rental.reservation else set())
     try:
         price(books, rent, [i["promotion"] for i in p["items"]], unit=rental.unit, tenant=rental.tenant, start=date.fromisoformat(rental.quote["start"]),
-              now=now, pinned={i["promotion"]: i["version"] for i in p["items"]}, own=own)
+              now=now, pinned={i["promotion"]: i["version"] for i in p["items"]}, own=own, rent_cents=rental.quote["rent_cents"])
     except PromotionRefused as r:
         return words(r)
     return None
