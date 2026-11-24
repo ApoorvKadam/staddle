@@ -965,18 +965,28 @@ def baseline_code(user: str) -> str:
     return f"{int(sha('baseline:' + user), 16) % 10 ** 6:06d}"
 
 
-def record_baseline_access(led: Ledger, rental: str, now: datetime) -> str:
-    """Give a seeded adopted rental the gate code it holds on the simulated gate, as a verified access record. Only the seed's own
-    rentals have one: a later import has no code on record and keeps the gate check by staff. Safe to repeat."""
+def record_baseline_access(led: Ledger, rental: str, now: datetime, own: bool = False) -> str:
+    """Give a seeded rental the gate code it holds on the simulated gate, as a verified access record. An adopted rental of the seeded year
+    has one; so does, with `own`, the one rental the seed made through the renting commands, whose code is still only requested (it takes
+    the requested record's id, so no second record is left asking for a code). A later import has no code on record and keeps the gate
+    check by staff. Safe to repeat."""
     if not isinstance(led, RentLedger):
         raise Refused("A gate code record needs the copy's renting records.")
     rent = led.rent
     r = rent.rentals.get(rental)
-    if r is None or r.provenance is None or r.provenance.get("kind") != "seeded_existing":
-        raise Refused("Only a rental adopted from the seeded year has a code on the simulated gate.")
-    if r.access:
-        return r.access
-    aid, user = rent.new_id("AC", rent.access), baseline_user(r.unit)
+    if own:
+        if r is None or r.provenance is not None or r.access is None:
+            raise Refused("Only the seed's own rental has a requested code to take over.")
+        if rent.access[r.access].state != "requested":
+            return r.access
+        aid = r.access
+    else:
+        if r is None or r.provenance is None or r.provenance.get("kind") != "seeded_existing":
+            raise Refused("Only a rental adopted from the seeded year has a code on the simulated gate.")
+        if r.access:
+            return r.access
+        aid = rent.new_id("AC", rent.access)
+    user = baseline_user(r.unit)
     led.emit("access.baselined", now, {"access": aid, "rental": r.id, "unit": r.unit, "groups": [f"unit {r.unit}", ACCESS_LEVEL],
                                        "user": user, "credential": f"cred-{user}", "code_sha256": sha(baseline_code(user)),
                                        "simulated": True}, f"baseline:{r.id}", source="seeded_existing")

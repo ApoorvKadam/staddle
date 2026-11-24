@@ -233,7 +233,7 @@ class Year:
         """One first-month deal is live on 10x10 units ("$1 for the rest of this month", new customers, once each), and one new tenant, Maya,
         moved into a vacant 10x10 unit on it yesterday: reserve, check out, pay, accept, each through renting's own command and the gate. On
         the 1st, the month's rent run had already passed before her lease existed, so her lease's rent for the new month is billed the way the run
-        would have. Nothing is drawn, so no other part of the year moves."""
+        would have. Her gate code is held on the simulated gate like every other tenant's. Nothing is drawn, so no other part of the year moves."""
         led, b = self.led, self.led.books
         effective = self.today - timedelta(days=30)
         promotions.publish_version(led, "first-month", {
@@ -258,6 +258,7 @@ class Year:
         payment = rl.receive_payment(tenant, due, when + timedelta(minutes=3))
         do("pay", "confirm_payment", "code", rental, 3, payment=payment)
         do("accept", "accept_agreement", "renter", rental, 4, sha256=rent.agreements[rent.rentals[rental].agreement].sha256)
+        renting.record_baseline_access(rl, rental, when + timedelta(minutes=5), own=True)            # her code is already on the simulated gate, read back
         if self.today.day == 1:
             rl.post_rent(f"{self.today.year:04d}-{self.today.month:02d}")
         led.pending.extend(rl.pending)
