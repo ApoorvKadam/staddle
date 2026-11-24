@@ -171,6 +171,9 @@ _STILL = re.compile(
     r"\bstill\b|\bagain\b|\bpersist\w*|\bcame back\b|\bcomes back\b|\bnot (?:fixed|repaired|resolved|working|done|finished|complete\w*|solved|cured)\b|"
     r"\b(?:isn'?t|wasn'?t|aren'?t|weren'?t|hasn'?t|didn'?t|doesn'?t|couldn'?t|can'?t|cannot|won'?t) (?:\w+ ){0,2}(?:fix\w*|repair\w*|resolv\w*|solv\w*|work\w*|finish\w*|"
     r"complet\w*|help\w*|cure\w*)\b|\bunable to\b|\bcould ?n'?t\b|\bfail\w*|\bworse\b|\bincomplete\b|\bpartial\w*|\bhalf[- ]?(?:done|finished|way|complete\w*|fixed)\b|\bpart (?:is )?(?:on order|ordered|back ?ordered|coming|arrives)\b|"
+    r"\b(?:fixed|repaired|replaced|patched|adjusted|tightened|cleared|sealed|cleaned|reattached|aligned|serviced|welded|installed) (?:only )?"
+    r"(?:half|part|some|one|two|a few|a couple|a third|the first|the top|the bottom) of\b|\bonly (?:one|two|a few|some|half|part|the first) of\b|"
+    r"\bpartly\b|\bpartially\b|\bhalf of (?:the|it|that)\b|"
     r"\bwaiting (?:on|for)\b|\bback ?order\w*|\bneeds? (?:another|a second|more|further|a new|new|replac\w*|a part|parts|to come back)\b|\bcome back\b|"
     r"\breturn(?:ing)? (?:tomorrow|next|monday|tuesday|wednesday|thursday|friday|saturday|later)\b|\bwill (?:finish|return|come back)\b|\bto be (?:finished|completed|continued)\b|"
     r"\bnot (?:safe|right)\b|\bleak(?:s|ing)\b(?! (?:fixed|stopped|gone))")
@@ -577,10 +580,14 @@ def _stems(text: str) -> set[str]:
     return {w[:5] for w in re.findall(r"[a-z]+", _low(text)) if len(w) > 3 and w not in _COMMON}
 
 
+def _speaks_to(text: str, look_words: str) -> bool:
+    """Whether a look's words speak to some words about a fault: they name a part in common, or a content word in common."""
+    return bool(_part_set(text) & _part_set(look_words)) or bool(_stems(text) & _stems(look_words))
+
+
 def addresses(order: walk.WorkOrder, look_words: str) -> bool:
-    """Whether a look's words speak to what an order reports: they name a part in common, or a content word in common."""
-    mine = _text_of(order)
-    return bool(_part_set(mine) & _part_set(look_words)) or bool(_stems(mine) & _stems(look_words))
+    """Whether a look's words speak to what an order reports."""
+    return _speaks_to(_text_of(order), look_words)
 
 
 def relaxed_same(a: walk.WorkOrder, b: walk.WorkOrder) -> bool:
@@ -612,6 +619,9 @@ class Worker:
         self.started = bool(state.get("started"))
         self.refused_at: dict[str, int] = dict(state.get("refused_at", {}))   # action -> newest staff record when the gate refused it
         self.declined: list[str] = list(state.get("declined", []))           # handoffs the gate called routine
+        # work orders the gate refused: kept with the watermark in refused_at, so a later staff record that makes the order possible
+        # (or an end to its reason) finds the intent again. key -> {"kind", "text", "record"}
+        self.intents: dict[str, dict] = {k: dict(v) for k, v in dict(state.get("intents", {})).items()}
         self.handed_now = False                                              # a handoff was made in this pass
         self.cur = case.source_event
         self.cur_at = now
@@ -656,7 +666,7 @@ class Worker:
         if cursor is not None:
             self.cursor = cursor
         links = [{"cursor": self.cursor, "topics": self.open_topics, "topic_at": self.topic_at, "followed": self.done_orders,
-                  "started": self.started, "refused_at": self.refused_at, "declined": self.declined}]
+                  "started": self.started, "refused_at": self.refused_at, "declined": self.declined, "intents": self.intents}]
         changes = {"links": links}
         if state:
             changes["state"] = state
@@ -679,22 +689,73 @@ class Worker:
         for kind, text, record in wants:
             if not any(k == kind and (clean_scope(text) == clean_scope(t) if kind == "cleaning" else _same_words(text, t)) for k, t, _ in seen):
                 seen.append((kind, text, record))
+        tried: set[str] = set()
         for kind, text, record in seen:
             snap = Snap(self.store, self.stream, self.case, self.now)
             if kind == "look":
                 if not any(klass(o) == "inspection" for o in snap.open_orders()):
                     self.attempt("inspect", snap.latest, "request_inspection")
             elif record and not covered(snap, kind, text):
-                out = self.attempt(f"open:{record}:{kind}", snap.latest, "open_work_order", text=_fits(text), answers_record=record)
-                if out and out[1] and "former tenant" in out[0]:
-                    self.evidence = [record]               # the gate says removing these is a staff decision: it goes to staff
-                    self.hand(BELONGINGS, text)
+                tried.add(f"open:{record}:{kind}")
+                self.try_open(snap, kind, text, record)
+            elif record:
+                self.intents.pop(f"open:{record}:{kind}", None)       # an open order already says it
+        self.retry_intents(tried)
         self.done_orders += [i for i in self.finished if i not in self.done_orders]
         self.link(Snap(self.store, self.stream, self.case, self.now))
         self.inspect_and_hold()
         self.started = True
         self.save(cursor=newest)
         self.finish_state()
+
+    def try_open(self, snap: Snap, kind: str, text: str, record: str) -> None:
+        """Ask the gate to open the work order. A refusal keeps the intent (with the watermark, so it waits for a newer staff record);
+        a success ends it for good."""
+        key = f"open:{record}:{kind}"
+        out = self.attempt(key, snap.latest, "open_work_order", text=_fits(text), answers_record=record)
+        if out is None:
+            return
+        if not out[1]:
+            self.intents.pop(key, None)
+            return
+        self.intents[key] = {"kind": kind, "text": text, "record": record}
+        if "former tenant" in out[0]:
+            self.evidence = [record]               # the gate says removing these is a staff decision: it goes to staff
+            self.hand(BELONGINGS, text)
+
+    def retry_intents(self, tried: set[str]) -> None:
+        """Work orders the gate refused earlier come back once a newer staff record is written, if the work is still needed."""
+        for key, intent in list(self.intents.items()):
+            if key in tried:
+                continue
+            snap = Snap(self.store, self.stream, self.case, self.now)
+            if not self.still_wanted(snap, intent):
+                self.intents.pop(key, None)
+                self.refused_at.pop(key, None)
+                continue
+            self.try_open(snap, intent["kind"], intent["text"], intent["record"])
+
+    @staticmethod
+    def still_wanted(snap: Snap, intent: dict) -> bool:
+        """Whether the work a refused intent asked for still needs an order: not when staff corrected the observation it came from, the
+        door was seen undamaged since, its report was closed, an open order already says it, or a later look speaks to it and finds it fine."""
+        record, text = intent["record"], intent["text"]
+        seen = snap.wk.observations.get(record)
+        if seen is not None:
+            if seen.superseded_by:
+                return False
+            standing = snap.rent.floor.standing(snap.unit)
+            if seen.door == "damaged" and standing is not None and standing.door in ("closed", "open"):
+                return False
+        order = snap.wk.orders.get(record)
+        if order is not None and (order.state == "closed" or order.joined_into):
+            return False
+        if covered(snap, intent["kind"], text):
+            return False
+        origin = min((e.id for e in snap.events if e.kind in ("walk.observed", "work_order.reported")
+                      and record in (e.payload.get("observation"), e.payload.get("order"))), default=snap.case.source_event)
+        look = latest_look(snap, origin)
+        return not (look and look[1] == "fine" and _speaks_to(text, look[3]))
 
     def read_event(self, snap: Snap, e) -> list[tuple[str, str, str | None]]:
         p, work = e.payload, []
@@ -775,7 +836,7 @@ class Worker:
     @staticmethod
     def last_repair(snap: Snap, before: int):
         done = [o for o in snap.wk.orders.values() if o.unit == snap.unit and o.state == "closed" and not o.joined_into
-                and klass(o) != "inspection" and 0 < snap.closed.get(o.id, 0) < before]
+                and klass(o) != "inspection" and o.id not in snap.no_work and 0 < snap.closed.get(o.id, 0) < before]
         return max(done, key=lambda o: snap.closed[o.id]) if done else None
 
     @staticmethod
@@ -857,9 +918,10 @@ class Worker:
         if (self.open_topics and not self.handed_now and any(klass(o) == "inspection" for o in open_now)
                 and not any(klass(o) != "inspection" for o in open_now)):
             # Work is finished and a look is asked for, with a handoff still open. The gate reads whether staff's records settled that
-            # question only when a release is asked for, and only the newest eight records count: a long repair log would push a manager's
-            # ruling out of view by the time the look arrives. The open request for a look makes the gate refuse the release itself, so
-            # asking now only gets the question judged while the ruling is still in view.
+            # question only when a release is asked for, and it reads every staff record since the handoff, so nothing is out of view.
+            # Two reasons remain to ask now: once the check passes the gate saves it on the case (settled_question), so the matter is
+            # settled for good before the inspection's own words are added to what a later check reads; and a refusal here costs
+            # nothing, since the open request for a look makes the gate refuse the release itself.
             if self.case.state == "needs staff":
                 self.save(state="working")        # the gate dates a handoff from its newest "needs staff" entry; do not add one now
             self.attempt("settle", snap.latest, "release_unit")
