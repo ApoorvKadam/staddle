@@ -11,13 +11,14 @@ from core.billing import Ledger
 from core.stripe_processor import StripeProcessor
 from tests.test_fms import record_of, seen, sign_in, site
 from tests.test_fms_renting_pages import desk_of, rent_of, token, vacant
+from tests.test_core_renting_pay import own_rentals
 from tests.test_fms_card_payments import stripe
 
 
 
 def own(fd, ident):
-    """The rentals made on this copy, without the existing tenants' rentals the year starts with."""
-    return [r for r in rent_of(fd, ident).rentals.values() if not r.provenance]
+    """The rentals made on this copy, without the existing tenants' rentals the year starts with and without Maya's."""
+    return own_rentals(fd.ready().books(fd.stream(ident)), rent_of(fd, ident))
 
 def begin(c, unit, name="Rae Quinn", phone="+14075550199"):
     page = c.get(f"/rent/{unit}").text

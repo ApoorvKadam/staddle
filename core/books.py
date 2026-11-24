@@ -4,7 +4,8 @@ Every event carries in its payload everything its lines need (amounts, which cha
 credit), so `lines()` is a pure function of the event. Replaying the log through `lines()` must give back exactly the
 journal that was stored; the tests check that. Amounts are whole cents. A debit is positive, a credit negative.
 
-Accounts: receivable:<lease>, income:rent, income:fees, contra:waivers, clearing:card, credit:<tenant> (money the facility
+Accounts: receivable:<lease>, income:rent, income:fees, contra:waivers, contra:concessions (promotional concessions, reduced rental income),
+clearing:card, credit:<tenant> (money the facility
 holds for the tenant, a liability), refund:<tenant> (credit set aside to give back, owed until the refund goes out)."""
 from __future__ import annotations
 
@@ -60,6 +61,12 @@ def _moves(payload: dict) -> list[Line]:
     return out
 
 
+def _undo_concession(p: dict) -> list[Line]:
+    """A reversed or waived charge that carried a promotional concession gives the concession back with it, so the receivable ends at nothing."""
+    c = p.get("conceded", 0)
+    return [(f"receivable:{p['lease']}", c, p["charge"]), ("contra:concessions", -c, p["charge"])] if c else []
+
+
 def lines(kind: str, p: dict) -> list[Line]:
     """The journal lines an event posts: (account, signed cents, charge id or None)."""
     if kind == "shop.sale":
@@ -85,6 +92,8 @@ def lines(kind: str, p: dict) -> list[Line]:
         return [(f"refund:shop:{p['refund']}", p["cents"], None), (f"receivable:shop:{p['quote']}" if p.get("unmatched") else "income:merchandise", -p["cents"], None)]
     if kind == "charge.posted":
         return [(f"receivable:{p['lease']}", p["cents"], p["charge"]), (_income(p["kind"]), -p["cents"], p["charge"])]
+    if kind == "promotion.concession_posted":       # the deal's part of a covered period's rent: its own line, never a lower rent
+        return [("contra:concessions", p["cents"], p["charge"]), (f"receivable:{p['lease']}", -p["cents"], p["charge"])]
     if kind == "payment.received":
         out: list[Line] = [("clearing:card", p["cents"], None)]
         out += [(f"receivable:{a['lease']}", -a["cents"], a["charge"]) for a in p["applications"]]
@@ -103,7 +112,7 @@ def lines(kind: str, p: dict) -> list[Line]:
         out += [(f"receivable:{a['lease']}", -a["cents"], a["charge"]) for a in p["applications"]]
         return out
     if kind == "charge.reversed":
-        return [(_income(p["kind"]), p["cents"], p["charge"]), (f"receivable:{p['lease']}", -p["cents"], p["charge"])] + _moves(p)
+        return [(_income(p["kind"]), p["cents"], p["charge"]), (f"receivable:{p['lease']}", -p["cents"], p["charge"])] + _undo_concession(p) + _moves(p)
     if kind == "refund.reserved":
         return [(f"credit:{p['tenant']}", p["cents"], None), (f"refund:{p['tenant']}", -p["cents"], None)]
     if kind == "refund.paid":
@@ -119,7 +128,7 @@ def lines(kind: str, p: dict) -> list[Line]:
     if kind == "surplus.paid":
         return [(f"surplus:{p['tenant']}", p["cents"], None), ("clearing:auction", -p["cents"], None)]
     if kind == "charge.waived":
-        return [("contra:waivers", p["cents"], p["charge"]), (f"receivable:{p['lease']}", -p["cents"], p["charge"])] + _moves(p)
+        return [("contra:waivers", p["cents"], p["charge"]), (f"receivable:{p['lease']}", -p["cents"], p["charge"])] + _undo_concession(p) + _moves(p)
     return []
 
 
@@ -158,10 +167,16 @@ class Charge:
     paid: int = 0                   # paid through payments and credit, net of returns and releases
     paid_effective: list[tuple[datetime, int, str]] = field(default_factory=list)  # (effective time, cents, payment or credit lot) towards it
     closed: str | None = None       # "reversed" or "waived"
+    conceded: int = 0               # the part a promotion conceded (core/promotions.py): cents stays the contract rent, this is its own line
+
+    @property
+    def net_cents(self) -> int:
+        """What the tenant owes for the charge once the concession is taken off."""
+        return self.cents - self.conceded
 
     @property
     def open_cents(self) -> int:
-        return 0 if self.closed else self.cents - self.paid
+        return 0 if self.closed else self.cents - self.conceded - self.paid
 
 
 @dataclass
@@ -247,6 +262,7 @@ class Books:
         self.leads = None                                 # inquiries and their histories (core/leads.py)
         self.shop = None                                  # shop stock and counts
         self.protection = None                            # plan versions, offers, acceptances, enrolments and policy evidence (core/protection.py)
+        self.promotions = None                            # promotion versions and redemptions (core/promotions.py)
         self.street_rate_stops = {}                       # proposals staff must review
         self.price_law = None                             # the facility's legal profile, lease terms, disclosed maximums, emergencies, notices and decisions (core/price_law.py)
         self.seq = 0
@@ -394,6 +410,13 @@ class Books:
                 from .protection import State        # protection reads these books, so it cannot be imported at the top
                 self.protection = State()
             self.protection.apply(kind, at, p)
+        elif kind.split(".", 1)[0] == "promotion":
+            if kind == "promotion.concession_posted":
+                self.charges[p["charge"]].conceded += p["cents"]
+            if self.promotions is None:
+                from .promotions import State        # promotions reads these books, so it cannot be imported at the top
+                self.promotions = State()
+            self.promotions.apply(kind, at, p)
         elif kind == "street_rate.stopped":
             self.street_rate_stops[p["id"]] = {**p, "at": at}
         elif kind.split(".", 1)[0] == "price_law":
@@ -462,8 +485,9 @@ class Books:
         if not held:
             return False
         for lease in held:
-            due = sum(c.cents for c in self.live(f"rent:{lease.id}:{month}"))
-            if due == 0 or self.rent_paid_before(lease.id, month, cutoff(month)) < due:
+            charges = self.live(f"rent:{lease.id}:{month}")
+            due = sum(c.net_cents for c in charges)
+            if not charges or self.rent_paid_before(lease.id, month, cutoff(month)) < due:
                 return False
         return True
 

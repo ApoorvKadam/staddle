@@ -1204,3 +1204,19 @@ def test_adopted_transfer_adjusts_once_and_collects_the_shortfall():
         assert after.status("A101", NOV11) == "blocked" and any(t.open and t.kind == "clearance" and t.about == old for t in after.tasks.values())
         ok(store, act("confirm_access_cleared", "staff:manager", old), NOV11)
         assert rent(store).status("A101", NOV11) == "vacant"
+
+
+def test_apply_repeats_the_original_decision_without_writing():
+    from core.renting import RentLedger, apply, load
+
+    store, dana, _ = facility()
+    books, state = load(store, BASE)
+    ledger = RentLedger(books, state)
+    command = act("reserve", "renter", "A101", dana)
+    first = apply(state, ledger, command, NOW)
+    count = len(ledger.pending)
+    again = apply(state, ledger, command, NOW)
+    assert first.allowed and first.made
+    assert again.allowed and again.repeated and again.made == first.made
+    assert len(ledger.pending) == count
+    assert books.decisions[command.id]["made"] == first.made

@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Protocol
 
-from . import delinquency
+from . import delinquency, promotions
 from .billing import Ledger, Refused, first_month
 from .books import ADMIN_FEE, ADMIN_FEE_CENTS, CUTOFF_DAY, LATE_FEE, LATE_FEE_CENTS, RENT, Books, local, month_key
 from .evidence import money
@@ -38,6 +38,7 @@ AGREEMENT_VERSION = "rental-agreement-1"
 AGREEMENT = ("Storage rental agreement ({version})\n"
              "{facility} rents storage unit {unit} to {name}, starting {start}.\n"
              "Monthly rent is {rent}, due on the 1st of each month.\n"
+             "{deal}"
              "Due before move-in: {first} rent for the rest of the first month{fees}, {total} in all.\n"
              "{late}"
              "The tenant stores nothing unlawful or dangerous in the unit and tells the facility before moving out.\n"
@@ -568,12 +569,19 @@ class Rent:
                 return "blocked"                # moved out; the old code is not revoked yet
         return "reserved"
 
-    def quote(self, unit: str, start: date, schedule: list[str]) -> dict:
+    def quote(self, unit: str, start: date, schedule: list[str], promotion: dict | None = None, ended: list[dict] | None = None) -> dict:
+        """The frozen terms of a rental. `first_cents` is the gross rent of the first month; with a deal, `total_cents` is what is due now, after
+        the concession on that month. `promotion` (core/promotions.py) carries the deal, its months and the first bill at the full rent."""
         rent = self.units[unit].rent_cents
         fees = {ADMIN_FEE: ADMIN_FEE_CENTS} if ADMIN_FEE in schedule else {}
         first = first_month(rent, start)
-        return {"rent_cents": rent, "start": start.isoformat(), "first_cents": first, "fees": fees, "total_cents": first + sum(fees.values()),
-                "schedule": list(schedule)}
+        q = {"rent_cents": rent, "start": start.isoformat(), "first_cents": first, "fees": fees,
+             "total_cents": first - (promotion["first_concession_cents"] if promotion else 0) + sum(fees.values()), "schedule": list(schedule)}
+        if promotion:
+            q["promotion"] = promotion
+        if ended:
+            q["promotion_ended"] = ended
+        return q
 
     def short(self, r: Rental, now: datetime, old: Rental | None = None) -> int:
         """What the rental's lease would still owe if signed now, on a copy of the books: the money on the account pays older
@@ -652,7 +660,7 @@ class Rent:
                 return "the hold must end after now"
             if "start" in args and _d(args["start"]) < today:
                 return "the move-in day has passed"
-            return self._target_free(act.about, now)
+            return self._target_free(act.about, now) or self._promotion_problem(act, now)
         if a == "cancel_reservation" and self.holder(rec.unit, now) != ("reservation", rec.id):
             r = self._rental_of(rec.id)
             if r is None or self.holder(rec.unit, now) != ("rental", r.id):
@@ -671,6 +679,8 @@ class Rent:
                 return "the agreement is already accepted"
             if args.get("sha256") != self.agreements[rec.agreement].sha256:
                 return "the text accepted is not the agreement shown; show it again"
+            if bad := promotions.recheck(b, self, rec, now):
+                return bad
             if rec.kind == "transfer":
                 old = self.rentals[self.transfers[rec.transfer].rental]
                 amount = self.short(rec, now, old)
@@ -708,6 +718,8 @@ class Rent:
                                  if not b.charges[cid].closed and b.charges[cid].due == b.leases[rec.lease].start
                                  for _, _, src in b.charges[cid].paid_effective):
                 return "a payment for the move-in charges has a return waiting for staff"
+            if bad := promotions.recheck(b, self, rec, now):
+                return bad
             short = self.short(rec, now)
             return f"the move-in charges are {money(short)} short (money on the account pays older charges first)" if short else None
         if a == "request_transfer":
@@ -785,6 +797,20 @@ class Rent:
             return None if rec.state in ("failed", "revocation_failed") else "the gate code is not waiting for a retry"
         if a == "confirm_refund":
             return "that refund is already confirmed" if rec["paid"] else None
+        return None
+
+    def _promotion_problem(self, act: Act, now: datetime):
+        """Why the promotions a reservation names cannot be given, as words that carry their machine name, or None."""
+        ids = act.args.get("promotions")
+        if ids is None:
+            return None
+        if not (isinstance(ids, list) and ids and all(isinstance(i, str) for i in ids)):
+            return "name the promotions as a list of promotion names"
+        start = _d(act.args["start"]) if "start" in act.args else local(now).date()
+        try:
+            promotions.price(self.books, self, ids, unit=act.about, tenant=act.tenant, start=start, now=now)
+        except promotions.PromotionRefused as r:
+            return promotions.words(r)
         return None
 
     def touches(self, act: Act, now: datetime) -> list:
@@ -955,18 +981,28 @@ def baseline_code(user: str) -> str:
     return f"{int(sha('baseline:' + user), 16) % 10 ** 6:06d}"
 
 
-def record_baseline_access(led: Ledger, rental: str, now: datetime) -> str:
-    """Give a seeded adopted rental the gate code it holds on the simulated gate, as a verified access record. Only the seed's own
-    rentals have one: a later import has no code on record and keeps the gate check by staff. Safe to repeat."""
+def record_baseline_access(led: Ledger, rental: str, now: datetime, own: bool = False) -> str:
+    """Give a seeded rental the gate code it holds on the simulated gate, as a verified access record. An adopted rental of the seeded year
+    has one; so does, with `own`, the one rental the seed made through the renting commands, whose code is still only requested (it takes
+    the requested record's id, so no second record is left asking for a code). A later import has no code on record and keeps the gate
+    check by staff. Safe to repeat."""
     if not isinstance(led, RentLedger):
         raise Refused("A gate code record needs the copy's renting records.")
     rent = led.rent
     r = rent.rentals.get(rental)
-    if r is None or r.provenance is None or r.provenance.get("kind") != "seeded_existing":
-        raise Refused("Only a rental adopted from the seeded year has a code on the simulated gate.")
-    if r.access:
-        return r.access
-    aid, user = rent.new_id("AC", rent.access), baseline_user(r.unit)
+    if own:
+        if r is None or r.provenance is not None or r.access is None:
+            raise Refused("Only the seed's own rental has a requested code to take over.")
+        if rent.access[r.access].state != "requested":
+            return r.access
+        aid = r.access
+    else:
+        if r is None or r.provenance is None or r.provenance.get("kind") != "seeded_existing":
+            raise Refused("Only a rental adopted from the seeded year has a code on the simulated gate.")
+        if r.access:
+            return r.access
+        aid = rent.new_id("AC", rent.access)
+    user = baseline_user(r.unit)
     led.emit("access.baselined", now, {"access": aid, "rental": r.id, "unit": r.unit, "groups": [f"unit {r.unit}", ACCESS_LEVEL],
                                        "user": user, "credential": f"cred-{user}", "code_sha256": sha(baseline_code(user)),
                                        "simulated": True}, f"baseline:{r.id}", source="seeded_existing")
@@ -989,7 +1025,8 @@ def render(books: Books, r: Rental) -> str:
             if LATE_FEE in q["schedule"] else "")
     return AGREEMENT.format(version=AGREEMENT_VERSION, facility=books.facility.get("name", "The facility"), unit=r.unit,
                             name=books.tenants[r.tenant].name, start=_day(_d(q["start"])), rent=money(q["rent_cents"]),
-                            first=money(q["first_cents"]), fees=fees, total=money(q["total_cents"]), late=late)
+                            first=money(q["first_cents"] - (q.get("promotion") or {}).get("first_concession_cents", 0)), fees=fees,
+                            total=money(q["total_cents"]), late=late, deal=promotions.deal_text(q))
 
 
 MONTHLY_RENT = re.compile(r"rent:[^:]+:(\d{4})-(\d{2})")     # the obligation of a month's rent, as billing posts it
@@ -1032,9 +1069,11 @@ def sign(led: Ledger, r: Rental, now: datetime) -> str:
     """Sign the rental's lease as quoted, then bill each later month that has begun by today, as the 1st's run would have."""
     q = r.quote
     start = _d(q["start"])
-    lease = led.sign_lease(now, r.tenant, r.unit, q["rent_cents"], q["schedule"], start=start)
+    lease = led.sign_lease(now, r.tenant, r.unit, q["rent_cents"], q["schedule"], start=start, redeem=q.get("promotion"))
     if [led.books.charges[i].cents for i in led.books.of_lease[lease]] != [q["first_cents"], *q["fees"].values()]:
         raise RuntimeError("the move-in charges posted differ from the quote")
+    if led.books.charges[led.books.of_lease[lease][0]].conceded != (q.get("promotion") or {}).get("first_concession_cents", 0):
+        raise RuntimeError("the move-in concession differs from the quote")
     today, m = local(now).date(), _next_month(start)
     while m <= today:
         led._charge(now, lease, RENT, q["rent_cents"], f"rent:{lease}:{month_key(m)}", m)
@@ -1078,8 +1117,10 @@ def _reserve(rent, led, act, now):
     rid = rent.new_id("RS", rent.reservations)
     until = _t(act.args["until"]) if "until" in act.args else now + CHECKOUT
     start = _d(act.args["start"]) if "start" in act.args else local(now).date()
+    promo = (promotions.price(rent.books, rent, act.args["promotions"], unit=act.about, tenant=act.tenant, start=start, now=now)
+             if act.args.get("promotions") else None)
     led.emit("reservation.made", now, {"reservation": rid, "unit": act.about, "tenant": act.tenant, "expires_at": until.isoformat(),
-                                       "start": start.isoformat(), "quote": rent.quote(act.about, start, SCHEDULE)},
+                                       "start": start.isoformat(), "quote": rent.quote(act.about, start, SCHEDULE, promo)},
              rent.claim_key(act.about), source=act.source)
     return rid
 
@@ -1151,7 +1192,8 @@ def _transfer(rent, led, act, now):
     until = _t(act.args["until"]) if "until" in act.args else now + CHECKOUT
     schedule = [k for k in rent.books.leases[old.lease].schedule if k != ADMIN_FEE]     # a transfer carries no new admin fee
     tid, rid = rent.new_id("TR", rent.transfers), rent.new_id("RN", rent.rentals)
-    led.emit("rental.started", now, {"rental": rid, "tenant": old.tenant, "unit": unit, "quote": rent.quote(unit, start, schedule), "kind": "transfer",
+    promo, ended = promotions.carry(rent.books, rent, old.lease, unit, start, now)      # a deal follows only when its terms say so; the quote shows which
+    led.emit("rental.started", now, {"rental": rid, "tenant": old.tenant, "unit": unit, "quote": rent.quote(unit, start, schedule, promo, ended), "kind": "transfer",
                                      "claims": True, "expires_at": until.isoformat(), "transfer": tid}, rent.claim_key(unit), source=act.source)
     led.emit("transfer.requested", now, {"transfer": tid, "rental": old.id, "target": rid, "unit": unit}, f"transfer:{tid}", source=act.source)
     rent.present(led, now, rid)
@@ -1168,6 +1210,7 @@ def _complete(rent, led, act, now):
     old, new = rent.rentals[t.rental], rent.rentals[t.target]
     end_lease(led, old.lease, _d(new.quote["start"]) - timedelta(days=1), now, act.source)
     lease = sign(led, new, now)
+    promotions.settle_transfer(led, old.lease, lease, now)
     # only code starts a rental: the new unit's start is code's decision, recorded as such, inside the staff's transfer
     led.emit("rental.activated", now, {"rental": new.id, "lease": lease}, f"active:{new.id}", source="code")
     start = Act(f"{new.id}:activate", "activate", "code", new.id)
@@ -1277,7 +1320,8 @@ DO = {"price_unit": _price, "block_unit": _block, "unblock_unit": _unblock, "res
 
 
 def _record(led: Ledger, act: Act, dec: Decision, now: datetime) -> None:
-    led.emit("gate.decided", now, {**asdict(act), "command": act.id, "allowed": dec.allowed, "check": dec.check, "made": dec.made},
+    led.emit("gate.decided", now, {**asdict(act), "command": act.id, "allowed": dec.allowed, "check": dec.check, "made": dec.made,
+                                   **({"why": dec.why} if dec.why else {})},
              f"gate:{act.id}", source=act.source, command=act.id)
 
 
@@ -1289,6 +1333,9 @@ def _try_activate(rent: Rent, led: Ledger, rid: str, now: datetime) -> None:
         return
     if _d(r.quote["start"]) > local(now).date():
         return                      # paid and signed for a later day: it starts on that day (advance tries again), and that is no task
+    if act.id in rent.books.decisions:
+        p = rent.books.decisions[act.id]
+        return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
     dec = evaluate_rent(rent, rent.books, act, now)
     if dec.allowed:
         _activate(rent, led, act, now)
@@ -1308,7 +1355,7 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
         books, rent = load(store, stream)
         if act.id in books.decisions:
             p = books.decisions[act.id]
-            return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"))
+            return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
         led = RentLedger(books, rent)
         rent.sweep(led, now)
         dec = evaluate_rent(rent, books, act, now)
@@ -1334,6 +1381,21 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
             _try_activate(rent, led, act.about, now)
         dec.events = [e.id for e in store.append(stream, led.pending) if e.id is not None]
         return dec
+
+
+def apply(rent: Rent, led: RentLedger, act: Act, now: datetime) -> Decision:
+    """One renting command on books held in memory, decided and recorded as `run` does inside its transaction: used where a year is built
+    without a store. A command the gate refuses writes only its decision."""
+    if act.id in rent.books.decisions:
+        p = rent.books.decisions[act.id]
+        return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
+    dec = evaluate_rent(rent, rent.books, act, now)
+    if dec.allowed:
+        dec.made = DO[act.action](rent, led, act, now)
+    _record(led, act, dec, now)
+    if dec.allowed and act.action in ("accept_agreement", "confirm_payment"):
+        _try_activate(rent, led, act.about, now)
+    return dec
 
 
 def checkout_intent(store: Store, stream: str, rental: str, now: datetime) -> str:

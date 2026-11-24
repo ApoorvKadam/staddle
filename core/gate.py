@@ -210,8 +210,9 @@ def evaluate(books: Books, cmd: Command, now: datetime) -> Decision:
         month = _month_of(ch)
         if ch.kind != LATE_FEE or month is None:
             return d(False, "only a late fee for a named month can be corrected this way")
-        due = sum(c.cents for c in books.live(f"rent:{ch.lease}:{month}"))
-        if due == 0 or books.rent_paid_before(ch.lease, month, cutoff(month)) < due:
+        charges = books.live(f"rent:{ch.lease}:{month}")
+        due = sum(c.net_cents for c in charges)
+        if not charges or books.rent_paid_before(ch.lease, month, cutoff(month)) < due:
             return d(False, "the month's rent was not fully paid before the cutoff, so the fee was not posted in error")
     # 4 (before 3 for money on held charges): a held charge belongs to staff
     if cmd.action in MONEY and books.held(ch.id) and not staff:
@@ -332,7 +333,7 @@ def evaluate_rent(rent, books: Books, act, now: datetime) -> Decision:
     # 2. safety, fixed in code
     why = rent.refusal(act, now)
     if why:
-        return d(False, why)
+        return Decision(False, act.action, str(why), command=act.id, why=getattr(why, "code", None))      # a promotion refusal carries its machine name
     # 3. the owner's rules: none apply to renting yet
     # 4. holds: a charge under a dispute hold is not changed until staff decide the dispute
     if any(books.held(c.id) for c in rent.touches(act, now)):

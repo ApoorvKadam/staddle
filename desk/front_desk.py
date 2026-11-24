@@ -64,7 +64,7 @@ def account_words(account: str, books) -> str:
         return "Held for the tenant as credit"
     if kind == "surplus":
         return "Owed to the tenant from a sale, not credit"
-    return {"income:rent": "Rent income", "income:fees": "Fee income", "income:protection": "Protection plan income", "contra:waivers": "Waivers given",
+    return {"income:rent": "Rent income", "income:fees": "Fee income", "income:protection": "Protection plan income", "contra:waivers": "Waivers given", "contra:concessions": "Promotional concessions",
             "clearing:card": "Card payments on the way", "clearing:auction": "Auction money on the way"}.get(account, account)
 
 

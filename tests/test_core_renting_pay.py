@@ -16,6 +16,15 @@ from desk.front_desk import FrontDesk
 from .test_core_renting import NOW, accept, act, billing, books, checkout, facility, ok, pay, rent
 
 
+SEEDED_RENTER = "Maya Okafor"
+
+
+def own_rentals(books, rent):
+    """The rentals a test made on a copy: not the existing tenants' rentals the year starts with, and not Maya's, the one rental the
+    seeded year made through the renting commands."""
+    return [r for r in rent.rentals.values() if not r.provenance and books.tenants[r.tenant].name != SEEDED_RENTER]
+
+
 def ready(store, tenant, unit="A101"):
     """A rental in checkout whose agreement is accepted, so only the payment is missing."""
     rn = checkout(store, tenant, unit)

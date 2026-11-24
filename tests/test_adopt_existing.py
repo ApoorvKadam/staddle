@@ -16,16 +16,22 @@ def test_seeded_leases_are_rentals_without_changing_books():
         rent.apply(event.kind, event.at, event.payload)
     active = [r for r in rent.rentals.values() if r.state == "active"]
     leases = [lease for lease in books.leases.values() if lease.ended is None]
-    assert len(active) == len(leases) == 113
-    assert len({r.unit for r in active}) == 113
-    assert len(books.units) - len({r.unit for r in active}) == 7
+    assert len(active) == len(leases) == 114             # 113 from the year plus Maya's promoted move-in
+    assert len({r.unit for r in active}) == 114
+    assert len(books.units) - len({r.unit for r in active}) == 6
     assert {r.lease for r in active} == {lease.id for lease in leases}
     assert sum(bool(books.open_charges(t)) for t in books.tenants) == 23
     assert sum(c.open_cents for t in books.tenants for c in books.open_charges(t)) == 299600
     assert all(not lines(e.kind, e.payload) for e in year.led.pending if e.kind == "rental.adopted")
+    adopted = {r.lease for r in active if r.id.startswith("adopted-")}
+    assert len(adopted) == 113                           # Maya's rental came through renting itself, not adoption
     led = RentLedger(books, rent)
     for lease in leases:
-        adopt_existing_lease(led, lease.id, "seeded_existing", NOW)
+        if lease.id in adopted:
+            adopt_existing_lease(led, lease.id, "seeded_existing", NOW)
+        else:
+            with pytest.raises(Refused, match="already has a rental"):
+                adopt_existing_lease(led, lease.id, "seeded_existing", NOW)
     assert not led.pending
 
 

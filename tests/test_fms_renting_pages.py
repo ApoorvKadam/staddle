@@ -91,31 +91,31 @@ def test_units_show_the_four_states_with_counts_and_a_price_and_staff_hold_block
         held, blocked = vacant(fd, ident, 2)
         page = c.get("/units").text
         text = seen(page)
-        assert "Vacant 7" in text and "Reserved 0" in text and "Blocked 0" in text and "Street rate" in text and "Asking price" not in text
-        assert (page.count('value="reserve"'), page.count('value="block_unit"'), page.count('value="unblock_unit"')) == (7, 7, 0)
+        assert "Vacant 6" in text and "Reserved 0" in text and "Blocked 0" in text and "Street rate" in text and "Asking price" not in text
+        assert (page.count('value="reserve"'), page.count('value="block_unit"'), page.count('value="unblock_unit"')) == (6, 6, 0)
         assert page.count('value="price_unit"') == 120                                     # every unit's street rate can be changed
         # a unit's change controls are a row under it, opened by its Change link, with the forms side by side in it
         assert page.count('<tr class="fms-act"') == 120 and f'href="#act-{held}"' in page and f'<tr class="fms-act" id="act-{held}">' in page
         row = page.split(f'<tr class="fms-act" id="act-{held}">', 1)[1].split("</tr>", 1)[0]
         assert re.findall(r'name="action" value="(\w+)"', row) == ["price_unit", "reserve", "block_unit"] and "<details" not in page.split('class="fms-page"', 1)[1] and "<select" not in page
         # the tenant is typed against one list of every name, shared by every row
-        assert page.count("<datalist") == 1 and page.count('<option value="') == 124 and 'value="Priya Shah"' in page and page.count('list="tenant-names"') == 7
+        assert page.count("<datalist") == 1 and page.count('<option value="') == 125 and 'value="Priya Shah"' in page and page.count('list="tenant-names"') == 6
         last = (NOW + timedelta(days=3)).date()
         r = unit_step(c, held, page, action="reserve", tenant=" priya  shah ", until=last.isoformat())
         assert (r.status_code, r.headers["location"]) == (303, f"/units#u-{held}")
         unit_step(c, held, page, action="reserve", tenant="Priya Shah", until=last.isoformat())       # the same page pressed again: the first decision
         after = c.get("/units").text
-        assert len(rent_of(fd, ident).reservations) == 1 and rent_of(fd, ident).status(held, NOW) == "reserved"
-        assert "Reserved 1" in seen(after) and "Vacant 6" in seen(after) and "Nothing changed" not in seen(after)
+        assert len([x for x in rent_of(fd, ident).reservations.values() if x.unit == held]) == 1 and rent_of(fd, ident).status(held, NOW) == "reserved"      # the year's own reservation (Maya's) is on another unit
+        assert "Reserved 1" in seen(after) and "Vacant 5" in seen(after) and "Nothing changed" not in seen(after)
         assert f"Held for Priya Shah until {clock(at_local(last, 23, 59))}" in seen(after)
-        assert f'title="{held}: reserved for Priya Shah"' in c.get("/sitemap").text and after.count('value="reserve"') == 6
+        assert f'title="{held}: reserved for Priya Shah"' in c.get("/sitemap").text and after.count('value="reserve"') == 5
         unit_step(c, blocked, page, action="block_unit", reason="door being repaired")
         after = c.get("/units").text
         assert "Blocked 1" in seen(after) and "Blocked: door being repaired" in seen(after) and after.count('value="unblock_unit"') == 1
         assert rent_of(fd, ident).status(blocked, NOW) == "blocked"
         unit_step(c, blocked, page, action="unblock_unit")
         after = seen(c.get("/units").text)
-        assert "Blocked 0" in after and "Vacant 6" in after and rent_of(fd, ident).status(blocked, NOW) == "vacant"
+        assert "Blocked 0" in after and "Vacant 5" in after and rent_of(fd, ident).status(blocked, NOW) == "vacant"
         assert "Reserved 0" in seen(other.get("/units").text)                                  # another copy never sees this one's hold
         assert [d["words"] for d in Facility(fd, ident).decisions()][:3] == ["Unblocked a unit", "Blocked a unit", "Held a unit"]
         # Today says what was done, in the second column of every row
@@ -210,7 +210,7 @@ def test_a_moved_out_unit_is_blocked_until_its_code_is_revoked_and_staff_cannot_
         page = c.get("/units").text
         text = seen(page)
         assert "Blocked 1" in text and "Moved out; the old gate code is not revoked yet" in text
-        assert page.count('value="unblock_unit"') == 0 and page.count('value="reserve"') == 6          # only a staff block has an Unblock
+        assert page.count('value="unblock_unit"') == 0 and page.count('value="reserve"') == 5          # only a staff block has an Unblock
         assert f'title="{unit}: blocked"' in c.get("/sitemap").text
 
 
@@ -232,8 +232,8 @@ def test_today_lists_each_rental_not_finished_yet_and_home_counts_only_those_tha
     app = site(fms_url)
     with sign_in(app) as c, sign_in(app) as other:
         fd, ident = desk_of(app, c)
-        settle_walk(fd, ident)                                   # six units to offer: the seeded vacant units, one of them held back by the walk
-        units = vacant(fd, ident, 6)
+        settle_walk(fd, ident)                                   # five units to offer: the seeded vacant units, one of them held back by the walk
+        units = vacant(fd, ident, 5)
         people = [new_tenant(fd, ident, n) for n in ("Rae Quinn", "Ben Ortiz", "Cara Dunn", "Dev Patel", "Eli Park", "Hal Moss")]
         start_rental(fd, ident, people[0], units[0], card="card_pending")                    # the card processor has not answered
         start_rental(fd, ident, people[1], units[1], card="card_declined")
@@ -241,7 +241,7 @@ def test_today_lists_each_rental_not_finished_yet_and_home_counts_only_those_tha
         step(fd, ident, "reserve", units[3], people[3], source="staff:office_manager", until=(NOW + timedelta(hours=5)).isoformat())
         rs, _ = start_rental(fd, ident, people[4], units[4], accept=False, card="card_ok")
         step(fd, ident, "cancel_reservation", rs, source="staff:office_manager")             # paid for, then cancelled: money to give back
-        start_rental(fd, ident, people[5], units[5], accept=False, days=3)                   # nothing paid, hold ends in three days
+        start_rental(fd, ident, people[5], units[4], accept=False, days=3)                   # nothing paid, hold ends in three days, on the unit Eli's cancelled rental gave back
         text = work(c)
         section = text.split("Work for staff", 1)[1].split("Handed to staff")[0]
         for row in ("Rae Quinn · unit " + units[0] + " Payment waiting for the card processor, agreement accepted",
@@ -249,7 +249,7 @@ def test_today_lists_each_rental_not_finished_yet_and_home_counts_only_those_tha
                     "Cara Dunn · unit " + units[2] + " Paid, agreement not accepted",
                     "Dev Patel · unit " + units[3] + " Reservation held",
                     "Eli Park · unit " + units[4] + " Cancelled after payment, refund to make",
-                    "Hal Moss · unit " + units[5] + " Not paid yet, agreement not accepted"):
+                    "Hal Moss · unit " + units[4] + " Not paid yet, agreement not accepted"):
             assert row in section, row
         assert section.index("Eli Park") < section.index("Ben Ortiz") < section.index("Rae Quinn")     # the ones to act on come first
         assert "Held until" in section and "The hold on the unit ends" in section and "refund" in section.lower()
@@ -309,6 +309,7 @@ def test_a_tenants_page_shows_each_rental_step_in_words(fms_url, sim):
     app = site(fms_url)
     with sign_in(app) as c, sign_in(app) as other:
         fd, ident = desk_of(app, c)
+        settle_walk(fd, ident)                                                               # every vacant unit is offered, five of them are used below
         before = renting_section(c.get(record_of(c, "Priya Shah")).text)                    # an existing tenant's rental from before Staddle
         assert "Active since" in before and "From before Staddle: terms on file, no signed copy" in before
         u1, u2, u3, u4, u5 = vacant(fd, ident, 5)
