@@ -2,8 +2,9 @@
 
 arm(store, stream, now) is called after each entry is recorded. It opens one case per move-out (a lease that ended), then reads what staff
 wrote about the unit since: walk notes, work order reports, the words that finish a work order and the words that finish an inspection.
-It acts only through core/tilden/tools.py. It is the comparison worker for graded replays (core/tilden/replay_run.py) and is never run on a
-live copy: it skips the runner's second checks by design, and an early release only costs it in the score.
+It acts only through the shared gate (core/tilden/gate.py), so every action carries the owner's grants and the gate's own checks. When
+the gate refuses, the reason is read and the worker carries on: it keeps the unit held and waits for a new staff record before it tries the
+same action again, and a handoff the gate calls routine is dropped, not repeated.
 
 What it does, in this order each time something new was recorded:
 1. Hands to staff, with the staff member's own words and the record that holds them, what only a person can decide: belongings left
@@ -15,7 +16,10 @@ What it does, in this order each time something new was recorded:
    It opens none for what an inspection finds or a repair says is not finished: the unit stays held on the latest look instead.
 3. Links open orders about one fault (the rules in core/walk_rules.py say "same", or the same part with symptoms that can be one
    trouble; different parts stay as two).
-4. Asks for an inspection once all work is finished and nobody has looked at the unit since.
+   A report nobody worked on, which a later look speaks to and finds fine, is closed as needing no work (the gate checks that too).
+4. Asks for an inspection once all work is finished and nobody has looked at the unit since. With a handoff still open, it also asks the
+   gate for a release at that point: the gate refuses (a look is still open) but judges whether staff's records settled the question
+   while a manager's ruling is still among the newest records it reads.
 5. Holds the unit at the move-out, when nothing is known about it, and again whenever anything is open. It releases it only when every
    order is finished, the newest look (a walk note, a staff inspection, or a repair record that goes back over the whole room, written
    after the move-out or the last finished work) says the unit is fine, and nothing handed to staff came after that look. A note that
@@ -27,11 +31,12 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from types import SimpleNamespace
 
 from core import renting, walk
 from core import walk_rules as wr
 from core.store import Store
-from core.tilden import cases, tools
+from core.tilden import cases, gate, tools
 from core.work import NOTE_MAX
 
 AGENT = "agent:tilden"
@@ -165,7 +170,7 @@ _WAS = re.compile(r"\b(?:was|were|had been|used to|before|previously|earlier|ori
 _STILL = re.compile(
     r"\bstill\b|\bagain\b|\bpersist\w*|\bcame back\b|\bcomes back\b|\bnot (?:fixed|repaired|resolved|working|done|finished|complete\w*|solved|cured)\b|"
     r"\b(?:isn'?t|wasn'?t|aren'?t|weren'?t|hasn'?t|didn'?t|doesn'?t|couldn'?t|can'?t|cannot|won'?t) (?:\w+ ){0,2}(?:fix\w*|repair\w*|resolv\w*|solv\w*|work\w*|finish\w*|"
-    r"complet\w*|help\w*|cure\w*)\b|\bunable to\b|\bcould ?n'?t\b|\bfail\w*|\bworse\b|\bincomplete\b|\bpartial\w*|\bhalf\b|\bpart (?:is )?(?:on order|ordered|back ?ordered|coming|arrives)\b|"
+    r"complet\w*|help\w*|cure\w*)\b|\bunable to\b|\bcould ?n'?t\b|\bfail\w*|\bworse\b|\bincomplete\b|\bpartial\w*|\bhalf[- ]?(?:done|finished|way|complete\w*|fixed)\b|\bpart (?:is )?(?:on order|ordered|back ?ordered|coming|arrives)\b|"
     r"\bwaiting (?:on|for)\b|\bback ?order\w*|\bneeds? (?:another|a second|more|further|a new|new|replac\w*|a part|parts|to come back)\b|\bcome back\b|"
     r"\breturn(?:ing)? (?:tomorrow|next|monday|tuesday|wednesday|thursday|friday|saturday|later)\b|\bwill (?:finish|return|come back)\b|\bto be (?:finished|completed|continued)\b|"
     r"\bnot (?:safe|right)\b|\bleak(?:s|ing)\b(?! (?:fixed|stopped|gone))")
@@ -227,6 +232,15 @@ def _pieces(text: str, unit: str, numbered: bool = False) -> list:
             pair = (" ".join(clause.split()), _low(clause))
             out.append((number, *pair) if numbered else pair)
     return out
+
+
+def fixed_reader(note: str, route, unit: str):
+    """The gate asks a reader whether a note says belongings are inside; this one answers from the word rules, with no model call."""
+    contents = "seen" if BELONGINGS in read_words(note, unit).topics else "unknown"
+    return SimpleNamespace(refusal=None, flags=None, call=None, fields={"contents": contents})
+
+
+READERS = {"read_note": fixed_reader}
 
 
 class Reading:
@@ -381,11 +395,15 @@ class Snap:
         self.unit = case.unit
         self.reported: dict[str, int] = {}
         self.closed: dict[str, int] = {}
+        self.no_work: set[str] = set()          # orders staff's later record showed needed no work: closed, but nothing was repaired
         for e in self.events:
             if e.kind == "work_order.reported":
                 self.reported[e.payload["order"]] = e.id
             elif e.kind == "work_order.closed":
                 self.closed[e.payload["order"]] = e.id
+                if e.payload.get("no_work"):
+                    self.no_work.add(e.payload["order"])
+        self.latest = max((e.id for e in self.events if e.source != AGENT and e.kind in WATCH), default=0)
         self.blocks: dict[str, str] = {}        # block id -> who placed it
         self.lifted_by_staff = False
         for e in self.events:
@@ -505,11 +523,11 @@ def covered(snap: Snap, kind: str, text: str) -> bool:
 
 
 def latest_look(snap: Snap, floor: int):
-    """The newest look at the unit written after `floor` (the move-out, or the last finished work): (record id, "fine" | "problem", when it was written) or
+    """The newest look at the unit written after `floor` (the move-out, or the last finished work): (record id, "fine" | "problem", when it was written, its words) or
     None when nobody has looked since. A look is a walk note or a staff inspection that says how the unit is, or a finished work order
     whose own words say the worker went back over the whole room and found it fine. Words that say nothing about the unit's
     condition ("a caller asked about rates") are not a look."""
-    looks: list[tuple[int, str, datetime]] = []
+    looks: list[tuple[int, str, datetime, str]] = []
     for e in snap.events:
         if e.kind == "walk.observed" and e.payload["unit"] == snap.unit and e.id > floor and e.source != AGENT:
             note = e.payload.get("note", "")
@@ -518,20 +536,20 @@ def latest_look(snap: Snap, floor: int):
             if state == "fine" and (_DEFER.search(low_note) or (_HEARSAY.search(low_note) and not _SAW.search(low_note))):
                 state = "unclear"                    # "I'll flag it for the walk-through": the walk-through is the look; hearsay is not a look
             if state != "unclear":
-                looks.append((e.id, state, snap.at[e.id]))
+                looks.append((e.id, state, snap.at[e.id], note))
     for o in snap.orders():
         cid = snap.closed.get(o.id, 0)
-        if o.state != "closed" or o.joined_into or not o.changes[-1].by.startswith("staff:"):
+        if o.state != "closed" or o.joined_into or o.id in snap.no_work or not o.changes[-1].by.startswith("staff:"):
             continue
         if klass(o) == "inspection":
             if cid > floor:
                 state = read_finish(snap.texts(o), snap.unit)[0]
                 if state != "unclear":
-                    looks.append((cid, state, snap.at[cid]))
+                    looks.append((cid, state, snap.at[cid], " ".join(snap.texts(o))))
         elif cid >= floor and cid > snap.case.source_event:
             words = " ".join(snap.texts(o))
             if _RECHECK.search(_low(words)) and read_finish(snap.texts(o), snap.unit)[0] == "fine":
-                looks.append((cid, "fine", snap.at[cid]))
+                looks.append((cid, "fine", snap.at[cid], words))
     return max(looks) if looks else None
 
 
@@ -547,6 +565,22 @@ def _families(text: str) -> set[str]:
 
 def _text_of(order: walk.WorkOrder) -> str:
     return " ".join([order.problem] + [r.text for r in order.reports])
+
+
+_COMMON = frozenset("""this that with from have been were does some there their about after before unit room space floor walls wall looks look
+looked needs need back near left right door doors like might still clean empty check checked fine good work works working ready rent
+inside outside front rear side bottom other than just only what when where which while into over under also even more most very much many
+them they then will would could should""".split())
+
+
+def _stems(text: str) -> set[str]:
+    return {w[:5] for w in re.findall(r"[a-z]+", _low(text)) if len(w) > 3 and w not in _COMMON}
+
+
+def addresses(order: walk.WorkOrder, look_words: str) -> bool:
+    """Whether a look's words speak to what an order reports: they name a part in common, or a content word in common."""
+    mine = _text_of(order)
+    return bool(_part_set(mine) & _part_set(look_words)) or bool(_stems(mine) & _stems(look_words))
 
 
 def relaxed_same(a: walk.WorkOrder, b: walk.WorkOrder) -> bool:
@@ -566,8 +600,8 @@ def relaxed_same(a: walk.WorkOrder, b: walk.WorkOrder) -> bool:
 
 # ---- the worker ----------------------------------------------------------------------------------------------------------------
 class Worker:
-    def __init__(self, store: Store, stream: str, case: cases.Case, now: datetime):
-        self.store, self.stream, self.now = store, stream, now
+    def __init__(self, store: Store, stream: str, case: cases.Case, now: datetime, check=None):
+        self.store, self.stream, self.now, self.check = store, stream, now, check
         self.case = case
         state = (case.links or [{}])[0] if case.links and isinstance(case.links[0], dict) else {}
         self.cursor = state.get("cursor", case.source_event)
@@ -576,36 +610,53 @@ class Worker:
         self.done_orders: list[str] = list(state.get("followed", []))
         self.finished: list[str] = []               # orders read this pass; marked followed only once their follow-up work is recorded
         self.started = bool(state.get("started"))
-        self.refused = False
+        self.refused_at: dict[str, int] = dict(state.get("refused_at", {}))   # action -> newest staff record when the gate refused it
+        self.declined: list[str] = list(state.get("declined", []))           # handoffs the gate called routine
+        self.handed_now = False                                              # a handoff was made in this pass
         self.cur = case.source_event
         self.cur_at = now
         self.evidence: list[str] = []
 
     # ---- actions
     def act(self, name: str, **args):
-        out = tools.act(name, self.store, self.stream, self.case, self.now, **args)
-        if name != "hand_to_staff":
-            if not out.allowed:
-                if "grant" in out.check and not self.refused:
-                    self.refused = True
-                    self.hand(f"Not allowed to {name.replace('_', ' ')} here", out.check)
+        """One action through the shared gate: (its words, whether it was refused). The case it returns replaces the one held here."""
+        content, case, error = gate.act(self.store, self.stream, self.case.id, name, args, self.now, check=self.check, readers=READERS)
+        self.case = case
+        return content, error
+
+    def attempt(self, key: str, latest: int, name: str, **args):
+        """Act, but a refused action waits for a newer staff record before it is tried again, so one refusal is not met on every call.
+        Returns None when it waited, else the gate's (words, refused)."""
+        if self.refused_at.get(key, -1) >= latest:
+            return None
+        out = self.act(name, **args)
+        if out[1]:
+            self.refused_at[key] = latest
+        else:
+            self.refused_at.pop(key, None)
         return out
 
     def hand(self, label: str, words: str, key: str | None = None) -> None:
         key = key or label
-        if key in self.open_topics:
+        if key in self.open_topics or key in self.declined:
             return
         reason = _fits(f"{label}: {words}") if words else label
-        self.case = tools.act("hand_to_staff", self.store, self.stream, self.case, self.now, reason=reason, evidence=list(self.evidence))
+        _, error = self.act("hand_to_staff", question=reason, record_ids=[str(i) for i in self.evidence], role="front_desk",
+                            wake_evidence="staff note or work order change")
+        if error:
+            self.declined.append(key)         # the gate's second check found it routine work: carry on, and do not hand it again
+            self.save()
+            return
         self.open_topics[key] = words
         self.topic_at[key] = self.cur_at.isoformat()
+        self.handed_now = True
         self.save()
 
     def save(self, state: str | None = None, cursor: int | None = None) -> None:
         if cursor is not None:
             self.cursor = cursor
         links = [{"cursor": self.cursor, "topics": self.open_topics, "topic_at": self.topic_at, "followed": self.done_orders,
-                  "started": self.started}]
+                  "started": self.started, "refused_at": self.refused_at, "declined": self.declined}]
         changes = {"links": links}
         if state:
             changes["state"] = state
@@ -632,9 +683,12 @@ class Worker:
             snap = Snap(self.store, self.stream, self.case, self.now)
             if kind == "look":
                 if not any(klass(o) == "inspection" for o in snap.open_orders()):
-                    self.act("request_inspection")
-            elif not covered(snap, kind, text):
-                self.act("open_work_order", text=_fits(text), **({"answers_record": record} if record else {}))
+                    self.attempt("inspect", snap.latest, "request_inspection")
+            elif record and not covered(snap, kind, text):
+                out = self.attempt(f"open:{record}:{kind}", snap.latest, "open_work_order", text=_fits(text), answers_record=record)
+                if out and out[1] and "former tenant" in out[0]:
+                    self.evidence = [record]               # the gate says removing these is a staff decision: it goes to staff
+                    self.hand(BELONGINGS, text)
         self.done_orders += [i for i in self.finished if i not in self.done_orders]
         self.link(Snap(self.store, self.stream, self.case, self.now))
         self.inspect_and_hold()
@@ -768,7 +822,8 @@ class Worker:
                 about, into = (later, earlier) if later.state not in busy else (earlier, later)
                 if about.state in busy:
                     continue
-                if self.act("link_reports", order=about.id, into=into.id).allowed:
+                out = self.attempt(f"link:{about.id}:{into.id}", snap.latest, "link_reports", order=about.id, into=into.id)
+                if out and not out[1]:
                     gone.add(about.id)
                     break
 
@@ -777,7 +832,8 @@ class Worker:
         snap = Snap(self.store, self.stream, self.case, self.now)
         orders = snap.orders()
         open_now = [o for o in orders if o.state != "closed"]
-        done = [snap.closed.get(o.id, 0) for o in orders if klass(o) != "inspection" and o.state == "closed" and not o.joined_into]
+        done = [snap.closed.get(o.id, 0) for o in orders if klass(o) != "inspection" and o.state == "closed" and not o.joined_into
+                and o.id not in snap.no_work]
         floor = max([self.case.source_event] + done)        # any finished work (repair, cleaning) has to be followed by a look at the unit
         look = latest_look(snap, floor)
         fine = bool(look) and look[1] == "fine"
@@ -786,16 +842,32 @@ class Worker:
             for key in [k for k in self.open_topics if k != LOCKED and datetime.fromisoformat(self.topic_at.get(k, self.now.isoformat())) < look[2]]:
                 self.open_topics.pop(key, None)
                 self.topic_at.pop(key, None)
-        asked = any(klass(o) == "inspection" for o in open_now)
-        if floor > self.case.source_event and not open_now and look is None and not asked:
-            self.act("request_inspection")
+            # a report nobody worked on, which the look speaks to and finds fine, needs no work: the gate decides whether it may be closed
+            for o in open_now:
+                if (klass(o) != "inspection" and o.state == "reported" and snap.reported.get(o.id, 0) < look[0]
+                        and addresses(o, look[3])):
+                    self.attempt(f"nowork:{o.id}", snap.latest, "close_report_no_work", order=o.id)
             snap = Snap(self.store, self.stream, self.case, self.now)
             open_now = [o for o in snap.orders() if o.state != "closed"]
+        asked = any(klass(o) == "inspection" for o in open_now)
+        if floor > self.case.source_event and not open_now and look is None and not asked:
+            self.attempt("inspect", snap.latest, "request_inspection")
+            snap = Snap(self.store, self.stream, self.case, self.now)
+            open_now = [o for o in snap.orders() if o.state != "closed"]
+        if (self.open_topics and not self.handed_now and any(klass(o) == "inspection" for o in open_now)
+                and not any(klass(o) != "inspection" for o in open_now)):
+            # Work is finished and a look is asked for, with a handoff still open. The gate reads whether staff's records settled that
+            # question only when a release is asked for, and only the newest eight records count: a long repair log would push a manager's
+            # ruling out of view by the time the look arrives. The open request for a look makes the gate refuse the release itself, so
+            # asking now only gets the question judged while the ruling is still in view.
+            if self.case.state == "needs staff":
+                self.save(state="working")        # the gate dates a handoff from its newest "needs staff" entry; do not add one now
+            self.attempt("settle", snap.latest, "release_unit")
         pending = bool(open_now) or bool(self.open_topics) or not fine
         if pending:
             if snap.vacant() and not snap.lifted_by_staff:
                 first = open_now[0].problem if open_now else next(iter(self.open_topics.values()), "no look at the unit yet")
-                self.act("hold_unit", reason=_fits(f"Not ready: {first}"))
+                self.attempt("hold", snap.latest, "hold_unit", reason=_fits(f"Not ready: {first}"))
             return
         if not snap.our_block():
             return                           # nothing of ours to lift; a block staff placed stays
@@ -804,18 +876,27 @@ class Worker:
         if others:
             self.hand(FINDING, others[0])
             return
-        self.act("release_unit")
+        if self.case.state == "needs staff":
+            # the gate judges "staff wrote after the handoff" from the newest case entry that says needs staff, and its own checks write
+            # one when the case is in that state: leave the state before asking, or nothing written since can ever count
+            self.save(state="waiting")
+        self.attempt("release", snap.latest, "release_unit")
 
     def finish_state(self) -> None:
         snap = Snap(self.store, self.stream, self.case, self.now)
+        if self.case.state == "done":
+            return                           # the gate closes the case when it releases the unit
         if any(e.kind == "lease.signed" and e.id > self.case.source_event and e.payload.get("unit") == snap.unit for e in snap.events):
             state = "done"
-        elif self.open_topics:
+        elif self.handed_now:
+            # the gate's steps put the case back to working. A new handoff is put back on top, once: the gate reads "what staff wrote
+            # since the handoff" from the newest entry that says needs staff, so putting it back on every pass would drop the earlier
+            # staff words (a manager's ruling) from what it judges
             state = "needs staff"
-        elif snap.open_orders():
-            state = "working"
+        elif self.case.state == "needs staff" and not self.open_topics:
+            state = "working" if snap.open_orders() else "waiting"
         else:
-            state = "waiting"
+            return
         if state != self.case.state:
             self.save(state=state)
 
@@ -841,8 +922,9 @@ def _same_words(a: str, b: str) -> bool:
     return norm(a) == norm(b) or wr.same_fault({"text": a, "unit": "x", "at": None}, {"text": b, "unit": "x", "at": None}) == wr.SAME
 
 
-def arm(store: Store, stream: str, now: datetime) -> None:
-    """Open a case for each move-out recorded since, then give each open case's new records a turn."""
+def arm(store: Store, stream: str, now: datetime, check=None) -> None:
+    """Open a case for each move-out recorded since, then give each open case's new records a turn. `check` is the gate's second-opinion
+    function (the gate's own default when none is given)."""
     known = {c.source_event for c in cases.load(store, stream).values()}
     books = None
     for e in store.stream_events(stream):
@@ -856,6 +938,6 @@ def arm(store: Store, stream: str, now: datetime) -> None:
         newest[case.unit] = case
     for case in cases.open_cases(store, stream):
         if newest[case.unit].id == case.id:
-            Worker(store, stream, case, now).run()
+            Worker(store, stream, case, now, check).run()
         else:
             cases.record(store, stream, case.id, "updated", {"state": "done"}, now, source=AGENT)

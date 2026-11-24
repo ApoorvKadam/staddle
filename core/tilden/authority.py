@@ -8,7 +8,7 @@ from uuid import uuid4
 from core.gate import STAFF_ROLES
 from core.store import Event, Store
 
-ACTIONS = {'open_work_order', 'link_reports', 'hold_unit', 'release_unit', 'request_inspection', 'hand_to_staff'}
+ACTIONS = {'open_work_order', 'link_reports', 'close_report_no_work', 'hold_unit', 'release_unit', 'request_inspection', 'hand_to_staff'}
 
 
 @dataclass

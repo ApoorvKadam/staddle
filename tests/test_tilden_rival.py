@@ -1,6 +1,7 @@
 """The fixed-rule readiness worker (core/tilden/rival.py), one case per behaviour, on a small facility. No model and no network."""
 import importlib
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 
@@ -14,6 +15,11 @@ S = 'visitor:a'
 UNIT = 'A102'
 
 
+def fake_check(store, stream, case_id, kind, question, text, now):
+    """Stands in for the gate's second opinion so no network is used: tenant-items work is refused, everything else is agreed with."""
+    return SimpleNamespace(probabilities={'yes': 0.05 if 'remove or dispose' in question else 0.9}, reason=None)
+
+
 class World:
     """A unit whose tenant has moved out, and the staff entries that follow, each one followed by a call to the worker."""
 
@@ -21,7 +27,7 @@ class World:
         self.store = tiny()
         self.n = 0
         self.tick = 0
-        for action in ('open_work_order', 'link_reports', 'hold_unit', 'release_unit', 'request_inspection'):
+        for action in ('open_work_order', 'link_reports', 'close_report_no_work', 'hold_unit', 'release_unit', 'request_inspection'):
             authority.grant(self.store, S, action, {'unit': UNIT}, AT + timedelta(days=30), 'owner', AT)
 
     @property
@@ -31,7 +37,7 @@ class World:
 
     def arm(self):
         importlib.reload(rival)         # nothing may live in the module between calls: a restart loses it
-        rival.arm(self.store, S, self.now)
+        rival.arm(self.store, S, self.now, check=fake_check)
 
     def move_out(self):
         led = Ledger(self.store.books(S))
@@ -62,6 +68,7 @@ class World:
 
     def finish(self, order, did='', checked='', closed=''):
         """Triage, assign, record the work (`did`), check it (`checked`) and close (`closed`)."""
+        checked, closed = checked or did, closed or did         # the gate reads the words a staff member closed an order with
         for action, text in (('triage_work_order', None), ('assign_work_order', None), ('record_order_work', did),
                              ('check_order_work', checked), ('close_work_order', closed)):
             self.staff(action, about=order, text=text or None, to='front_desk' if action == 'assign_work_order' else None)
@@ -188,12 +195,12 @@ def test_belongings_are_handed_to_staff_and_the_unit_stays_held():
     w.move_out()
     w.note('Former tenant called, says he left a couch and some boxes inside and will come for them Friday.')
     case = w.case()
-    assert case.state == 'needs staff' and 'couch' in str(case.steps[0])
+    assert case.state == 'needs staff' and 'couch' in _asked(case)
     assert w.mine() == [] and w.status() == 'blocked'
     w.note('Floor is dusty and there are cobwebs.')              # cleaning is still opened, and the unit still waits for a person
     [cleaning] = w.mine()
     w.finish(cleaning.id, 'Swept and mopped')
-    assert w.status() == 'blocked' and w.case().state == 'needs staff'
+    assert w.status() == 'blocked' and rival.BELONGINGS in _topics(w)
 
 
 def test_belongings_cleared_by_staff_let_the_unit_go():
@@ -219,7 +226,7 @@ def test_what_only_a_person_can_decide_goes_to_staff(words, reason):
     w = World()
     w.move_out()
     w.note(words)
-    assert w.case().state == 'needs staff' and reason in str(w.case().steps[0])
+    assert w.case().state == 'needs staff' and reason in _asked(w.case())
     assert w.status() == 'blocked'
     assert not [o for o in w.mine() if reason == 'Pests']
 
@@ -301,6 +308,11 @@ def test_word_rules_read_work_and_leave_the_rest(note, topics, work):
 ])
 def test_finishing_words_say_fine_problem_or_unclear(words, state):
     assert read_finish(words, UNIT)[0] == state
+
+
+def _asked(case):
+    """What the worker asked staff, from the handoff entries on the case."""
+    return ' '.join(s['handoff']['question'] for s in case.steps if isinstance(s, dict) and 'handoff' in s)
 
 
 def _topics(w):
@@ -426,8 +438,10 @@ def test_a_repair_record_that_goes_back_over_the_whole_room_is_the_look():
     w.move_out()
     order = w.report('Hasp screws are stripped, padlock will not stay secure.')
     w.finish(order, 'Installed a new hasp, pulled a padlock firmly to test it. Rechecked the room, still clean and empty with no other issues.')
-    assert w.status() == 'vacant'
+    assert w.status() == 'blocked'          # the gate wants a record written after the repair finished; the worker waits for one
     assert not [o for o in w.orders() if o.kind == 'check']       # nothing was asked for: the record already holds the look
+    w.note('Closed the hasp ticket, unit is back in available inventory.')
+    assert w.status() == 'vacant'
 
 
 def test_a_repair_record_that_only_asks_for_a_check_is_not_the_look():
@@ -485,18 +499,125 @@ def test_what_asks_for_a_person_and_what_does_not(words, labels):
         assert r.work == []                      # a manager's ruling is not a new fault
 
 
+class Counting:
+    """A fake second opinion that counts how often each question is asked and answers by keyword."""
+
+    def __init__(self, **answers):
+        self.answers = answers          # keyword in the question -> probability
+        self.calls = []
+
+    def __call__(self, store, stream, case_id, kind, question, text, now):
+        self.calls.append(question)
+        p = next((v for k, v in self.answers.items() if k in question), 0.05 if 'remove or dispose' in question else 0.9)
+        return SimpleNamespace(probabilities={'yes': p}, reason=None)
+
+    def asked(self, keyword):
+        return len([q for q in self.calls if keyword in q])
+
+
+def world_with(check):
+    w = World()
+    w.arm = lambda: (importlib.reload(rival), rival.arm(w.store, S, w.now, check=check))
+    return w
+
+
+def test_a_handoff_the_gate_calls_routine_is_dropped_and_not_repeated():
+    check = Counting(**{'hand this storage unit': 0.1})
+    w = world_with(check)
+    w.move_out()
+    w.note('Mouse droppings in the back corner.')
+    assert w.case().state != 'needs staff' and not _topics(w)       # the gate said routine work: no handoff, and the unit stays held
+    assert w.status() == 'blocked'
+    for _ in range(3):
+        w.arm()
+    assert check.asked('hand this storage unit') == 1               # not asked again on every call
+    w.note('Unit is clean, no issues.')
+    assert w.status() == 'vacant'
+
+
+def test_a_refused_link_waits_for_a_new_record_before_it_is_tried_again():
+    check = Counting(**{'one fault': 0.3})
+    w = world_with(check)
+    w.move_out()
+    first = w.report('Latch will not close.')
+    second = w.report('Door latch is broken.')
+    orders = {o.id: o for o in w.orders()}
+    assert orders[second].joined_into is None and orders[first].state != 'closed'      # the gate was not sure: two orders stay
+    asked = check.asked('one fault')
+    assert asked >= 1
+    for _ in range(3):
+        w.arm()
+    assert check.asked('one fault') == asked                                          # nothing new was written, so not asked again
+
+
+def test_a_release_the_gate_refuses_is_not_asked_again_until_something_new_is_written():
+    check = Counting(**{'fine to rent again': 0.1})
+    w = world_with(check)
+    w.move_out()
+    w.note('Unit is clean and ready to rent.')
+    assert w.status() == 'blocked'
+    asked = check.asked('fine to rent again')
+    assert asked == 1
+    for _ in range(3):
+        w.arm()
+    assert check.asked('fine to rent again') == asked
+    w.note('Walked it a second time: clean, empty, door works. Ready to rent.')                # a new look is a new reason to ask
+    assert check.asked('fine to rent again') == asked + 1
+
+
+def test_work_the_gate_refuses_as_removing_a_tenants_things_goes_to_staff():
+    check = Counting(**{'remove or dispose': 0.95})
+    w = world_with(check)
+    w.move_out()
+    w.note('Roll-up door is off the track.')
+    assert not w.mine() and rival.BELONGINGS in _topics(w)
+    assert check.asked('remove or dispose') == 1
+
+
+def test_a_report_a_later_look_finds_fine_is_closed_as_needing_no_work():
+    w = World()
+    w.move_out()
+    order = w.report('There is a rattling sound when the door moves.')
+    assert w.status() == 'blocked'
+    w.note('Walked it. The rattle was a loose number tag on the outside. Door, track and latch are solid, room is clean and empty. Ready to rent.')
+    assert w.status() == 'vacant'
+    assert next(e for e in w.store.stream_events(S) if e.kind == 'work_order.closed' and e.payload['order'] == order).payload['no_work']
+
+
+def test_a_report_the_look_does_not_speak_to_stays_open():
+    w = World()
+    w.move_out()
+    w.report('Door latch is broken.')
+    w.note('Walked it. Floor is clean and swept, walls are fine. Ready to rent.')
+    assert w.status() == 'blocked'
+    assert not [e for e in w.store.stream_events(S) if e.kind == 'work_order.closed']
+
+
+def test_a_ruling_after_a_handoff_is_judged_while_it_is_still_in_view():
+    check = Counting()
+    w = world_with(check)
+    w.move_out()
+    w.note('Found a plywood divider screwed into the floor. We need management to decide whether to keep it or remove it.')
+    w.note('Manager decided to restore the open layout. Authorized removing the divider. Keep the unit blocked until done.')
+    order = w.report('Remove the plywood divider and patch the anchor holes.')
+    w.finish(order, 'Took down the divider, removed the anchors and patched the holes.')
+    assert check.asked('Do the staff records') >= 1                 # asked when the work finished, before a long repair log hides the ruling
+    w.finish(w.inspection().id, 'Divider gone, floor patches solid, no debris. Door works, room is empty and dry.')
+    assert w.status() == 'vacant'
+
+
 def test_the_practice_and_pilot_records_replay_with_no_early_release_and_no_needless_handoff():
     """The two sets of authored records (core/tilden/replay.py scores them): practice must be right in full; pilot may only miss
     the three records whose reported order can be closed by no tool a worker has."""
     import re
     from core.tilden import replay
     practice = replay.parse(open('tests/fixtures/unit_ready_practice.txt').read())
-    totals = replay.totals([replay.score(c, replay.replay(c, rival.arm)) for c in practice])
+    totals = replay.totals([replay.score(c, replay.replay(c, lambda store, stream, now: rival.arm(store, stream, now, check=fake_check))) for c in practice])
     assert totals['release_right'] == len(practice) and totals['released_early'] == 0
     assert totals['missed_handoff'] == 0 and totals['premature_handoff'] == 0 and totals['needless_handoff'] == 0
     text = open('tests/fixtures/unit_ready_pilot.txt').read()
     blocks = re.split(r'(?m)^\s*(?=U\d+\.\s*$)', text.strip())
     pilot = replay.parse('\n'.join(b for b in blocks if not re.match(r'\s*U30\.', b)))
-    totals = replay.totals([replay.score(c, replay.replay(c, rival.arm)) for c in pilot])
+    totals = replay.totals([replay.score(c, replay.replay(c, lambda store, stream, now: rival.arm(store, stream, now, check=fake_check))) for c in pilot])
     assert totals['released_early'] == 0 and totals['needless_handoff'] == 0 and totals['premature_handoff'] == 0
     assert totals['missed_handoff'] == 0 and totals['release_right'] >= 26
