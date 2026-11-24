@@ -516,6 +516,8 @@ def record_notice(led: Ledger, at: datetime, *, change: str, lease: str, documen
         raise Refused("enter the amount stated in the notice")
     effective = _date(effective_on, "effective date stated in the notice")
     tried = _date(attempted_on, "date it was sent")
+    if delivered_on is not None and _date(delivered_on, "delivery date") < tried:
+        raise Refused("delivery cannot precede the notice attempt")
     if any(d is not None and _date(d, "service date") > local(at).date() for d in (tried, delivered_on, acknowledged_on)):
         raise Refused("notice service dates cannot be in the future")
     sha = _sha(document_sha256, "notice")
@@ -530,8 +532,11 @@ def record_notice(led: Ledger, at: datetime, *, change: str, lease: str, documen
 
 def update_notice(led: Ledger, at: datetime, *, change: str, notice: str, confirmation: str | None = None, delivered_on=None, acknowledged_on=None) -> None:
     """A later stage of the same notice: a confirmation, the delivery, the tenant's acknowledgment. The notice record is never rewritten."""
-    if not any(n.id == notice for n in state(led.books).notices.get(change, ())):
+    existing = next((n for n in state(led.books).notices.get(change, ()) if n.id == notice), None)
+    if existing is None:
         raise Refused("that notice is not on file for this change")
+    if delivered_on is not None and _date(delivered_on, "delivery date") < existing.attempted_on:
+        raise Refused("delivery cannot precede the notice attempt")
     if any(d is not None and _date(d, "service date") > local(at).date() for d in (delivered_on, acknowledged_on)):
         raise Refused("notice service dates cannot be in the future")
     out = [(_date(d, "date").isoformat() if d else None) for d in (delivered_on, acknowledged_on)]
@@ -1004,6 +1009,8 @@ def _served(rule: RuleSet, terms: Terms, n: Notice, days: int) -> tuple[date | N
         return n.attempted_on, ()
     if not n.delivered_on:
         return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", "The hand delivery has not been recorded as delivered.")
+    if n.delivered_on < n.attempted_on:
+        return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", "The delivery date precedes the notice attempt.")
     return n.delivered_on, ()
 
 

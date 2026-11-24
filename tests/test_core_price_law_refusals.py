@@ -440,3 +440,19 @@ def test_first_year_disclosure_must_cover_the_whole_first_year():
     assert outcome == 'refuse' and 'DISCLOSURE_MISSING_OR_INVALID' in codes
     commit(led)
     assert verdict(led, change(), CA)[:2] == ('allow', [])
+
+
+def test_hand_delivery_cannot_precede_attempt_even_in_existing_evidence():
+    led = book(CA)
+    terms(led)
+    commit(led)
+    later = at_local(date(2026, 12, 1), 10)
+    with pytest.raises(Refused):
+        notice(led, at=later, channel='hand', attempted_on=date(2026, 12, 1), delivered_on=TODAY)
+    ident = notice(led, at=later, channel='hand', attempted_on=date(2026, 12, 1))
+    with pytest.raises(Refused):
+        pl.update_notice(led, later, change='PC1', notice=ident, delivered_on=TODAY)
+    records = pl.state(led.books).notices['PC1']
+    records[0] = replace(records[0], delivered_on=TODAY)
+    outcome, codes, _ = verdict(led, change(), CA)
+    assert outcome == 'refuse' and 'NOTICE_SERVICE_UNPROVEN' in codes
