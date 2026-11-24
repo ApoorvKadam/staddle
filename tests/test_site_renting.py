@@ -15,9 +15,14 @@ from tests.test_fms_card_payments import stripe
 
 
 
+SEEDED_RENTER = "Maya Okafor"
+
+
 def own(fd, ident):
-    """The rentals made on this copy, without the existing tenants' rentals the year starts with."""
-    return [r for r in rent_of(fd, ident).rentals.values() if not r.provenance]
+    """The rentals this test made on the copy, without the existing tenants' rentals the year starts with and without Maya's, the one
+    rental the seeded year already made through the renting commands."""
+    tenants = fd.ready().books(fd.stream(ident)).tenants
+    return [r for r in rent_of(fd, ident).rentals.values() if not r.provenance and tenants[r.tenant].name != SEEDED_RENTER]
 
 def begin(c, unit, name="Rae Quinn", phone="+14075550199"):
     page = c.get(f"/rent/{unit}").text
