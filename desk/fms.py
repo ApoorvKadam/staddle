@@ -1127,7 +1127,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         size = request.query_params.get("size")
         size = size if size in sizes else None        # an unknown size shows every unit
         shown = [u for u in units if u.size == size] if size else units
-        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size)
+        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size, token=secrets.token_hex(6),
+                         inquiry_note=fd.take_site_note(f.ident))
 
     @app.post("/rent/inquiry", include_in_schema=False)
     async def website_inquiry(request: Request):
@@ -1138,17 +1139,28 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         if any(len(data.get(k, "")) > n for k, n in limits.items()):
             raise HTTPException(422, "One of the answers is too long. Shorten it and try again.")
         channels = (["phone", "text"] if data.get("phone") else []) + (["email"] if data.get("email") else []) if data.get("consent") == "yes" else []
+        token = data.get("token", "")
+        if token and not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
         def save_inquiry():
             with fd.lock:
+                if token and (ident, "inquiry:" + token) in fd.site_forms:     # the same page sent again (back and resend): the first press stands, no second inquiry
+                    return
                 store, stream = fd.ready(), fd.stream(ident)
                 with store.write():
                     led = Ledger(store.books(stream))
                     try:
                         leads.capture(led, fd.clock(), source="website inquiry", name=data.get("name", ""), phone=data.get("phone", ""), email=data.get("email", ""), size=data.get("size", ""), start=data.get("start", ""), words=data.get("message", ""), permissions=channels)
                     except Refused as exc:
-                        raise HTTPException(422, str(exc)) from exc
+                        return str(exc)
                     store.append(stream, led.pending)
-        await run_in_threadpool(save_inquiry)
+                if token:
+                    fd.site_forms.add((ident, "inquiry:" + token))              # only after it was saved: a refused form can be corrected and sent again
+                return None
+        why = await run_in_threadpool(save_inquiry)
+        if why:                         # the visitor sees why beside the form, not an error page
+            fd.put_site_note(ident, why)
+            return RedirectResponse("/rent#ask", status_code=303)
         return RedirectResponse("/rent?inquiry=received", status_code=303)
 
     @app.get("/leads", include_in_schema=False)
@@ -1212,7 +1224,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                    if leads.conversion_evidence(f.b, f.rent, lead) else "")      # the core refuses follow-ups then, so the page does not offer them
         stopped = any(other.stopped and (other.id == lead.id or (lead.phone and lead.phone == other.phone) or (lead.email and lead.email == other.email))
                       for other in leads.state(f.b).records.values())      # the core's own test: a stop on any inquiry from this person
-        return show(request, "fms_lead.html", "leads", f, lead=lead, matches=matches, choices=choices, steps=steps, settled=settled, stopped=stopped, said=leads.said, token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
+        return show(request, "fms_lead.html", "leads", f, lead=lead, matches=matches, choices=choices, steps=steps, settled=settled, closed=leads.closed_reason(lead), stopped=stopped, said=leads.said, token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
 
     @app.post("/leads/{key}", include_in_schema=False)
     async def lead_step(request: Request, key: str):
@@ -1312,8 +1324,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 if (ident, token) in fd.site_forms:     # a second press of the same page returns the first answer
                     return
                 shown = int(data["total"]) if data.get("total", "").isdecimal() else None
-                if shown is not None and fd.checkout_total(ident, rental) != shown:
-                    return "changed"        # the total moved since the page was shown: nothing is accepted or charged until the renter sees the new one
+                if shown is None or fd.checkout_total(ident, rental) != shown:
+                    return "changed"        # a total that is missing, not a number or moved since the page was shown: nothing is accepted or charged until the renter sees the current one
                 fd.site_forms.add((ident, token))
                 if not r.accepted:      # once accepted, a declined card can be tried again without accepting twice
                     args = {"sha256": data.get("sha256", "")}

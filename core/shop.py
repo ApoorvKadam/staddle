@@ -94,7 +94,7 @@ class State:
         elif kind == 'shop.payment_retried':
             old = self.payments[p['quote']]
             self.attempts.setdefault(p['quote'], []).append(old)       # the attempt that did not come in stays on record
-            self.payments[p['quote']] = dict(quote=p['quote'], key=p['key'], cents=old['cents'], status='open', at=p['at'], attempt=len(self.attempts[p['quote']]) + 1, card=p.get('card'))
+            self.payments[p['quote']] = dict(quote=p['quote'], key=p['key'], cents=old['cents'], status='open', at=p['at'], attempt=len(self.attempts[p['quote']]) + 1, card=p.get('card'), intent=p.get('intent'))
         elif kind == 'shop.attempt_answered':           # the processor's later word on an attempt a newer one replaced
             for a in self.attempts.get(p['quote'], []):
                 if a['key'] == p['key']:
@@ -205,13 +205,21 @@ def command(led: Ledger, act: Act, now: datetime) -> Decision:
         check = 'Name each product and record in words.'
     elif act.action == 'publish_product':
         product = act.about
-        if (isinstance(product, str) and product.strip() and type(f.get('price')) is int and f['price'] >= 0
-                and type(f.get('cost')) is int and f['cost'] >= 0 and isinstance(f.get('tax_class'), str)
-                and f['tax_class'].strip() and type(f.get('active')) is bool):
+        wrong = []                          # only what is wrong is named, so the person fixes that and nothing else
+        if not (isinstance(product, str) and product.strip()):
+            wrong.append('Give the product a name.')
+        for field, word in (('price', 'price'), ('cost', 'cost')):
+            if not (type(f.get(field)) is int and f[field] >= 0):
+                wrong.append(f'The {word} is not an amount of money; write it in dollars, like 12 or 12.50.')
+        if not (isinstance(f.get('tax_class'), str) and f['tax_class'].strip()):
+            wrong.append('Give the tax class.')
+        if type(f.get('active')) is not bool:
+            wrong.append('Say whether the product is on sale.')
+        if wrong:
+            check = ' '.join(wrong)
+        else:
             event, made = 'product', product
             payload = dict(product=product, version=len(st.versions.get(product, [])) + 1, price=f['price'], cost=f['cost'], tax_class=f['tax_class'], active=f['active'])
-        else:
-            check = 'Give a product, price, cost, tax class and whether it is active.'
     elif act.action in ('record_delivery', 'record_receipt', 'record_handover'):
         product, quantity = f.get('product'), f.get('quantity')
         if product not in st.versions or type(quantity) is not int or quantity <= 0 or not isinstance(f.get('reason'), str) or not f['reason'].strip():
@@ -482,8 +490,8 @@ def pay(store: Store, stream: str, processor, quote: str, card: str, now: dateti
         payment = state(books).payments[quote]
         if which not in (None, 'first') and payment['key'] != which:
             raise Refused('no such payment attempt')
-        if payment['status'] not in ('open', 'processing'):
-            return payment
+        if payment['status'] not in ('open', 'processing') or payment.get('problem'):
+            return payment                      # an answered attempt, or one the processor confirmed it holds nothing for, is never sent again
         card = payment.get('card') or card
         if not card:
             raise Refused('no card is on record for this payment')
@@ -497,21 +505,26 @@ def pay(store: Store, stream: str, processor, quote: str, card: str, now: dateti
 
 
 def _confirm_none(store: Store, stream: str, processor, quote: str, key: str, now: datetime):
-    """The processor refused a request: only its own record that it holds no payment for the key lets the sale be tried again or cancelled."""
+    """The processor refused a request: only its own record that it holds no payment for the key lets the sale be tried again or cancelled.
+    Everything is read for the attempt that was sent (by its key), never for a newer one that replaced it while the request was out."""
+    from .billing import Refused
     from .delinquency import ProcessorRefused, ProcessorTimeout
     with store.write():
-        current = state(store.books(stream)).payments[quote]
+        sent = next((a for a in state(store.books(stream)).every_attempt(quote) if a['key'] == key), None)
+    if sent is None:
+        raise Refused('no such payment attempt')
     try:
-        found = processor.find(key, since=current['at'])
+        found = processor.find(key, since=sent['at'])
     except (ProcessorRefused, ProcessorTimeout):
-        return current                          # not confirmed: the sale stays as it is
+        return sent                             # not confirmed: the sale stays as it is
     if found is not None:
-        return _record_answer(store, stream, quote, found, now) or current
+        return _record_answer(store, stream, quote, found, now) or sent
     return _record_none(store, stream, quote, key, now)
 
 
 def _record_none(store: Store, stream: str, quote: str, key: str, now: datetime):
-    """Write down that the processor confirmed it holds no payment for this attempt's key."""
+    """Write down that the processor confirmed it holds no payment for this attempt's key, if that attempt is still the current one.
+    Returns the attempt with that key."""
     with store.write():
         books = store.books(stream)
         current = state(books).payments[quote]
@@ -520,7 +533,7 @@ def _record_none(store: Store, stream: str, quote: str, key: str, now: datetime)
             led.emit('shop.payment_problem', now, {'quote': quote}, 'shop:payment-problem:' + quote + (f":{current['attempt']}" if current.get('attempt') else ''),
                      source='processor')
             store.append(stream, led.pending)
-        return state(books).payments[quote]
+        return next(a for a in state(books).every_attempt(quote) if a['key'] == key)
 
 
 def _attempt_for(st: State, quote: str, answer: dict, stream: str) -> dict | None:
@@ -635,8 +648,10 @@ def differences(st: State) -> list[str]:
             out.append(f"Receipt {receipt['id']} does not match one stock receipt")
     for handover in st.handovers.values():
         found = [m for m in st.moves if m['kind'] == 'give-away' and m.get('reference') == handover['id']]
-        if len(found) != 1 or found[0]['product'] != handover['product'] or found[0]['quantity'] != -handover['quantity']:
-            out.append(f"Handover {handover['id']} does not match one stock adjustment")
+        if not found:
+            out.append(f"A give-away of {handover['product']} (quantity {handover['quantity']}) was handed over but is not taken out of stock yet")
+        elif len(found) != 1 or found[0]['product'] != handover['product'] or found[0]['quantity'] != -handover['quantity']:
+            out.append("A give-away was taken out of stock more than once, or by another amount than was handed over")
     for receipt in st.returns.values():
         found = [m for m in st.moves if m['kind'] == 'return' and m.get('reference') == receipt['id']]
         if len(found) != 1 or found[0]['product'] != receipt['product'] or found[0]['quantity'] != receipt['quantity']:

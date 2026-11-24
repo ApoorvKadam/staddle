@@ -28,9 +28,14 @@ def agreement_hash(page):
     return re.search(r'name="sha256" value="([0-9a-f]+)"', page).group(1)
 
 
+def due(page):
+    """The total the page shows and sends back, as the browser's form does."""
+    return re.search(r'name="total" value="(\d+)"', page).group(1)
+
+
 def finish(c, address, card="card_ok"):
     page = c.get(address).text
-    return c.post(address, data={"token": token(page), "accept": "yes", "card": card, "sha256": agreement_hash(page)}, follow_redirects=False), page
+    return c.post(address, data={"token": token(page), "accept": "yes", "card": card, "sha256": agreement_hash(page), "total": due(page)}, follow_redirects=False), page
 
 
 def test_only_priced_vacant_units_are_offered(fms_url, sim):
@@ -63,7 +68,7 @@ def test_rent_and_repeat_are_seen_by_staff(fms_url, sim, stripe):
         rental = next(iter(own(fd, ident)))
         agreement = rent_of(fd, ident).agreements[rental.agreement]
         assert agreement.version in page and all(line in unescape(page) for line in agreement.text.splitlines())
-        again = c.post(start.headers['location'], data={'token': token(page), 'accept': 'yes', 'card': 'card_ok', 'sha256': agreement_hash(page)}, follow_redirects=False)
+        again = c.post(start.headers['location'], data={'token': token(page), 'accept': 'yes', 'card': 'card_ok', 'sha256': agreement_hash(page), 'total': due(page)}, follow_redirects=False)
         assert again.headers['location'] == result.headers['location']
         text = seen(c.get(result.headers['location']).text)
         assert 'Active' in text and 'Paid' in text and 'Accepted by Rae Quinn' in text and 'Code set and read back' in text
@@ -111,14 +116,14 @@ def test_one_checkout_page_pays_at_most_once_and_a_retry_needs_no_second_accepta
         units = [u for u in vacant(fd, ident, 20) if rent_of(fd, ident).units[u].rent_cents]
         path = begin(c, units[0]).headers['location']
         page = c.get(path).text
-        form = {"token": token(page), "accept": "yes", "card": "card_declined", "sha256": agreement_hash(page)}
+        form = {"token": token(page), "accept": "yes", "card": "card_declined", "sha256": agreement_hash(page), "total": due(page)}
         c.post(path, data=form, follow_redirects=False)
         c.post(path, data=form, follow_redirects=False)
         (rental,) = own(fd, ident)
         assert len(rental.pay_ops) == 1
         again = c.get(path).text
         assert 'you accepted this agreement' in seen(again).lower() and 'name="accept"' not in again
-        c.post(path, data={"token": token(again), "card": "card_ok"}, follow_redirects=False)
+        c.post(path, data={"token": token(again), "card": "card_ok", "total": due(again)}, follow_redirects=False)
         (rental,) = own(fd, ident)
         assert rental.state == 'active' and len(rental.pay_ops) == 2
 

@@ -56,9 +56,9 @@
       <form method="post" action="/work/step" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="key" value="{{ i.key }}"><input type="hidden" name="view" value="{{ view }}">
         <label for="to-{{ loop.index }}">Assign to</label>
         <select id="to-{{ loop.index }}" name="to">{% for r in roles %}<option value="{{ r }}">{{ r.replace('_', ' ')|capitalize }}</option>{% endfor %}<option value="{{ me }}">Me</option></select>
-        <button class="button" name="action" value="assign" type="submit">Assign</button>
+        <button class="button" name="action" value="assign" type="submit" formnovalidate>Assign</button>
         <label for="text-{{ loop.index }}">Note{% if i.attest %}, or what you checked{% endif %}</label>
-        <input id="text-{{ loop.index }}" name="text" maxlength="300" placeholder="A few words">
+        <input id="text-{{ loop.index }}" name="text" maxlength="300" required placeholder="A few words">
         <button class="button" name="action" value="note" type="submit">Add the note</button>
         {% if i.attest %}<button class="button" name="action" value="finish" type="submit">Done: I checked it</button>{% endif %}
       </form>
