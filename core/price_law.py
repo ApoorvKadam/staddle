@@ -317,6 +317,7 @@ class State:
         self.authorizations: dict[str, list[Authorization]] = {}
         self.approvals: dict[str, Approval] = {}
         self.decisions: list[Recorded] = []
+        self.postings: dict[str, tuple[str, str]] = {}
         self.order: dict[str, int] = {}                 # declaration and check ids -> their place in the log, so "after" never reads a clock
         self.counts: dict[str, int] = {}                # profiles set, approvals given and notice updates made, so a repeat in the same instant has its own key
         self._n = 0
@@ -371,6 +372,8 @@ class State:
             return "PLX", p["id"]
         elif kind == "price_law.approved":
             self.approvals[p["change"]] = Approval(p["change"], dict(p["versions"]), dict(p.get("snapshot", {})), p["by"], at)
+        elif kind == "price_law.invoice_posted":
+            self.postings[p["invoice"]] = (p["decision"], p["charge"])
         elif kind == "price_law.decided":
             self.decisions.append(Recorded(
                 p["id"], p["change"], p["point"], p["outcome"], tuple(Reason(**r) for r in p["reasons"]), tuple(p["records"]),
@@ -1010,10 +1013,46 @@ def _owner(run: _Run) -> None:
         run.add("note", "OWNER_RULE_LOOSER", f"The owner's rule asks for {d} days' notice; the law's {max(law)} days applies instead, because an owner rule can only add to the law.")
 
 
+def _valid_invoice(invoice: str | None, lease: str | None) -> bool:
+    if not lease or not isinstance(invoice, str):
+        return False
+    match = re.fullmatch(re.escape(lease) + r":(\d{4})-(\d{2})", invoice)
+    return bool(match and int(match[1]) >= 1 and 1 <= int(match[2]) <= 12)
+
+
 def posted_basis(books: Books, invoice: str) -> Recorded | None:
-    """What a posted invoice was decided on: the allowed decision recorded for it at invoice time, with the rule versions and records it read.
-    It is kept as it was; a later rule update never rewrites it."""
-    return deepcopy(next((r for r in reversed(state(books).decisions) if r.invoice == invoice and r.point == "invoice" and r.outcome == "allow"), None))
+    """Return the decision bound to an actual posted charge, if any."""
+    posting = state(books).postings.get(invoice)
+    if not posting:
+        return None
+    decision_id, charge_id = posting
+    charge = books.charges.get(charge_id)
+    basis = next ( (r for r in state(books).decisions if r.id == decision_id), None)
+    if not charge or not basis or basis.point != "invoice" or basis.outcome != "allow" or basis.invoice != invoice:
+        return None
+    if not _valid_invoice(invoice, basis.lease) or charge.lease != basis.lease or charge.cents != basis.snapshot.get("new_cents"):
+        return None
+    return deepcopy(basis)
+
+
+def post_invoice(led: Ledger, at: datetime, *, decision: str) -> str:
+    """Post the amount of an allowed invoice decision and bind the charge to it atomically."""
+    basis = next((r for r in state(led.books).decisions if r.id == decision), None)
+    if not basis or basis.point != "invoice" or basis.outcome != "allow" or not _valid_invoice(basis.invoice, basis.lease):
+        raise Refused("an allowed invoice decision with a valid lease and month is required")
+    snap = basis.snapshot
+    if (snap.get("id") != basis.change or snap.get("lease") != basis.lease or snap.get("invoice") != basis.invoice
+            or snap.get("kind") != "lease_increase" or not isinstance(snap.get("new_cents"), int)
+            or isinstance(snap.get("new_cents"), bool) or snap["new_cents"] <= 0 or basis.lease not in led.books.leases
+            or basis.invoice in state(led.books).postings):
+        raise Refused("the invoice decision cannot be posted")
+    due = _when(snap.get("effective_on"), "effective date")
+    if local(at).date() < due:
+        raise Refused("the change is not effective yet")
+    charge = led._charge(at, basis.lease, "rent", snap["new_cents"], "rent:" + basis.invoice, due)
+    led.emit("price_law.invoice_posted", at, {"invoice": basis.invoice, "decision": basis.id, "charge": charge},
+             f"price_law:posting:{basis.invoice}")
+    return charge
 
 
 def _revision(change: PriceChange) -> dict:
@@ -1029,7 +1068,10 @@ def _snapshot(change: PriceChange) -> dict:
 def decide(led: Ledger, at: datetime, change: PriceChange, *, point: str, profile: FacilityProfile | None = None,
            rules: tuple[RuleSet, ...] | None = None) -> Result:
     """Evaluate, then record the decision with its reasons, the records it read and the rule versions: one write, after the answer."""
-    if point == "invoice" and change.invoice and (basis := posted_basis(led.books, change.invoice)):
+    if point == "invoice" and not _valid_invoice(change.invoice, change.lease):
+        raise Refused("the invoice must name its lease and month as <lease>:<YYYY-MM>")
+    if (point == "invoice" and (basis := posted_basis(led.books, change.invoice)) and basis.change == change.id
+            and basis.lease == change.lease and basis.invoice == change.invoice and basis.snapshot == _snapshot(change)):
         return Result(basis.outcome, basis.reasons, basis.records, basis.versions, basis.id)       # already posted: its decision stands
     res = evaluate(led.books, change, at, point=point, profile=profile, rules=rules)
     ident = record_decision(led, at, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,

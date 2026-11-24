@@ -23,6 +23,8 @@ class Desk:
     def __init__(self, name: str, city: str, profile=None):
         led = Ledger()
         led.set_up(NOW, name, city, ["A1"])
+        tenant = led.add_tenant(NOW, "Pat Tenant", "5550100")
+        led.sign_lease(NOW, tenant, "A1", 10000, [])
         self.store, self.profile, self.n = Store(":memory:"), profile, 0
         with self.store.write():
             self.store.append("base", led.pending)
@@ -133,6 +135,10 @@ def test_a_posted_invoice_keeps_the_rule_snapshot_it_was_decided_on(monkeypatch)
     walk = d.walk()
     first = walk["invoice"]
     assert first.allowed
+    with d.store.write():
+        led = Ledger(d.books())
+        pl.post_invoice(led, at_local(date(2026, 12, 23), 10), decision=first.made)
+        d.store.append(STREAM, led.pending)
     basis = pl.posted_basis(d.books(), "L0001:2026-12")
     assert basis.id == first.made and basis.versions["UT-notice"] == 1 and basis.outcome == "allow"
     recorded = len(d.books().price_law.decisions)
@@ -230,3 +236,30 @@ def test_notice_for_another_lease_does_not_prove_service():
     assert d.notice(lease='L0002').allowed
     result = d.change('check_price_change', 'notice_completion', NOW)
     assert not result.allowed and result.why == 'NOTICE_SERVICE_UNPROVEN'
+
+
+def test_unposted_invoice_check_is_not_reused_for_new_terms():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed and d.notice().allowed
+    on = at_local(date(2026, 12, 23), 10)
+    first = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12')
+    assert first.allowed
+    assert pl.posted_basis(d.books(), 'L0001:2026-12') is None
+    other = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12', new_cents=12000)
+    assert not other.allowed and other.made != first.made
+
+
+def test_posted_basis_is_not_reused_for_different_changes_or_bad_invoices():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed and d.notice().allowed
+    on = at_local(date(2026, 12, 23), 10)
+    first = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12')
+    with d.store.write():
+        led = Ledger(d.books())
+        pl.post_invoice(led, on, decision=first.made)
+        d.store.append(STREAM, led.pending)
+    for args in ({'about': 'PC2'}, {'new_cents': 12000}, {'lease': 'L0002'}):
+        result = d.change('check_price_change', 'invoice', on, invoice='L0001:2026-12', **args)
+        assert not result.allowed and result.made != first.made
+    for invoice in ('L0002:2026-12', 'L0001:2026-13', 'L0001:December', 'L0001:2026-12:extra'):
+        assert not d.change('check_price_change', 'invoice', on, invoice=invoice).allowed

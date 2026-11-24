@@ -259,10 +259,14 @@ def test_a_decision_is_recorded_with_its_reasons_records_and_versions():
 
 def test_posted_basis_does_not_expose_mutable_decision_data():
     led = book('Salt Lake City, UT')
-    pl.record_decision(led, NOW, change='PC1', point='invoice', outcome='allow', reasons=[], records=[],
-                       versions={'rule': 1}, lease='L0001', invoice='L0001:2026-12', snapshot={'nested': {'value': 1}})
-    basis = pl.posted_basis(led.books, 'L0001:2026-12')
+    tenant = led.add_tenant(NOW, 'Pat Tenant', '5550100')
+    led.sign_lease(NOW, tenant, 'A1', 10000, [])
+    c = change(invoice='L0001:2027-02', disclosure={'nested': {'value': 1}})
+    ident = pl.record_decision(led, NOW, change=c.id, point='invoice', outcome='allow', reasons=[], records=[],
+                               versions={'rule': 1}, lease=c.lease, invoice=c.invoice, snapshot=pl._snapshot(c))
+    pl.post_invoice(led, at_local(date(2027, 1, 15), 10), decision=ident)
+    basis = pl.posted_basis(led.books, c.invoice)
     basis.versions['rule'] = 2
-    basis.snapshot['nested']['value'] = 2
-    again = pl.posted_basis(led.books, 'L0001:2026-12')
-    assert again.versions == {'rule': 1} and again.snapshot == {'nested': {'value': 1}}
+    basis.snapshot['disclosure']['nested']['value'] = 2
+    again = pl.posted_basis(led.books, c.invoice)
+    assert again.versions == {'rule': 1} and again.snapshot['disclosure']['nested']['value'] == 1
