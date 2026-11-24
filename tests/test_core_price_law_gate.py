@@ -74,13 +74,6 @@ def allowed(walk):
     return {point: d.allowed for point, d in walk.items()}
 
 
-@pytest.fixture
-def hypothetical_florida_rules(monkeypatch):
-    # Exercise the modeled rule mechanics under a hypothetical future review.
-    rules = tuple(replace(r, review="reviewed", reviewer="test fixture") if r.place == "FL" else r for r in pl.RULE_SETS)
-    monkeypatch.setattr(pl, "RULE_SETS", rules)
-
-
 def test_california_walks_an_increase_to_a_posted_invoice_and_stops_at_its_disclosed_maximum():
     d = Desk("Synthetic California facility", "Sacramento, CA", pl.SYNTHETIC_PROFILES["CA"])
     assert d.checked("CA").allowed and d.terms().allowed
@@ -125,12 +118,21 @@ def test_new_york_city_walks_an_increase_with_sixty_days_and_refuses_thirty():
     assert (short.allowed, short.why) == (False, "NOTICE_PERIOD_TOO_SHORT") and "60 days" in short.check
 
 
-def test_florida_northstar_follows_its_agreement_and_holds_any_increase_under_a_declaration(hypothetical_florida_rules):
+def test_florida_northstar_follows_its_agreement_and_holds_any_increase_under_a_declaration():
     d = Desk("Northstar Storage", "Orlando, FL")
     assert d.checked("FL").allowed
     assert d.terms(notice_days=30, notice_methods=["first_class_mail"], email_notice_authorized=False).allowed
     walk = d.walk()
     assert all(allowed(walk).values()), {k: v.check for k, v in walk.items() if not v.allowed}
+    with d.store.write():
+        led = Ledger(d.books())
+        charge = pl.post_invoice(led, at_local(date(2026, 12, 23), 10), decision=walk["invoice"].made)
+        d.store.append(STREAM, led.pending)
+    assert d.books().charges[charge].cents == 10500
+    street = d.change("check_price_change", "publication", NOW, about="STREET", kind="street_rate", lease=None, unit_class="10x10")
+    assert street.allowed
+    short = d.change("check_price_change", "proposal", NOW, about="SHORT", effective_on="2026-12-22")
+    assert (short.allowed, short.why) == (False, "NOTICE_PERIOD_TOO_SHORT") and "signed agreement requires 30 days" in short.check
     rid = d.go("record_emergency", place="FL", name="Declared emergency, example county", source="state order", starts="2026-11-20", ends="2026-12-20").made
     assert d.go("record_emergency_check", place="FL", checked_on="2026-11-23", valid_until="2027-03-31", source="state emergency page", active=[rid]).allowed
     held = d.change("check_price_change", "proposal", NOW, about="PC2", kind="street_rate", lease=None, unit_class="10x10", effective_on="2026-12-01")

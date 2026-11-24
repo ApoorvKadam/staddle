@@ -43,13 +43,6 @@ def check(led, point="activation", at=at_local(date(2026, 12, 24), 10), **over):
     return pl.evaluate(led.books, change(**over), at, point=point)
 
 
-@pytest.fixture
-def hypothetical_florida_rules(monkeypatch):
-    # Exercise the modeled rule mechanics under a hypothetical future review.
-    rules = tuple(replace(r, review="reviewed", reviewer="test fixture") if r.place == "FL" else r for r in pl.RULE_SETS)
-    monkeypatch.setattr(pl, "RULE_SETS", rules)
-
-
 def test_the_made_up_facilities_are_flagged_and_the_live_one_is_orlando():
     assert set(pl.SYNTHETIC_PROFILES) == {"CA", "UT", "NYC"}
     for place, profile in pl.SYNTHETIC_PROFILES.items():
@@ -59,23 +52,29 @@ def test_the_made_up_facilities_are_flagged_and_the_live_one_is_orlando():
     with pytest.raises(KeyError):
         pl.synthetic_profile("FL")
     live = pl.profile_of(northstar().books)
-    assert (live.place, live.synthetic, live.facility) == ("FL", False, "Northstar Storage")
+    assert (live.place, live.synthetic, live.facility) == ("FL", True, "Northstar Storage")
 
 
-def test_a_recorded_live_profile_is_never_synthetic():
+def test_only_the_recorded_demo_profile_is_synthetic():
     led = northstar()
     pl.set_profile(led, NOW, place="FL", reviewed_by="staff:manager")
+    assert pl.profile_of(led.books).synthetic
+    other = Ledger()
+    other.set_up(NOW, "Real Storage", "Orlando, FL", ["A1"])
+    pl.set_profile(other, NOW, place="FL", reviewed_by="staff:manager")
+    assert not pl.profile_of(other.books).synthetic
+    pl.set_profile(led, NOW, place="CA", reviewed_by="staff:manager")
     assert not pl.profile_of(led.books).synthetic
 
 
 def test_florida_rule_defers_to_the_agreement_and_states_no_statewide_period():
     rule = next(rs for rs in pl.rules_in_force("FL", TODAY) if rs.topic == "notice")
-    assert (rule.review, rule.agreement_specific, rule.notice_days) == ("pending", True, None)
+    assert (rule.review, rule.agreement_specific, rule.notice_days) == ("demonstration", True, None)
     assert "30" not in rule.name and "statute" not in rule.name.lower()
     assert pl.required_notice_days(Ledger().books, [rule], None) is None
 
 
-def test_a_florida_increase_follows_the_notice_the_agreement_states(hypothetical_florida_rules):
+def test_a_florida_increase_follows_the_notice_the_agreement_states():
     led = northstar()
     terms(led)
     notice(led)
@@ -88,7 +87,7 @@ def test_a_florida_increase_follows_the_notice_the_agreement_states(hypothetical
     assert [r.code for r in short.reasons] == ["NOTICE_PERIOD_TOO_SHORT"]
 
 
-def test_florida_says_the_agreement_requires_the_days_and_never_names_a_statute_for_them(hypothetical_florida_rules):
+def test_florida_says_the_agreement_requires_the_days_and_never_names_a_statute_for_them():
     led = northstar()
     terms(led, notice_days=45)
     notice(led)
@@ -98,7 +97,7 @@ def test_florida_says_the_agreement_requires_the_days_and_never_names_a_statute_
     assert "Florida requires" not in words
 
 
-def test_a_florida_agreement_that_states_no_notice_period_means_no_activated_increase(hypothetical_florida_rules):
+def test_a_florida_agreement_that_states_no_notice_period_means_no_activated_increase():
     led = northstar()
     terms(led, notice_days=None)
     notice(led)
@@ -108,7 +107,7 @@ def test_a_florida_agreement_that_states_no_notice_period_means_no_activated_inc
         assert pl.evaluate(led.books, change(lease="L9999"), NOW, point=point).outcome == "hold"
 
 
-def test_a_florida_agreement_with_no_way_of_giving_notice_listed_holds_and_one_that_lists_others_refuses(hypothetical_florida_rules):
+def test_a_florida_agreement_with_no_way_of_giving_notice_listed_holds_and_one_that_lists_others_refuses():
     led = northstar()
     terms(led, notice_methods=[])
     notice(led)
@@ -124,12 +123,22 @@ def test_a_florida_agreement_with_no_way_of_giving_notice_listed_holds_and_one_t
     assert check(led).outcome == "allow"
 
 
-def test_florida_design_review_does_not_imply_counsel_review():
-    rules = [r for r in pl.RULE_SETS if r.place == 'FL']
-    assert all(r.review == 'pending' and 'design review' in r.reviewer.lower() and 'counsel review pending' in r.reviewer.lower() for r in rules)
-    led = northstar()
-    terms(led)
-    assert 'RULE_NOT_REVIEWED' in [r.code for r in pl.evaluate(led.books, change(), NOW).reasons]
+def test_rules_are_demonstrations_with_no_claim_of_counsel_review():
+    assert {r.id for r in pl.RULE_SETS if r.place == "FL"} == {"FL-notice", "FL-emergency"}
+    for rule in pl.RULE_SETS:
+        assert rule.review == "demonstration" and rule.reviewed_on is None
+        assert "counsel review pending" in rule.reviewer.lower()
+        assert "compliant" not in str(rule).lower()
+
+
+def test_non_demo_florida_facility_holds_for_unreviewed_rules():
+    led = Ledger()
+    led.set_up(NOW, "Real Storage", "Orlando, FL", ["A1"])
+    pl.set_profile(led, NOW, place="FL", reviewed_by="staff:manager")
+    pl.record_emergency_check(led, NOW, place="FL", checked_on=TODAY, valid_until=date(2027, 3, 31), by="staff:manager", source="state page", active=[])
+    result = pl.evaluate(led.books, change(kind="street_rate", lease=None), NOW)
+    reasons = [r for r in result.reasons if r.code == "RULE_NOT_REVIEWED"]
+    assert result.outcome == "hold" and reasons and all("not reviewed" in r.words for r in reasons)
 
 
 def test_unrepresentable_agreement_notice_period_is_rejected_and_legacy_evidence_holds():
