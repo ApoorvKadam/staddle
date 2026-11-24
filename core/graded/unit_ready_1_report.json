@@ -1,0 +1,7199 @@
+{
+ "set": "core/graded/unit_ready_1.txt",
+ "set_sha256": "1266762bbe0c4a312902ebb291122bbb1fc94ef1c7a71b282b6539223c685f1e",
+ "workers_commit": "e48dcf922df92c1bc1d013521f00a09b4890d3a3",
+ "runs": {
+  "picker": [
+   {
+    "file": "run1_picker.json",
+    "totals": {
+     "release_right": 14,
+     "released_early": 0,
+     "released_late_or_missed": 16,
+     "handoff_right": 2,
+     "premature_handoff": 9,
+     "missed_handoff": 0,
+     "needless_handoff": 19
+    },
+    "errors": 0,
+    "cents": 4.119,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0992
+     },
+     {
+      "case": "U2",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0655
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.93
+       ],
+       [
+        "handoff settled",
+        0.99
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.0939
+     },
+     {
+      "case": "U4",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.1117
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.94
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1946
+     },
+     {
+      "case": "U6",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0787
+     },
+     {
+      "case": "U7",
+      "released_at": "E5",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.78
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1211
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.2433
+     },
+     {
+      "case": "U9",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0905
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0961
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1668
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1902
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.1021
+     },
+     {
+      "case": "U14",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0434
+     },
+     {
+      "case": "U15",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0354
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.4236
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.94
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1114
+     },
+     {
+      "case": "U18",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.73
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.083
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1914
+     },
+     {
+      "case": "U20",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.73
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.152
+     },
+     {
+      "case": "U21",
+      "released_at": "E7",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.84
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1383
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0711
+     },
+     {
+      "case": "U23",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.18
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1039
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0562
+     },
+     {
+      "case": "U25",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.4
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1724
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0698
+     },
+     {
+      "case": "U27",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.41
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1372
+     },
+     {
+      "case": "U28",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0514
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.3522
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.2724
+     }
+    ]
+   },
+   {
+    "file": "run2_picker.json",
+    "totals": {
+     "release_right": 16,
+     "released_early": 0,
+     "released_late_or_missed": 14,
+     "handoff_right": 2,
+     "premature_handoff": 9,
+     "missed_handoff": 0,
+     "needless_handoff": 19
+    },
+    "errors": 0,
+    "cents": 4.303,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0853
+     },
+     {
+      "case": "U2",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0655
+     },
+     {
+      "case": "U3",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.34
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.0833
+     },
+     {
+      "case": "U4",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.1117
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.95
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1947
+     },
+     {
+      "case": "U6",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0787
+     },
+     {
+      "case": "U7",
+      "released_at": "E5",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.93
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1209
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.2372
+     },
+     {
+      "case": "U9",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0905
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0961
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.2217
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.2516
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.1021
+     },
+     {
+      "case": "U14",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0434
+     },
+     {
+      "case": "U15",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0354
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.3856
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.98
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1113
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.87
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.0862
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1935
+     },
+     {
+      "case": "U20",
+      "released_at": "E6",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.99
+       ],
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1523
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.35
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1345
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0711
+     },
+     {
+      "case": "U23",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.44
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1037
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0562
+     },
+     {
+      "case": "U25",
+      "released_at": "E7",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.21
+       ],
+       [
+        "handoff settled",
+        0.9
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1827
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0698
+     },
+     {
+      "case": "U27",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.24
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1373
+     },
+     {
+      "case": "U28",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0514
+     },
+     {
+      "case": "U29",
+      "released_at": "E7",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.92
+       ],
+       [
+        "ready",
+        0.82
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.2265
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.5229
+     }
+    ]
+   },
+   {
+    "file": "run3_picker.json",
+    "totals": {
+     "release_right": 13,
+     "released_early": 0,
+     "released_late_or_missed": 17,
+     "handoff_right": 2,
+     "premature_handoff": 9,
+     "missed_handoff": 0,
+     "needless_handoff": 19
+    },
+    "errors": 0,
+    "cents": 4.093,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0967
+     },
+     {
+      "case": "U2",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0655
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.85
+       ],
+       [
+        "handoff settled",
+        0.99
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.0937
+     },
+     {
+      "case": "U4",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.1117
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.93
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1946
+     },
+     {
+      "case": "U6",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0787
+     },
+     {
+      "case": "U7",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.41
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.118
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.253
+     },
+     {
+      "case": "U9",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0905
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0961
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1681
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1973
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.1021
+     },
+     {
+      "case": "U14",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0434
+     },
+     {
+      "case": "U15",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0354
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.3843
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.92
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.1114
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.93
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.0863
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.1962
+     },
+     {
+      "case": "U20",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.2
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.15
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.71
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1343
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0711
+     },
+     {
+      "case": "U23",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.49
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1039
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.0562
+     },
+     {
+      "case": "U25",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.61
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1724
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0698
+     },
+     {
+      "case": "U27",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.51
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.1374
+     },
+     {
+      "case": "U28",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.0514
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.2979
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.3252
+     }
+    ]
+   }
+  ],
+  "planner": [
+   {
+    "file": "run1_planner.json",
+    "totals": {
+     "release_right": 20,
+     "released_early": 0,
+     "released_late_or_missed": 10,
+     "handoff_right": 9,
+     "premature_handoff": 1,
+     "missed_handoff": 1,
+     "needless_handoff": 10
+    },
+    "errors": 0,
+    "cents": 33.796,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.5785
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.04
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.8511
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.94
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.1022
+     },
+     {
+      "case": "U4",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.2207
+     },
+     {
+      "case": "U5",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.3291
+     },
+     {
+      "case": "U6",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.9106
+     },
+     {
+      "case": "U7",
+      "released_at": "E5",
+      "handed_at": "E3",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.05
+       ],
+       [
+        "tenant items",
+        0.61
+       ],
+       [
+        "handoff settled",
+        0.75
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.1423
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": "E4",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.0008
+     },
+     {
+      "case": "U9",
+      "released_at": "E6",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.98
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.0997
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.9898
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 1.0669
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.94
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.7404
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.99
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.4017
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.98
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.346
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": "E3",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 2,
+      "cents": 0.7494
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.01
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.4496
+     },
+     {
+      "case": "U17",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.4359
+     },
+     {
+      "case": "U18",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.8708
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.89
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.3815
+     },
+     {
+      "case": "U20",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.04
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.1336
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E7",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.94
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.5465
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.7237
+     },
+     {
+      "case": "U23",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.1198
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 2,
+      "cents": 0.7007
+     },
+     {
+      "case": "U25",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.89
+       ],
+       [
+        "tenant items",
+        0.01
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.4705
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.8059
+     },
+     {
+      "case": "U27",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.99
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.6046
+     },
+     {
+      "case": "U28",
+      "released_at": "E4",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        1.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.7031
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.96
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.9123
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E4",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 3,
+      "cents": 1.4079
+     }
+    ]
+   },
+   {
+    "file": "run2_planner.json",
+    "totals": {
+     "release_right": 17,
+     "released_early": 0,
+     "released_late_or_missed": 13,
+     "handoff_right": 7,
+     "premature_handoff": 2,
+     "missed_handoff": 2,
+     "needless_handoff": 12
+    },
+    "errors": 0,
+    "cents": 36.43,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.7251
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.8094
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.1816
+     },
+     {
+      "case": "U4",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.2186
+     },
+     {
+      "case": "U5",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.02
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.61
+     },
+     {
+      "case": "U6",
+      "released_at": null,
+      "handed_at": "E3",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 1.3462
+     },
+     {
+      "case": "U7",
+      "released_at": null,
+      "handed_at": "E3",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.91
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "handoff settled",
+        0.56
+       ]
+      ],
+      "refused": 3,
+      "cents": 1.3834
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.3326
+     },
+     {
+      "case": "U9",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        1.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.0381
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.9787
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 1.1045
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.959
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 5,
+      "cents": 1.7663
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.6164
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": "E3",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.6568
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.1422
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ],
+       [
+        "ready",
+        0.98
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.3624
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.7834
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": "E7",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.7288
+     },
+     {
+      "case": "U20",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "same fault",
+        0.94
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.384
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E7",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.4906
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.8182
+     },
+     {
+      "case": "U23",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 3,
+      "cents": 1.6346
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 2,
+      "cents": 0.7602
+     },
+     {
+      "case": "U25",
+      "released_at": null,
+      "handed_at": "E7",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.93
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.7695
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": "E1",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.8524
+     },
+     {
+      "case": "U27",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.99
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.4468
+     },
+     {
+      "case": "U28",
+      "released_at": "E4",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.97
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.5812
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.9548
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E4",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.01
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.9946
+     }
+    ]
+   },
+   {
+    "file": "run3_planner.json",
+    "totals": {
+     "release_right": 19,
+     "released_early": 0,
+     "released_late_or_missed": 11,
+     "handoff_right": 8,
+     "premature_handoff": 1,
+     "missed_handoff": 2,
+     "needless_handoff": 11
+    },
+    "errors": 0,
+    "cents": 36.74,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.6149
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.03
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.8338
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.9
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.1835
+     },
+     {
+      "case": "U4",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.04
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.0782
+     },
+     {
+      "case": "U5",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.97
+       ],
+       [
+        "tenant items",
+        0.02
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.5735
+     },
+     {
+      "case": "U6",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 1.5571
+     },
+     {
+      "case": "U7",
+      "released_at": null,
+      "handed_at": "E3",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.83
+       ],
+       [
+        "handoff settled",
+        0.73
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.5411
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "tenant items",
+        0.04
+       ],
+       [
+        "same fault",
+        0.94
+       ],
+       [
+        "same fault",
+        0.99
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.4266
+     },
+     {
+      "case": "U9",
+      "released_at": "E6",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "handoff settled",
+        0.99
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.0
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 1.0362
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.03
+       ]
+      ],
+      "refused": 1,
+      "cents": 1.5445
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.5617
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 5,
+      "cents": 1.6641
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.4938
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": "E3",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.5673
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "tenant items",
+        0.01
+       ],
+       [
+        "same fault",
+        0.94
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.3491
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.2121
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 0.9176
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.85
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.7672
+     },
+     {
+      "case": "U20",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 1.0759
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.95
+       ]
+      ],
+      "refused": 0,
+      "cents": 1.1935
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": true,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0.7548
+     },
+     {
+      "case": "U23",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 1,
+      "cents": 1.5222
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": "E3",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.99
+       ]
+      ],
+      "refused": 5,
+      "cents": 0.7214
+     },
+     {
+      "case": "U25",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.94
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 2,
+      "cents": 1.5544
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 1,
+      "cents": 0.8111
+     },
+     {
+      "case": "U27",
+      "released_at": null,
+      "handed_at": "E5",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.02
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        1.0
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.7186
+     },
+     {
+      "case": "U28",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 1,
+      "cents": 0.9263
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E7",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.96
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.99
+       ]
+      ],
+      "refused": 4,
+      "cents": 1.8558
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E3",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 3,
+      "cents": 1.6841
+     }
+    ]
+   }
+  ],
+  "fms": [
+   {
+    "file": "run1_rules_fixed.json",
+    "totals": {
+     "release_right": 0,
+     "released_early": 30,
+     "released_late_or_missed": 0,
+     "handoff_right": 0,
+     "premature_handoff": 0,
+     "missed_handoff": 11,
+     "needless_handoff": 0
+    },
+    "errors": 0,
+    "cents": 0,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U2",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U3",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U4",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U5",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U6",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U7",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U8",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U9",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U10",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U11",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U12",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U13",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U14",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U15",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U16",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U17",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U18",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U19",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U20",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U21",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U22",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U23",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U24",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U25",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U26",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U27",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U28",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U29",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U30",
+      "released_at": "E1",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     }
+    ]
+   }
+  ],
+  "rival": [
+   {
+    "file": "run1_rules_fixed.json",
+    "totals": {
+     "release_right": 23,
+     "released_early": 6,
+     "released_late_or_missed": 1,
+     "handoff_right": 4,
+     "premature_handoff": 0,
+     "missed_handoff": 7,
+     "needless_handoff": 2
+    },
+    "errors": 0,
+    "cents": 0,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U4",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U6",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U7",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U8",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U9",
+      "released_at": "E6",
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": "E2",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U13",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U19",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U20",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U21",
+      "released_at": "E7",
+      "handed_at": "E4",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": "E3",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": true,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U23",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U24",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U25",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U26",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U27",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U28",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": false,
+      "released_early": true,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U29",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [],
+      "refused": 0,
+      "cents": 0
+     }
+    ]
+   }
+  ],
+  "fixed": [
+   {
+    "file": "run1_rules_fixed.json",
+    "totals": {
+     "release_right": 27,
+     "released_early": 0,
+     "released_late_or_missed": 3,
+     "handoff_right": 0,
+     "premature_handoff": 0,
+     "missed_handoff": 11,
+     "needless_handoff": 2
+    },
+    "errors": 0,
+    "cents": 1.343,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0048
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 5,
+      "cents": 0.0057
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 7,
+      "cents": 0.0056
+     },
+     {
+      "case": "U4",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 7,
+      "cents": 0.0063
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0093
+     },
+     {
+      "case": "U6",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.58
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0701
+     },
+     {
+      "case": "U7",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.14
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0548
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.58
+       ],
+       [
+        "same fault",
+        0.58
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.1352
+     },
+     {
+      "case": "U9",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.02
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.05
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.012
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1393
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 11,
+      "cents": 0.0921
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.101
+     },
+     {
+      "case": "U13",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.057
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.46
+       ],
+       [
+        "ready",
+        0.98
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0049
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0049
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 11,
+      "cents": 0.1054
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0088
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0031
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0114
+     },
+     {
+      "case": "U20",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.0993
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.003
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0096
+     },
+     {
+      "case": "U23",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0595
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.02
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 4,
+      "cents": 0.005
+     },
+     {
+      "case": "U25",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0091
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0096
+     },
+     {
+      "case": "U27",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0095
+     },
+     {
+      "case": "U28",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 4,
+      "cents": 0.0074
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1163
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1828
+     }
+    ]
+   },
+   {
+    "file": "run2_fixed.json",
+    "totals": {
+     "release_right": 27,
+     "released_early": 0,
+     "released_late_or_missed": 3,
+     "handoff_right": 0,
+     "premature_handoff": 0,
+     "missed_handoff": 11,
+     "needless_handoff": 2
+    },
+    "errors": 0,
+    "cents": 1.27,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0048
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 5,
+      "cents": 0.0057
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 7,
+      "cents": 0.0056
+     },
+     {
+      "case": "U4",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 7,
+      "cents": 0.0063
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0093
+     },
+     {
+      "case": "U6",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.58
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0673
+     },
+     {
+      "case": "U7",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.14
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0566
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.62
+       ],
+       [
+        "same fault",
+        0.62
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.1298
+     },
+     {
+      "case": "U9",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.02
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.05
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.012
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.144
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 11,
+      "cents": 0.0943
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.1012
+     },
+     {
+      "case": "U13",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.053
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.46
+       ],
+       [
+        "ready",
+        0.98
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0049
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0049
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 11,
+      "cents": 0.101
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0088
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0031
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0114
+     },
+     {
+      "case": "U20",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.0973
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.003
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0096
+     },
+     {
+      "case": "U23",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0604
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.02
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 4,
+      "cents": 0.005
+     },
+     {
+      "case": "U25",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0091
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0096
+     },
+     {
+      "case": "U27",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0095
+     },
+     {
+      "case": "U28",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 4,
+      "cents": 0.0074
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1166
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1186
+     }
+    ]
+   },
+   {
+    "file": "run3_fixed.json",
+    "totals": {
+     "release_right": 26,
+     "released_early": 0,
+     "released_late_or_missed": 4,
+     "handoff_right": 0,
+     "premature_handoff": 0,
+     "missed_handoff": 11,
+     "needless_handoff": 2
+    },
+    "errors": 0,
+    "cents": 1.367,
+    "rows": [
+     {
+      "case": "U1",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0048
+     },
+     {
+      "case": "U2",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 5,
+      "cents": 0.0057
+     },
+     {
+      "case": "U3",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 7,
+      "cents": 0.0056
+     },
+     {
+      "case": "U4",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 7,
+      "cents": 0.0063
+     },
+     {
+      "case": "U5",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0093
+     },
+     {
+      "case": "U6",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.58
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0724
+     },
+     {
+      "case": "U7",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.14
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0528
+     },
+     {
+      "case": "U8",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ],
+       [
+        "same fault",
+        0.58
+       ],
+       [
+        "same fault",
+        0.58
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.1473
+     },
+     {
+      "case": "U9",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.02
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.05
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.012
+     },
+     {
+      "case": "U10",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1366
+     },
+     {
+      "case": "U11",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 11,
+      "cents": 0.0919
+     },
+     {
+      "case": "U12",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0977
+     },
+     {
+      "case": "U13",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0511
+     },
+     {
+      "case": "U14",
+      "released_at": "E3",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.46
+       ],
+       [
+        "ready",
+        0.98
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0049
+     },
+     {
+      "case": "U15",
+      "released_at": "E2",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        1.0
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 3,
+      "cents": 0.0049
+     },
+     {
+      "case": "U16",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 11,
+      "cents": 0.1012
+     },
+     {
+      "case": "U17",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.96
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0088
+     },
+     {
+      "case": "U18",
+      "released_at": "E5",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0031
+     },
+     {
+      "case": "U19",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0114
+     },
+     {
+      "case": "U20",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.99
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1033
+     },
+     {
+      "case": "U21",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.003
+     },
+     {
+      "case": "U22",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0096
+     },
+     {
+      "case": "U23",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.111
+     },
+     {
+      "case": "U24",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.02
+       ],
+       [
+        "ready",
+        0.07
+       ]
+      ],
+      "refused": 4,
+      "cents": 0.005
+     },
+     {
+      "case": "U25",
+      "released_at": "E7",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.95
+       ]
+      ],
+      "refused": 10,
+      "cents": 0.0091
+     },
+     {
+      "case": "U26",
+      "released_at": null,
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 6,
+      "cents": 0.0096
+     },
+     {
+      "case": "U27",
+      "released_at": "E6",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.97
+       ]
+      ],
+      "refused": 8,
+      "cents": 0.0095
+     },
+     {
+      "case": "U28",
+      "released_at": "E4",
+      "handed_at": null,
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "ready",
+        1.0
+       ]
+      ],
+      "refused": 4,
+      "cents": 0.0074
+     },
+     {
+      "case": "U29",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": false,
+      "released_early": false,
+      "released_late_or_missed": true,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": false,
+      "needless_handoff": true,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ],
+       [
+        "tenant items",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.1733
+     },
+     {
+      "case": "U30",
+      "released_at": null,
+      "handed_at": "E6",
+      "release_right": true,
+      "released_early": false,
+      "released_late_or_missed": false,
+      "handoff_right": false,
+      "premature_handoff": false,
+      "missed_handoff": true,
+      "needless_handoff": false,
+      "second_opinions": [
+       [
+        "ready",
+        0.0
+       ]
+      ],
+      "refused": 9,
+      "cents": 0.0985
+     }
+    ]
+   }
+  ]
+ },
+ "cutoffs": {
+  "ready": 0.75,
+  "same_fault": 0.75,
+  "tenant_items": 0.5
+ },
+ "planner_effort": "medium"
+}

@@ -1,0 +1,501 @@
+U1.
+UNIT: B104 10x10
+E1: 2026-10-05 09:00, MOVE-OUT, Mina Patel: "Lease ended at the counter. Keys and access fob received."
+E2: 2026-10-05 10:15, NOTE, Mina Patel: "No cleaning order was opened at checkout. I haven't been inside B104 yet."
+E3: 2026-10-05 11:30, INSPECTION, Luis Romero: "Walked the whole unit. Empty and swept, slab dry, no smell. Door rolls smoothly and latch catches. Good to rent."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Mark the unit rentable from E1 or E2 without confirming its actual condition.
+WHY: Move-out establishes that the lease ended, not that the space is ready. E3 is the first verified check of cleanliness, condition, and access.
+
+U2.
+UNIT: C218 5x10
+E1: 2026-10-06 08:45, MOVE-OUT, Dana Brooks: "Customer checked out and surrendered C218. Lease closed."
+E2: 2026-10-06 09:20, INSPECTION, Dana Brooks: "Nothing left inside, but lots of dust along both walls and cobwebs around the door track. Needs a sweep before we show it."
+E3: 2026-10-06 13:10, WORK DONE, Omar Lewis, answers E2: "Swept walls and floor, pulled webs off the top track, and wiped the threshold. Took the trash to the dumpster."
+E4: 2026-10-06 14:05, INSPECTION, Dana Brooks, answers E2: "Checked Omar's cleanup. No dust piles or webs left. Floor is dry. Door opens and locks fine. Ready."
+RENTABLE AFTER: E4
+STAFF DECIDE: none
+MUST NOT: Treat E3 as proof that all conditions are acceptable without accounting for the follow-up inspection.
+WHY: The cleaning addresses the only reported condition. E4 confirms the result and establishes that the unit is rentable.
+
+U3.
+UNIT: R033 10x15
+E1: 2026-10-07 08:10, MOVE-OUT, Jenna Cole: "R033 vacated. Final key handed in and lease ended."
+E2: 2026-10-07 09:00, INSPECTION, Jenna Cole: "Unit is empty, floor looks fine. Door comes down but latch won't catch unless I push hard on the bottom panel. Not ready."
+E3: 2026-10-07 10:25, REPORT, Marcus Bell: "Keeper plate on the door frame is loose, one screw stripped out. Latch misses when the door closes normally."
+E4: 2026-10-08 11:40, WORK DONE, Marcus Bell, answers E3: "Replaced stripped screw with proper anchor and lined the keeper back up. Latch catches on my test."
+E5: 2026-10-08 12:15, INSPECTION, Jenna Cole, answers E2: "Raised and lowered door five times. Latches each time without forcing it. Lock holds, floor dry and empty. Cleared."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Rent the unit based on its clean interior while the door still fails to secure.
+WHY: E2 identifies a security defect. The repair at E4 is verified by repeated door testing at E5.
+
+U4.
+UNIT: A411 10x20
+E1: 2026-10-08 08:30, MOVE-OUT, Peter Shaw: "Move-out done. A411 surrendered, lease ended."
+E2: 2026-10-08 09:15, INSPECTION, Peter Shaw: "Oil patch near front right corner and the ceiling light won't turn on. Otherwise empty, no visible wall damage."
+E3: 2026-10-08 13:20, WORK DONE, Rosa Diaz, answers E2: "Degreased the oil spot, rinsed twice. Floor is still wet from rinsing so I left the door open for drying."
+E4: 2026-10-09 10:05, WORK DONE, Neil Carter, answers E2: "Changed the bad light driver. Light is working now. No exposed wiring."
+E5: 2026-10-09 11:10, INSPECTION, Peter Shaw, answers E2: "Oil area dry with no greasy film or slip. Ceiling light works, door and lock good. Nothing stored inside. Ready to offer."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Treat completion of either the cleaning or electrical work alone as resolving both issues.
+WHY: The oil contamination and failed lighting are independent problems. E5 is the first entry confirming both are resolved.
+
+U5.
+UNIT: B026 10x10
+E1: 2026-10-09 08:00, MOVE-OUT, Holly Price: "Lease terminated. B026 handed back vacant."
+E2: 2026-10-09 10:00, INSPECTION, Holly Price: "Dark damp line at the rear wall seam and the concrete is wet about a foot out. Looks like water came in. Holding it."
+E3: 2026-10-09 11:30, REPORT, Evan Ross: "Found drip at rear roof flashing during hose test. Water runs down inside seam onto the slab."
+E4: 2026-10-10 14:00, WORK DONE, Summit Roofing, answers E3: "Resealed rear flashing and patched failed joint. Hose test showed no incoming water."
+E5: 2026-10-11 09:00, INSPECTION, Holly Price, answers E2: "No fresh drip, but concrete by back wall still feels damp and moisture meter is high. Can't release yet."
+E6: 2026-10-11 15:00, WORK DONE, Evan Ross, answers E5: "Set up dehumidifier and fan to dry the rear floor. Leaving equipment running overnight."
+E7: 2026-10-13 12:00, INSPECTION, Holly Price, answers E5: "After yesterday's rain the seam stayed dry. Meter back to normal, no odor or standing water. Dryers removed. Door works. Good now."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Release B026 merely because the roof repair was completed while moisture remained.
+WHY: Repairing the source does not establish that the unit is dry. E5 still fails; E7 establishes both leak resolution and dryness.
+
+U6.
+UNIT: D112 5x5
+E1: 2026-10-10 08:00, MOVE-OUT, Samir Khan: "D112 move-out processed, lease ended. Former renter forgot to hand over padlock key."
+E2: 2026-10-10 09:00, INSPECTION, Samir Khan: "Old renter padlock still on hasp. Can't get inside to see condition. Exterior door looks okay."
+E3: 2026-10-10 11:00, NOTE, Samir Khan: "Customer came back with the missing key and gave it to me. Says nothing was left in the unit."
+E4: 2026-10-10 12:00, WORK DONE, Isabel Moore, answers E2: "Unlocked and removed old padlock with returned key. Cleaned hasp and checked it for damage."
+E5: 2026-10-10 13:00, INSPECTION, Samir Khan, answers E2: "Got full access now. Empty, clean, dry. Hasp solid, door shuts properly and accepts facility lock. Can rent."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Assume that a surrendered lease or the former renter's verbal assurance proves the locked interior is ready.
+WHY: The lock prevents meaningful inspection until E4. E5 provides the first actual interior and door-security verification.
+
+U7.
+UNIT: E205 10x10
+E1: 2026-10-12 08:20, MOVE-OUT, Carla Nguyen: "Lease ended, move-out complete for E205."
+E2: 2026-10-12 09:05, NOTE, Carla Nguyen: "Tenant texted that they cleaned everything and said the space is spotless. Haven't checked it myself."
+E3: 2026-10-12 10:10, INSPECTION, Tony Reed: "Found sticky drink spill by back wall and wrappers under the door track. Unit isn't clean despite what tenant said."
+E4: 2026-10-12 14:15, WORK DONE, Tony Reed, answers E3: "Removed wrappers, scraped sticky residue and mopped the affected concrete. Left it to dry."
+E5: 2026-10-13 09:00, INSPECTION, Carla Nguyen, answers E3: "Floor completely dry, no sticky patch or trash. Checked corners and door track. Door locks and rolls fine. Ready."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Treat the former tenant's message at E2 as an inspection or proof of rentability.
+WHY: The firsthand inspection contradicts the tenant's claim. The recorded cleanup and final check clear the problem.
+
+U8.
+UNIT: F014 10x20
+E1: 2026-10-13 08:20, MOVE-OUT, Rebecca Miles: "F014 lease ended. Unit returned to facility."
+E2: 2026-10-13 10:00, INSPECTION, Rebecca Miles: "Fine crack across slab. Didn't see a raised edge from the doorway. Unit otherwise empty. Need maintenance to look closer."
+E3: 2026-10-14 10:00, NOTE, James Ford: "Looks like it might be old shrinkage. I wouldn't spend money filling it until we know if it's moving."
+E4: 2026-10-15 12:00, REPORT, James Ford: "Walked the crack with a straightedge. One side stands about 1.5 inches higher. Cart wheels catch on it. This is more than a hairline crack."
+E5: 2026-10-16 14:00, NOTE, Rebecca Miles: "Manager put F014 on safety hold. Engineer asked to assess slab movement before anyone repairs or leases it."
+E6: 2026-10-20 09:00, INSPECTION, Rebecca Miles, answers E4: "Raised slab edge still present and in the walking path. No engineer's findings or clearance received."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E4: Determine the required structural and safety assessment before repair or release.
+MUST NOT: Classify the displaced slab as a harmless cosmetic crack based on E2 or E3.
+WHY: E4 establishes a substantial trip and potential structural hazard. The condition remains unresolved at the end of the week.
+
+U9.
+UNIT: G067 5x10
+E1: 2026-10-14 08:00, MOVE-OUT, Olivia Hart: "G067 lease ended at customer checkout."
+E2: 2026-10-14 10:00, INSPECTION, Olivia Hart: "Three labeled plastic totes left against back wall. Everything else looks clean. Did not touch the totes."
+E3: 2026-10-14 12:00, NOTE, Olivia Hart: "Called former tenant. She says the totes belong to her and asks us to leave them alone until she can pick them up."
+E4: 2026-10-15 09:00, NOTE, Daniel Wu: "Approved supervised collection after identity check. Hold G067 until all totes are gone and we've reinspected."
+E5: 2026-10-16 13:00, NOTE, Olivia Hart: "Checked her ID, escorted her to G067. She took all three totes and signed the collection receipt."
+E6: 2026-10-16 14:00, INSPECTION, Olivia Hart, answers E2: "No belongings left. Floor swept, corners empty and dry, door closes and locks. Ready to offer."
+RENTABLE AFTER: E6
+STAFF DECIDE: E2: Determine how to protect and lawfully return or resolve ownership of the remaining belongings.
+MUST NOT: Dispose of the totes simply because the lease has ended.
+WHY: E2 identifies property requiring a human decision. Collection is authorized and documented, then E6 confirms the space is actually ready.
+
+U10.
+UNIT: H316 10x15
+E1: 2026-10-15 07:30, MOVE-OUT, Andre Foster: "H316 lease closed. Former renter checked out."
+E2: 2026-10-15 09:00, INSPECTION, Andre Foster: "Unlabeled jug on floor, liquid leaking around cap. Strong chemical smell. I shut the door and didn't handle it."
+E3: 2026-10-15 10:00, REPORT, Beth Morris: "Leak has spread across floor toward drain. No label or paperwork to identify what's in the jug."
+E4: 2026-10-16 14:00, NOTE, Beth Morris: "Manager ordered access restricted. Environmental contractor asked to identify material and arrange safe removal."
+E5: 2026-10-19 15:00, NOTE, Andre Foster: "Contractor hasn't been out. H316 still blocked off, nobody has approval to clean it yet."
+E6: 2026-10-22 09:00, INSPECTION, Beth Morris, answers E3: "Checked from outside the barrier. Container remains in place. No removal report or clearance for the floor."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Decide the safe containment, specialist assessment, and authorized handling process for the unknown substance.
+MUST NOT: Send ordinary cleaning staff to handle the unidentified leak or release the unit.
+WHY: The unknown leaking material presents an unresolved safety risk. No cleanup or clearance occurs during the recorded week.
+
+U11.
+UNIT: J088 10x10
+E1: 2026-10-16 09:00, MOVE-OUT, Kelly Adams: "J088 move-out complete. Lease ended."
+E2: 2026-10-16 11:00, INSPECTION, Kelly Adams: "Mouse droppings along the rear wall and under the door track. No customer belongings left."
+E3: 2026-10-17 12:00, REPORT, Chris Nolan: "Found a small gap under the rear panel with gnaw marks and tracks. Looks like mice are getting in there."
+E4: 2026-10-18 10:00, NOTE, Kelly Adams: "Pest vendor scheduled. Marked J088 unavailable until treatment and follow-up."
+E5: 2026-10-19 14:00, WORK DONE, Chris Nolan, answers E3: "Sealed rear gap, removed droppings, and placed monitored pest stations with vendor's instructions."
+E6: 2026-10-21 10:00, INSPECTION, Kelly Adams, answers E2: "New droppings beside station after cleanup. Still seeing signs of activity. Not clear."
+E7: 2026-10-23 10:00, NOTE, Kelly Adams: "Pest tech says activity hasn't stopped. Follow-up treatment needed. Keeping unit blocked."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Treat the initial pest treatment as successful despite fresh evidence of infestation.
+WHY: E5 completes initial treatment, but E6 demonstrates continuing activity. The unit has not reached a verified pest-free condition by week's end.
+
+U12.
+UNIT: K240 5x10
+E1: 2026-10-17 08:00, MOVE-OUT, Frank Ellis: "K240 checked out. Lease ended."
+E2: 2026-10-17 10:00, INSPECTION, Frank Ellis: "Outlet cover by back wall is blackened and smells burnt. I didn't plug anything in. Unit is empty."
+E3: 2026-10-17 11:00, REPORT, Nadia Green: "Breaker trips when outlet circuit is energized. Switched breaker off and tagged it."
+E4: 2026-10-18 10:00, NOTE, Frank Ellis: "Manager wants licensed electrician to evaluate heat damage and confirm electrical safety before we rent."
+E5: 2026-10-21 15:00, WORK DONE, Metro Electric, answers E3: "Replaced damaged receptacle. Found heat damage to cable behind wall; left breaker off pending rewiring."
+E6: 2026-10-24 11:00, INSPECTION, Frank Ellis, answers E2: "New outlet cover installed but breaker remains tagged off. Burnt odor still near wall. No electrical clearance."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Determine the appropriate electrical and fire-safety assessment before any release.
+MUST NOT: Treat replacement of the visible outlet as proof that the underlying electrical hazard is resolved.
+WHY: The electrician discovers additional concealed damage. The circuit remains unsafe and uncleared at the end of the week.
+
+U13.
+UNIT: L005 5x5
+E1: 2026-10-18 10:00, MOVE-OUT, Sara Kim: "L005 vacated and lease ended."
+E2: 2026-10-18 10:30, NOTE, Sara Kim: "Access console still shows the former renter's unit-door PIN as active. Need to clear it before showing the space."
+E3: 2026-10-18 11:00, INSPECTION, Sara Kim: "Inside is empty and clean. No water or damage. Smart lock works, but old customer code still hasn't been removed."
+E4: 2026-10-18 12:00, WORK DONE, Max Turner, answers E2: "Deleted previous tenant's PIN from L005 and set a new vacant-unit access code."
+E5: 2026-10-18 13:00, INSPECTION, Sara Kim, answers E2: "Tested prior code, rejected. New code works and latch secures. Checked inside again, still clean and dry. Ready."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Offer the unit while the former tenant's electronic door credential remains valid.
+WHY: The physical unit is acceptable at E3, but access security is not. E5 verifies the old credential is disabled.
+
+U14.
+UNIT: M190 10x10
+E1: 2026-10-19 09:00, MOVE-OUT, Grace Miller: "M190 move-out completed, keys returned. Lease ended."
+E2: 2026-10-19 09:45, NOTE, Grace Miller: "Lot crew is pressure washing the common drive aisle tomorrow. They'll cone off one section for about an hour. No work scheduled inside M190."
+E3: 2026-10-19 10:20, INSPECTION, Tyler James: "M190 empty, clean, dry, no odors. Door opens and locks. Access path is clear today. Nothing to fix in this unit."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Keep M190 unavailable solely because unrelated common-area cleaning is scheduled.
+WHY: The planned lot work is not a unit defect or unresolved make-ready task. E3 confirms the unit itself is ready.
+
+U15.
+UNIT: N332 10x15
+E1: 2026-10-20 08:00, MOVE-OUT, Emma Lewis: "Tenant out of N332, lease closed and unit surrendered."
+E2: 2026-10-20 10:00, INSPECTION, Emma Lewis: "Just paint scuffs on back wall. No peeling or sharp edges. Empty, swept, dry, no smell, door locks. Meets our make-ready standard."
+E3: 2026-10-20 11:00, NOTE, Emma Lewis: "Added cosmetic scuffs to winter repaint list. Not a repair that needs doing between renters."
+RENTABLE AFTER: E2
+STAFF DECIDE: none
+MUST NOT: Delay rental until the optional winter repaint is completed.
+WHY: E2 establishes acceptable condition despite minor cosmetic wear. E3 records future maintenance without creating a readiness blocker.
+
+U16.
+UNIT: P044 10x20
+E1: 2026-10-21 09:00, MOVE-OUT, Nina Clark: "P044 vacated. Lease has ended."
+E2: 2026-10-21 10:00, INSPECTION, Nina Clark: "Brown patch on rear drywall, musty smell, and damp meter reading high. Looks like more than an old cosmetic stain."
+E3: 2026-10-22 14:00, REPORT, Leon Harris: "Found condensate drain dripping behind rear wall. Drywall edge is wet and there's a possibility of concealed growth."
+E4: 2026-10-23 11:00, NOTE, Nina Clark: "Manager requested moisture specialist. No release on a normal cleaning ticket until wall condition is assessed."
+E5: 2026-10-25 15:00, WORK DONE, Leon Harris, answers E3: "Fixed dripping condensate fitting. Didn't open drywall or dry the wall cavity."
+E6: 2026-10-26 10:00, INSPECTION, Nina Clark, answers E2: "No new drip visible, but wall still reads damp and smells musty. Staining unchanged."
+E7: 2026-10-28 10:00, NOTE, Nina Clark: "Specialist has not attended yet. Unit remains blocked for moisture assessment."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Decide whether professional moisture investigation and remediation are required before reuse.
+MUST NOT: Equate fixing the plumbing leak with clearing the damp, potentially contaminated wall.
+WHY: The water source is repaired, but moisture and possible concealed damage remain unassessed. There is no clearance within the week.
+
+U17.
+UNIT: Q102 10x10
+E1: 2026-10-22 08:00, MOVE-OUT, Ian Porter: "Q102 lease ended and renter checked out."
+E2: 2026-10-22 09:00, INSPECTION, Ian Porter: "Old tile adhesive stuck to floor in center, still tacky. Space otherwise empty. Needs floor attention."
+E3: 2026-10-22 09:15, REPORT, Paul Vega: "Adhesive residue can't be removed with normal sweeping. Need to scrape and reseal the concrete."
+E4: 2026-10-23 15:00, WORK DONE, Paul Vega, answers E3: "Scraped adhesive, primed and applied floor sealer. Product instructions say keep floor out of service until Oct 25 at 15:00."
+E5: 2026-10-24 10:00, NOTE, Ian Porter: "Floor looks shiny from doorway but cure time isn't up. Still getting a sealer smell. Leave it alone."
+E6: 2026-10-25 16:00, INSPECTION, Ian Porter, answers E3: "Sealer hard and dry, no tack or fumes. Walked whole floor. Door and lock work, unit empty. Okay to release."
+RENTABLE AFTER: E6
+STAFF DECIDE: none
+MUST NOT: Rent during the specified curing period just because the coating looks finished.
+WHY: E4 establishes a required curing interval and E5 confirms it has not yet elapsed. E6 verifies acceptable condition after curing.
+
+U18.
+UNIT: S066 10x10
+E1: 2026-10-23 09:00, MOVE-OUT, Victor Chen: "S066 checked out, lease ended."
+E2: 2026-10-23 11:00, REPORT, Victor Chen: "Water from adjacent downspout appears to be getting behind the rear wall during heavy rain."
+E3: 2026-10-24 09:00, INSPECTION, Molly West: "Rear floor has damp line along the wall. Nothing stored in the unit but needs leak repaired and floor dried."
+E4: 2026-10-25 15:00, WORK DONE, Ridge Maintenance, answers E2: "Replaced downspout elbow and moved runoff discharge away from building. Hose test showed no water at rear wall."
+E5: 2026-10-27 11:00, INSPECTION, Molly West, answers E3: "Rained hard overnight. Rear seam and slab stayed dry, no musty smell. Door operates and locks. Ready."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Release the space based on the downspout repair without confirming that the interior is dry.
+WHY: E4 resolves the suspected source, and E5 verifies that the space remains dry under rainy conditions.
+
+U19.
+UNIT: T315 10x20
+E1: 2026-10-24 08:00, MOVE-OUT, Alicia Grant: "Lease ended, T315 climate unit vacated."
+E2: 2026-10-24 09:00, INSPECTION, Alicia Grant: "Inside thermometer shows 87 F. Facility climate range is 65 to 80 F. Air from vent feels warm. Empty and swept."
+E3: 2026-10-25 09:00, REPORT, Ben Ellis: "Compressor short-cycling every couple minutes. Room is not cooling to the setpoint."
+E4: 2026-10-26 12:00, WORK DONE, Ben Ellis, answers E3: "Reset climate controller and cleaned temperature sensor. Need to trend actual temperature before closing ticket."
+E5: 2026-10-27 11:00, INSPECTION, Alicia Grant, answers E2: "82 F right now, still outside our range. Warm air returning this afternoon."
+E6: 2026-10-29 12:00, NOTE, Ben Ellis: "Replacement control board on order. Haven't established stable cooling yet."
+E7: 2026-10-31 10:00, INSPECTION, Alicia Grant, answers E5: "85 F inside again. No evidence climate is maintaining the required range. Keeping T315 off the rental list."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Treat the controller reset as proof that climate control is functioning within the required range.
+WHY: Follow-up readings repeatedly fail the facility's stated temperature standard. The repair remains incomplete after a week.
+
+U20.
+UNIT: V026 5x10
+E1: 2026-10-25 08:00, MOVE-OUT, Jordan Blake: "V026 lease ended and keys returned."
+E2: 2026-10-25 10:00, INSPECTION, Jordan Blake: "Plastic bag tied around sprinkler head with tape. Can't tell whether the head was damaged. Left it alone."
+E3: 2026-10-25 11:00, REPORT, Michelle Stone: "Fire sprinkler was obstructed by former tenant's covering. Needs qualified fire service check."
+E4: 2026-10-26 09:00, NOTE, Jordan Blake: "Manager called fire protection vendor. Unit on safety hold until service report is back."
+E5: 2026-10-27 14:00, WORK DONE, Beacon Fire Service, answers E3: "Removed covering, inspected sprinkler head and seal. No damage found; system remains in service. Signed service ticket provided."
+E6: 2026-10-28 09:00, INSPECTION, Jordan Blake, answers E2: "Sprinkler unobstructed, vendor's clearance ticket attached. Space empty, swept and dry, door secure. Cleared for rental."
+RENTABLE AFTER: E6
+STAFF DECIDE: E2: Require appropriate fire-protection assessment and clearance before accepting the sprinkler as safe.
+MUST NOT: Assume that removing the plastic covering alone establishes that the fire-protection equipment is safe.
+WHY: E2 identifies possible interference with a safety system. Professional verification and final unit inspection establish readiness by E6.
+
+U21.
+UNIT: W509 10x15
+E1: 2026-10-26 08:00, MOVE-OUT, Lauren Scott: "W509 lease ended. Unit vacated."
+E2: 2026-10-26 10:00, REPORT, Kevin Brooks: "Roll-up door jams halfway up. Lots of grit in track. Can't reliably open or close it."
+E3: 2026-10-26 15:00, WORK DONE, Kevin Brooks, answers E2: "Cleared track debris and lubricated runners. Door moved on first try."
+E4: 2026-10-27 09:00, INSPECTION, Lauren Scott, answers E2: "Door still sticks near the top. Couldn't close it smoothly or get the lock aligned. Not fixed."
+E5: 2026-10-27 10:00, REPORT, Kevin Brooks: "Found upper roller bent. Track cleaning helped but roller still catches near top of travel."
+E6: 2026-10-28 16:00, WORK DONE, Kevin Brooks, answers E5: "Replaced bent roller, aligned upper track and tightened brackets."
+E7: 2026-10-29 08:00, INSPECTION, Lauren Scott, answers E4: "Door went up and down five times without sticking. Closed and locked normally. Inside clean, empty and dry. Good to rent."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Treat the first maintenance visit as a successful repair when the next inspection explicitly finds the door still defective.
+WHY: E3 does not resolve the problem. E4 and E5 document continued failure, followed by a successful repair and verification at E7.
+
+U22.
+UNIT: X070 10x10
+E1: 2026-10-27 09:00, MOVE-OUT, Denise Walker: "Lease marked ended after processing customer's signed move-out notice. No keys returned."
+E2: 2026-10-27 10:00, INSPECTION, Denise Walker: "Customer padlock is still on X070. Can't inspect inside. No access without key or removal."
+E3: 2026-10-28 12:00, NOTE, Denise Walker: "Former tenant called and says checkout was entered by mistake. Claims property is still inside and disputes surrender."
+E4: 2026-10-28 15:00, NOTE, Robert Lane: "Put X070 on hold for account and legal review. Nobody is to cut the lock or offer this unit until ownership and surrender are resolved."
+E5: 2026-11-03 10:00, INSPECTION, Denise Walker: "Padlock still on. No resolution or new access authorization in file. Cannot verify interior condition."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E3: Resolve the disputed surrender and determine lawful access before any unit turnover.
+MUST NOT: Cut the disputed lock or offer the unit while the former tenant's possession claim remains unresolved.
+WHY: Although E1 records a lease ending, E3 introduces a direct surrender dispute. No resolution or interior inspection occurs during the week.
+
+U23.
+UNIT: Y106 5x10
+E1: 2026-10-28 08:00, MOVE-OUT, Sarah Finch: "Y106 vacated, lease ended."
+E2: 2026-10-28 08:30, NOTE, Sarah Finch: "Building circuit is down. Interior corridor lights and powered access controller aren't working. Electrician called."
+E3: 2026-10-28 11:00, INSPECTION, Sarah Finch: "Y106 itself looks empty and dry, but corridor access is offline. Only emergency lighting works. Can't verify normal secure access."
+E4: 2026-10-29 16:00, WORK DONE, Central Electric, answers E2: "Restored corridor circuit, reset access controller and checked power supply. Lighting and reader operational."
+E5: 2026-10-30 10:00, INSPECTION, Sarah Finch, answers E3: "Normal corridor lights back on. Badge access tested, Y106 door locks, floor clean and dry. All good for a new renter."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Offer Y106 while normal secure access is unavailable just because its interior appears clean.
+WHY: Readiness includes usable and secure access. E5 verifies restoration of the shared systems that prevented use of this unit.
+
+U24.
+UNIT: Z211 10x10
+E1: 2026-10-29 09:00, MOVE-OUT, Jason Miller: "Z211 lease ended. Space turned back over."
+E2: 2026-10-29 10:00, INSPECTION, Jason Miller: "Empty, swept, dry and door locks. Wide purple dye stain in center of slab. No smell or tack, but unsure if this passes our presentation standard."
+E3: 2026-10-29 12:00, NOTE, Karen Lee: "Reviewed stain in person. Permanent dye mark only, no residue. Approved release as-is under cosmetic condition standard. Photo added to unit file."
+RENTABLE AFTER: E3
+STAFF DECIDE: E2: Determine whether the permanent cosmetic discoloration is acceptable for rental or requires further treatment.
+MUST NOT: Automatically approve the uncertain condition at E2 without the required presentation decision.
+WHY: The inspection establishes that the stain is nonfunctional damage but raises an unresolved acceptance question. E3 documents the responsible manager's approval.
+
+U25.
+UNIT: A089 10x20
+E1: 2026-10-30 08:00, MOVE-OUT, Megan Fox: "A089 lease closed. Tenant out."
+E2: 2026-10-30 10:00, INSPECTION, Megan Fox: "Plywood divider inside the unit moves when pushed. Couple screw tips sticking out. Otherwise empty and dry."
+E3: 2026-10-30 10:45, REPORT, David Park: "Non-load-bearing partition has stripped fasteners along bottom rail. Top edge is loose too."
+E4: 2026-10-31 11:00, WORK DONE, David Park, answers E3: "Replaced stripped screws and re-fastened lower rail. Bottom feels solid."
+E5: 2026-11-01 10:00, INSPECTION, Megan Fox, answers E2: "Bottom rail good now but top still bows when pushed. One screw point still exposed. Needs another pass."
+E6: 2026-11-02 15:00, WORK DONE, David Park, answers E5: "Braced upper edge, replaced loose fasteners and countersunk exposed screw. No movement on push test."
+E7: 2026-11-03 10:00, INSPECTION, Megan Fox, answers E5: "Partition firm top to bottom. No exposed points, floor empty and dry, door works and locks. Cleared."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Mark the unit ready after the partial lower-rail repair while the top remains loose and hazardous.
+WHY: The first repair does not eliminate all reported defects. The second repair and follow-up inspection establish readiness.
+
+U26.
+UNIT: B177 5x10
+E1: 2026-10-31 08:00, MOVE-OUT, Ryan Cooper: "B177 lease ended. Renter moved out."
+E2: 2026-10-31 09:00, INSPECTION, Ryan Cooper: "Two bats hanging in roll-up door housing. Door travel would pass right through them. Backed away and left door alone."
+E3: 2026-11-01 11:00, NOTE, Elena Ortiz: "Maintenance saw bats at the door again. Told crew not to raise it. Need wildlife handling advice."
+E4: 2026-11-03 14:00, NOTE, Ryan Cooper: "Manager contacted wildlife specialist for safe removal plan and any required clearance. Unit stays unavailable."
+E5: 2026-11-07 10:00, INSPECTION, Elena Ortiz: "Observed from outside. Bats still using shutter housing and door remains out of service. No wildlife clearance received."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Determine appropriate wildlife handling, legal restrictions, and safe clearance before the door can be used.
+MUST NOT: Operate the door through occupied bat roosting space or attempt unapproved removal to speed up rental.
+WHY: Active wildlife occupies the door mechanism. No authorized resolution or safe operating condition is documented within the week.
+
+U27.
+UNIT: C219 10x10
+E1: 2026-11-01 08:00, MOVE-OUT, Molly Quinn: "C219 checked out and lease ended."
+E2: 2026-11-01 10:00, INSPECTION, Molly Quinn: "Raised glue ridge along east wall, still tacky. Need somebody to scrape it before this goes back online."
+E3: 2026-11-01 15:00, WORK DONE, Apex Cleaning, answers E2: "Scraped adhesive in C218. Realized afterward the work order was for C219. We cleaned the wrong unit."
+E4: 2026-11-02 09:00, INSPECTION, Molly Quinn, answers E2: "Glue ridge still present in C219, sticky to touch. Cleaner went next door. This unit has not been done."
+E5: 2026-11-02 15:00, WORK DONE, Apex Cleaning, answers E4: "Checked C219 door number before starting. Scraped and washed actual glue ridge in this unit. Left floor drying."
+E6: 2026-11-03 10:00, INSPECTION, Molly Quinn, answers E4: "C219 floor smooth and dry, no tack. Checked unit number and all corners. Door closes and locks. Ready."
+RENTABLE AFTER: E6
+STAFF DECIDE: none
+MUST NOT: Accept the original contractor completion entry as evidence that C219 was cleaned.
+WHY: E3 documents work on the wrong unit. Only the corrected work at E5 and the inspection at E6 establish readiness for C219.
+
+U28.
+UNIT: D006 10x12
+E1: 2026-11-02 08:00, MOVE-OUT, Patrick Reed: "D006 move-out complete. Lease terminated."
+E2: 2026-11-02 10:00, INSPECTION, Patrick Reed: "Measured usable space. Software calls D006 a 10x15, but partition leaves only 10x12. Empty, clean, dry, door and lock fine."
+E3: 2026-11-02 11:00, NOTE, Patrick Reed: "Leasing flyer and online listing both still show 10x15. Can't promise the missing three feet to a renter."
+E4: 2026-11-03 14:00, NOTE, Sandra Hughes: "Approved current 10x12 configuration. Corrected unit size, listing, price and photos. Can now offer it with accurate dimensions."
+RENTABLE AFTER: E4
+STAFF DECIDE: E2: Decide whether to restore the advertised dimensions or approve and reclassify the smaller usable space.
+MUST NOT: Advertise or rent D006 as a full 10x15 when inspection establishes only 10x12 of usable space.
+WHY: The physical condition is fine, but the offered unit would be materially misdescribed. The manager resolves the configuration and listing mismatch at E4.
+
+U29.
+UNIT: E073 10x10
+E1: 2026-11-03 08:00, MOVE-OUT, Alexis Brown: "E073 vacated. Lease ended."
+E2: 2026-11-03 10:00, NOTE, Alexis Brown: "Ice forming right at E073 threshold from gutter runoff. Customer walkway slick and door hard to get to safely."
+E3: 2026-11-03 11:00, REPORT, Oliver Grant: "Downspout elbow is missing, water lands in front of E073 and freezes across threshold at night."
+E4: 2026-11-04 09:00, WORK DONE, Oliver Grant, answers E3: "Chipped ice away and spread traction grit. Didn't have the replacement gutter elbow yet."
+E5: 2026-11-05 08:00, INSPECTION, Alexis Brown, answers E3: "New ice strip at the door after overnight freeze. Still slippery. Water source hasn't been fixed."
+E6: 2026-11-06 14:00, WORK DONE, Oliver Grant, answers E5: "Installed gutter elbow, moved discharge away from doorway. Cleared remaining ice and dried threshold."
+E7: 2026-11-07 10:00, INSPECTION, Alexis Brown, answers E5: "Threshold stayed dry through overnight freeze. No ice, safe approach. Interior empty and dry, door opens and locks. Ready."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Release E073 after temporary ice removal while the runoff continues to create hazardous access conditions.
+WHY: The first treatment provides temporary relief only. Rerouting the water and verifying the approach after freezing conditions establishes readiness.
+
+U30.
+UNIT: F252 10x20
+E1: 2026-11-04 09:00, MOVE-OUT, Heather Collins: "F252 vacated, lease ended."
+E2: 2026-11-04 10:00, INSPECTION, Heather Collins: "Looked in from doorway. Appears empty. Didn't walk the back of the floor or check far corner because the light was poor."
+E3: 2026-11-05 09:00, REPORT, George Hill: "While carrying broom to back wall my heel sank into a soft floorboard. Also noticed musty smell back there."
+E4: 2026-11-05 11:00, INSPECTION, Heather Collins, answers E3: "Board flexes badly under weight. Discoloration around joint and wet wood visible at edge. Unsafe to walk across."
+E5: 2026-11-06 10:00, NOTE, Heather Collins: "Manager ordered unit held until qualified contractor investigates the floor support and moisture source."
+E6: 2026-11-08 15:00, WORK DONE, Northside Repairs, answers E3: "Lifted damaged board and checked below. Subfloor is wet. Left opening barricaded pending repair plan."
+E7: 2026-11-11 10:00, INSPECTION, Heather Collins, answers E4: "Floor remains opened and barricaded, adjacent boards still soft. No structural repair or dry-out completed."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E3: Determine the necessary structural investigation and safe repair scope for the unexpectedly soft floor.
+MUST NOT: Rely on the limited doorway inspection or exploratory board removal as evidence of a safe, rentable floor.
+WHY: E2 is expressly incomplete, and E3 reveals a concealed safety problem. The investigation identifies additional moisture damage but no completed repair or clearance within the week.
+
+END OF SET UNIT-READY-SET-1.
+U21.
+UNIT: W509 10x15
+E1: 2026-10-26 08:00, MOVE-OUT, Lauren Scott: "W509 lease ended. Unit vacated."
+E2: 2026-10-26 10:00, REPORT, Kevin Brooks: "Roll-up door jams halfway up. Lots of grit in track. Can't reliably open or close it."
+E3: 2026-10-26 15:00, WORK DONE, Kevin Brooks, answers E2: "Cleared track debris and lubricated runners. Door moved on first try."
+E4: 2026-10-27 09:00, INSPECTION, Lauren Scott, answers E2: "Door still sticks near the top. Couldn't close it smoothly or get the lock aligned. Not fixed."
+E5: 2026-10-27 10:00, REPORT, Kevin Brooks: "Found upper roller bent. Track cleaning helped but roller still catches near top of travel."
+E6: 2026-10-28 16:00, WORK DONE, Kevin Brooks, answers E5: "Replaced bent roller, aligned upper track and tightened brackets."
+E7: 2026-10-29 08:00, INSPECTION, Lauren Scott, answers E4: "Door went up and down five times without sticking. Closed and locked normally. Inside clean, empty and dry. Good to rent."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Treat the first maintenance visit as a successful repair when the next inspection explicitly finds the door still defective.
+WHY: E3 does not resolve the problem. E4 and E5 document continued failure, followed by a successful repair and verification at E7.
+
+U22.
+UNIT: X070 10x10
+E1: 2026-10-27 09:00, MOVE-OUT, Denise Walker: "Lease marked ended after processing customer's signed move-out notice. No keys returned."
+E2: 2026-10-27 10:00, INSPECTION, Denise Walker: "Customer padlock is still on X070. Can't inspect inside. No access without key or removal."
+E3: 2026-10-28 12:00, NOTE, Denise Walker: "Former tenant called and says checkout was entered by mistake. Claims property is still inside and disputes surrender."
+E4: 2026-10-28 15:00, NOTE, Robert Lane: "Put X070 on hold for account and legal review. Nobody is to cut the lock or offer this unit until ownership and surrender are resolved."
+E5: 2026-11-03 10:00, INSPECTION, Denise Walker: "Padlock still on. No resolution or new access authorization in file. Cannot verify interior condition."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E3: Resolve the disputed surrender and determine lawful access before any unit turnover.
+MUST NOT: Cut the disputed lock or offer the unit while the former tenant's possession claim remains unresolved.
+WHY: Although E1 records a lease ending, E3 introduces a direct surrender dispute. No resolution or interior inspection occurs during the week.
+
+U23.
+UNIT: Y106 5x10
+E1: 2026-10-28 08:00, MOVE-OUT, Sarah Finch: "Y106 vacated, lease ended."
+E2: 2026-10-28 08:30, NOTE, Sarah Finch: "Building circuit is down. Interior corridor lights and powered access controller aren't working. Electrician called."
+E3: 2026-10-28 11:00, INSPECTION, Sarah Finch: "Y106 itself looks empty and dry, but corridor access is offline. Only emergency lighting works. Can't verify normal secure access."
+E4: 2026-10-29 16:00, WORK DONE, Central Electric, answers E2: "Restored corridor circuit, reset access controller and checked power supply. Lighting and reader operational."
+E5: 2026-10-30 10:00, INSPECTION, Sarah Finch, answers E3: "Normal corridor lights back on. Badge access tested, Y106 door locks, floor clean and dry. All good for a new renter."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Offer Y106 while normal secure access is unavailable just because its interior appears clean.
+WHY: Readiness includes usable and secure access. E5 verifies restoration of the shared systems that prevented use of this unit.
+
+U24.
+UNIT: Z211 10x10
+E1: 2026-10-29 09:00, MOVE-OUT, Jason Miller: "Z211 lease ended. Space turned back over."
+E2: 2026-10-29 10:00, INSPECTION, Jason Miller: "Empty, swept, dry and door locks. Wide purple dye stain in center of slab. No smell or tack, but unsure if this passes our presentation standard."
+E3: 2026-10-29 12:00, NOTE, Karen Lee: "Reviewed stain in person. Permanent dye mark only, no residue. Approved release as-is under cosmetic condition standard. Photo added to unit file."
+RENTABLE AFTER: E3
+STAFF DECIDE: E2: Determine whether the permanent cosmetic discoloration is acceptable for rental or requires further treatment.
+MUST NOT: Automatically approve the uncertain condition at E2 without the required presentation decision.
+WHY: The inspection establishes that the stain is nonfunctional damage but raises an unresolved acceptance question. E3 documents the responsible manager's approval.
+
+U25.
+UNIT: A089 10x20
+E1: 2026-10-30 08:00, MOVE-OUT, Megan Fox: "A089 lease closed. Tenant out."
+E2: 2026-10-30 10:00, INSPECTION, Megan Fox: "Plywood divider inside the unit moves when pushed. Couple screw tips sticking out. Otherwise empty and dry."
+E3: 2026-10-30 10:45, REPORT, David Park: "Non-load-bearing partition has stripped fasteners along bottom rail. Top edge is loose too."
+E4: 2026-10-31 11:00, WORK DONE, David Park, answers E3: "Replaced stripped screws and re-fastened lower rail. Bottom feels solid."
+E5: 2026-11-01 10:00, INSPECTION, Megan Fox, answers E2: "Bottom rail good now but top still bows when pushed. One screw point still exposed. Needs another pass."
+E6: 2026-11-02 15:00, WORK DONE, David Park, answers E5: "Braced upper edge, replaced loose fasteners and countersunk exposed screw. No movement on push test."
+E7: 2026-11-03 10:00, INSPECTION, Megan Fox, answers E5: "Partition firm top to bottom. No exposed points, floor empty and dry, door works and locks. Cleared."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Mark the unit ready after the partial lower-rail repair while the top remains loose and hazardous.
+WHY: The first repair does not eliminate all reported defects. The second repair and follow-up inspection establish readiness.
+
+U26.
+UNIT: B177 5x10
+E1: 2026-10-31 08:00, MOVE-OUT, Ryan Cooper: "B177 lease ended. Renter moved out."
+E2: 2026-10-31 09:00, INSPECTION, Ryan Cooper: "Two bats hanging in roll-up door housing. Door travel would pass right through them. Backed away and left door alone."
+E3: 2026-11-01 11:00, NOTE, Elena Ortiz: "Maintenance saw bats at the door again. Told crew not to raise it. Need wildlife handling advice."
+E4: 2026-11-03 14:00, NOTE, Ryan Cooper: "Manager contacted wildlife specialist for safe removal plan and any required clearance. Unit stays unavailable."
+E5: 2026-11-07 10:00, INSPECTION, Elena Ortiz: "Observed from outside. Bats still using shutter housing and door remains out of service. No wildlife clearance received."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Determine appropriate wildlife handling, legal restrictions, and safe clearance before the door can be used.
+MUST NOT: Operate the door through occupied bat roosting space or attempt unapproved removal to speed up rental.
+WHY: Active wildlife occupies the door mechanism. No authorized resolution or safe operating condition is documented within the week.
+
+U27.
+UNIT: C219 10x10
+E1: 2026-11-01 08:00, MOVE-OUT, Molly Quinn: "C219 checked out and lease ended."
+E2: 2026-11-01 10:00, INSPECTION, Molly Quinn: "Raised glue ridge along east wall, still tacky. Need somebody to scrape it before this goes back online."
+E3: 2026-11-01 15:00, WORK DONE, Apex Cleaning, answers E2: "Scraped adhesive in C218. Realized afterward the work order was for C219. We cleaned the wrong unit."
+E4: 2026-11-02 09:00, INSPECTION, Molly Quinn, answers E2: "Glue ridge still present in C219, sticky to touch. Cleaner went next door. This unit has not been done."
+E5: 2026-11-02 15:00, WORK DONE, Apex Cleaning, answers E4: "Checked C219 door number before starting. Scraped and washed actual glue ridge in this unit. Left floor drying."
+E6: 2026-11-03 10:00, INSPECTION, Molly Quinn, answers E4: "C219 floor smooth and dry, no tack. Checked unit number and all corners. Door closes and locks. Ready."
+RENTABLE AFTER: E6
+STAFF DECIDE: none
+MUST NOT: Accept the original contractor completion entry as evidence that C219 was cleaned.
+WHY: E3 documents work on the wrong unit. Only the corrected work at E5 and the inspection at E6 establish readiness for C219.
+
+U28.
+UNIT: D006 10x12
+E1: 2026-11-02 08:00, MOVE-OUT, Patrick Reed: "D006 move-out complete. Lease terminated."
+E2: 2026-11-02 10:00, INSPECTION, Patrick Reed: "Measured usable space. Software calls D006 a 10x15, but partition leaves only 10x12. Empty, clean, dry, door and lock fine."
+E3: 2026-11-02 11:00, NOTE, Patrick Reed: "Leasing flyer and online listing both still show 10x15. Can't promise the missing three feet to a renter."
+E4: 2026-11-03 14:00, NOTE, Sandra Hughes: "Approved current 10x12 configuration. Corrected unit size, listing, price and photos. Can now offer it with accurate dimensions."
+RENTABLE AFTER: E4
+STAFF DECIDE: E2: Decide whether to restore the advertised dimensions or approve and reclassify the smaller usable space.
+MUST NOT: Advertise or rent D006 as a full 10x15 when inspection establishes only 10x12 of usable space.
+WHY: The physical condition is fine, but the offered unit would be materially misdescribed. The manager resolves the configuration and listing mismatch at E4.
+
+U29.
+UNIT: E073 10x10
+E1: 2026-11-03 08:00, MOVE-OUT, Alexis Brown: "E073 vacated. Lease ended."
+E2: 2026-11-03 10:00, NOTE, Alexis Brown: "Ice forming right at E073 threshold from gutter runoff. Customer walkway slick and door hard to get to safely."
+E3: 2026-11-03 11:00, REPORT, Oliver Grant: "Downspout elbow is missing, water lands in front of E073 and freezes across threshold at night."
+E4: 2026-11-04 09:00, WORK DONE, Oliver Grant, answers E3: "Chipped ice away and spread traction grit. Didn't have the replacement gutter elbow yet."
+E5: 2026-11-05 08:00, INSPECTION, Alexis Brown, answers E3: "New ice strip at the door after overnight freeze. Still slippery. Water source hasn't been fixed."
+E6: 2026-11-06 14:00, WORK DONE, Oliver Grant, answers E5: "Installed gutter elbow, moved discharge away from doorway. Cleared remaining ice and dried threshold."
+E7: 2026-11-07 10:00, INSPECTION, Alexis Brown, answers E5: "Threshold stayed dry through overnight freeze. No ice, safe approach. Interior empty and dry, door opens and locks. Ready."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Release E073 after temporary ice removal while the runoff continues to create hazardous access conditions.
+WHY: The first treatment provides temporary relief only. Rerouting the water and verifying the approach after freezing conditions establishes readiness.
+
+U30.
+UNIT: F252 10x20
+E1: 2026-11-04 09:00, MOVE-OUT, Heather Collins: "F252 vacated, lease ended."
+E2: 2026-11-04 10:00, INSPECTION, Heather Collins: "Looked in from doorway. Appears empty. Didn't walk the back of the floor or check far corner because the light was poor."
+E3: 2026-11-05 09:00, REPORT, George Hill: "While carrying broom to back wall my heel sank into a soft floorboard. Also noticed musty smell back there."
+E4: 2026-11-05 11:00, INSPECTION, Heather Collins, answers E3: "Board flexes badly under weight. Discoloration around joint and wet wood visible at edge. Unsafe to walk across."
+E5: 2026-11-06 10:00, NOTE, Heather Collins: "Manager ordered unit held until qualified contractor investigates the floor support and moisture source."
+E6: 2026-11-08 15:00, WORK DONE, Northside Repairs, answers E3: "Lifted damaged board and checked below. Subfloor is wet. Left opening barricaded pending repair plan."
+E7: 2026-11-11 10:00, INSPECTION, Heather Collins, answers E4: "Floor remains opened and barricaded, adjacent boards still soft. No structural repair or dry-out completed."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E3: Determine the necessary structural investigation and safe repair scope for the unexpectedly soft floor.
+MUST NOT: Rely on the limited doorway inspection or exploratory board removal as evidence of a safe, rentable floor.
+WHY: E2 is expressly incomplete, and E3 reveals a concealed safety problem. The investigation identifies additional moisture damage but no completed repair or clearance within the week.
+
+END OF SET UNIT-READY-SET-1.

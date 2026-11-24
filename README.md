@@ -104,6 +104,27 @@ A fresh outside set was then run once, on Nov 24. It holds 40 new cases: 20 repa
 
 The claim rule was written down before the run. Tilden beats the rule on a part only with no serious error, at least 10 points more, and an interval above zero. The interval comes from resampling the 20 cases 20,000 times. The claim holds for move-out notes. It does not hold for repair-report pairs. All 6 serious errors there are one pair the author says cannot be settled, where Tilden called them two faults in 6 of 10 runs. The stronger rule made 30 serious errors on the pairs. The three walk findings ran again too, and they are not a fresh test: Tilden picked an acceptable step in 24 of 30 runs, the fixed rule in 30 of 30. The run cost about 17 cents.
 
+### Whole cases: getting a vacated unit rentable again
+
+Tilden's first job ran once on Nov 24 on 30 whole cases written by an outside author (`core/graded/unit_ready_1.txt`). Each case is the record of one unit, from the move-out until it was settled or a week had passed. The workers were frozen first (pull request 143). Four of them ran inside Tilden's runtime with the same tools and code checks. The fifth is a fixed-rule worker written separately, which keeps its own rules.
+
+| Worker | Offered again at the right entry (of 21) | Kept off when it never should be offered (of 9) | Offered too early | Handed to staff at the right entry (of 11) | Handed to staff with no need |
+|---|---|---|---|---|---|
+| The facility system alone | 0 | 0 | 30 | 0 | 0 |
+| Fixed rules, separate author | 17 | 6 | 6 | 4 | 2 |
+| The playbook in fixed order | 17.7 | 9 | 0 | 0 | 2 |
+| A step picker | 5.3 | 9 | 0 | 2 | 19 |
+| Tilden's planner | 9.7 | 9 | 0 | 8 | 11 |
+
+The last three ran three times each; the table shows the mean, and the full rows are in `core/graded/unit_ready_1_report.json`.
+
+- The playbook in fixed order offered units again on time far more often than Tilden's planner: 17.7 against 9.7 of 21.
+- No worker inside the runtime offered a unit too early. The rule worker without its checks did so 6 times.
+- Tilden's planner handed work to staff at the right entry most often: 8 of 11, against 4 for the rules. This is one set with 11 such cases.
+- One extra planner pass after the run looked at why. In 13 of 30 cases it stopped at the case's limit on tool calls and decisions. Those stops caused 10 of its 11 needless handoffs and 9 of its missed releases. That pass is not counted above.
+- A run of 30 cases cost about 36 cents for the planner and about 1.3 cents for the fixed order.
+- This set is now spent. Changes it suggests, such as the case limits, are measured on a new outside set.
+
 ## The books
 
 The `core` package keeps the facility's records:
