@@ -240,3 +240,12 @@ def test_a_payment_returned_after_its_fee_was_waived_is_still_recorded():
     assert led.books.payments[p].returned
     assert len(led.books.obligations[f"late_fee:{lease}:2026-10"]) == 1    # no second fee for the same month
     saved(led)
+
+
+def test_fully_conceded_rent_is_on_time_but_missing_rent_is_not():
+    led, tenant, lease = facility()
+    (charge,) = led.post_rent("2026-10")
+    led.emit("promotion.concession_posted", at_local(date(2026, 10, 1)), {"redemption": "PR1", "promotion": "deal", "charge": charge,
+             "lease": lease, "tenant": tenant, "period": "2026-10", "cents": 10000, "gross_cents": 10000}, "concession", source="code")
+    assert led.books.on_time(tenant, "2026-10")
+    assert not led.books.on_time(tenant, "2026-11")

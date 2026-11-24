@@ -475,8 +475,9 @@ class Books:
         if not held:
             return False
         for lease in held:
-            due = sum(c.net_cents for c in self.live(f"rent:{lease.id}:{month}"))
-            if due == 0 or self.rent_paid_before(lease.id, month, cutoff(month)) < due:
+            charges = self.live(f"rent:{lease.id}:{month}")
+            due = sum(c.net_cents for c in charges)
+            if not charges or self.rent_paid_before(lease.id, month, cutoff(month)) < due:
                 return False
         return True
 
