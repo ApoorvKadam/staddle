@@ -1047,7 +1047,7 @@ def _owner(run: _Run) -> None:
 def _valid_invoice(invoice: str | None, lease: str | None) -> bool:
     if not lease or not isinstance(invoice, str):
         return False
-    match = re.fullmatch(re.escape(lease) + r":(\d{4})-(\d{2})", invoice)
+    match = re.fullmatch(re.escape(lease) + r":([0-9]{4})-([0-9]{2})", invoice)
     return bool(match and int(match[1]) >= 1 and 1 <= int(match[2]) <= 12)
 
 

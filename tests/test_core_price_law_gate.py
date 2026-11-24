@@ -356,3 +356,10 @@ def test_emergency_extension_after_a_check_requires_a_fresh_lookup(listed):
     assert not result.allowed and result.why == 'EMERGENCY_STATUS_UNKNOWN'
     assert d.go('record_emergency_check', place='UT', checked_on='2026-11-23', valid_until='2027-01-31', source='state page', active=[rid]).allowed
     assert d.change('check_price_change', 'proposal', NOW, **args).why != 'EMERGENCY_STATUS_UNKNOWN'
+
+
+def test_invoice_rejects_non_ascii_month_digits():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed and d.notice().allowed
+    on = at_local(date(2026, 12, 23), 10)
+    assert not d.change('check_price_change', 'invoice', on, invoice='L0001:٢٠٢٦-١٢').allowed
