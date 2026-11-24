@@ -297,6 +297,7 @@ class Recorded:
 class Approval:
     change: str
     versions: dict
+    snapshot: dict
     by: str
     at: datetime
 
@@ -366,7 +367,7 @@ class State:
                 p["id"], p["change"], p["basis"], p["covers_cents"], p["document_sha256"], p["by"], at))
             return "PLX", p["id"]
         elif kind == "price_law.approved":
-            self.approvals[p["change"]] = Approval(p["change"], dict(p["versions"]), p["by"], at)
+            self.approvals[p["change"]] = Approval(p["change"], dict(p["versions"]), dict(p.get("snapshot", {})), p["by"], at)
         elif kind == "price_law.decided":
             self.decisions.append(Recorded(
                 p["id"], p["change"], p["point"], p["outcome"], tuple(Reason(**r) for r in p["reasons"]), tuple(p["records"]),
@@ -529,8 +530,8 @@ def record_exception(led: Ledger, at: datetime, *, change: str, basis: str, cove
 
 
 # decisions --------------------------------------------------------------------------------------------------------------------
-def record_approval(led: Ledger, at: datetime, *, change: str, versions: dict, by: str) -> None:
-    led.emit("price_law.approved", at, {"change": change, "versions": dict(versions), "by": by}, f"price_law:approved:{change}:{state(led.books).counts.get(change, 0) + 1}", source=by)
+def record_approval(led: Ledger, at: datetime, *, change: str, versions: dict, by: str, snapshot: dict) -> None:
+    led.emit("price_law.approved", at, {"change": change, "versions": dict(versions), "snapshot": dict(snapshot), "by": by}, f"price_law:approved:{change}:{state(led.books).counts.get(change, 0) + 1}", source=by)
 
 
 def record_decision(led: Ledger, at: datetime, *, change: str, point: str, outcome: str, reasons, records, versions: dict, lease: str | None,
@@ -967,9 +968,11 @@ def _served(rule: RuleSet, terms: Terms, n: Notice, days: int) -> tuple[date | N
 
 def _stale(run: _Run) -> None:
     approval = state(run.books).approvals.get(run.change.id)
-    if approval is None or run.point in ("proposal", "approval") or approval.versions == run.versions:
+    if approval is None or run.point in ("proposal", "approval") or (approval.versions == run.versions and approval.snapshot == _revision(run.change)):
         return
     differs = []
+    if approval.snapshot != _revision(run.change):
+        differs.append("the change terms changed")
     for key in sorted(set(approval.versions) | set(run.versions)):
         old, new = approval.versions.get(key), run.versions.get(key)
         if old == new:
@@ -1005,6 +1008,12 @@ def posted_basis(books: Books, invoice: str) -> Recorded | None:
     """What a posted invoice was decided on: the allowed decision recorded for it at invoice time, with the rule versions and records it read.
     It is kept as it was; a later rule update never rewrites it."""
     return next((r for r in reversed(state(books).decisions) if r.invoice == invoice and r.point == "invoice" and r.outcome == "allow"), None)
+
+
+def _revision(change: PriceChange) -> dict:
+    snapshot = _snapshot(change)
+    snapshot.pop("invoice")
+    return snapshot
 
 
 def _snapshot(change: PriceChange) -> dict:
@@ -1141,7 +1150,7 @@ def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | Non
                 made = record_decision(led, now, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
                                        lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
             if res.allowed and act.action == "approve_price_change":
-                record_approval(led, now, change=change.id, versions=res.versions, by=who)
+                record_approval(led, now, change=change.id, versions=res.versions, by=who, snapshot=_revision(change))
             check, code = _stated(res)
             ok, why = res.allowed, code
             if ok:

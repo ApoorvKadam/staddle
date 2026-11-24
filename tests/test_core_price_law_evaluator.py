@@ -205,7 +205,7 @@ def test_an_owner_rule_that_asks_to_override_the_law_is_refused_at_adoption_and_
 
 def _approved(led, profile, **over):
     res = pl.evaluate(led.books, change(**over), NOW, profile=profile, point="approval")
-    pl.record_approval(led, NOW, change="PC1", versions=res.versions, by="staff:manager")
+    pl.record_approval(led, NOW, change="PC1", versions=res.versions, by="staff:manager", snapshot=pl._revision(change(**over)))
     return res
 
 
@@ -224,7 +224,7 @@ def test_a_legal_rule_update_invalidates_a_pending_approval_and_a_fresh_one_clea
     # at proposal and approval the change is read fresh, so the old approval never blocks it
     assert "LEGAL_RULE_VERSION_STALE" not in codes(pl.evaluate(led.books, change(), NOW, profile=UT, point="approval", rules=updated))
     again = pl.evaluate(led.books, change(), NOW, profile=UT, point="approval", rules=updated)
-    pl.record_approval(led, NOW, change="PC1", versions=again.versions, by="staff:manager")
+    pl.record_approval(led, NOW, change="PC1", versions=again.versions, by="staff:manager", snapshot=pl._revision(change()))
     assert "LEGAL_RULE_VERSION_STALE" not in codes(pl.evaluate(led.books, change(), NOW, profile=UT, point="activation", rules=updated))
 
 

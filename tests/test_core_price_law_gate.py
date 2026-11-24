@@ -202,3 +202,13 @@ def test_every_refusal_code_the_design_names_is_one_the_gate_can_give():
                  "DISCLOSED_MAX_EXCEEDED", "ANNUAL_MAX_NOTICE_MISSING", "FEE_CHANGE_NOTICE_MISSING", "EMERGENCY_STATUS_UNKNOWN", "EMERGENCY_PRICE_RESTRICTED",
                  "PRICE_BASELINE_UNPROVEN", "LEGAL_EXCEPTION_UNVERIFIED", "CONTRACTUAL_PRICE_PROMISE"):
         assert f'"{code}"' in source
+
+
+def test_approval_is_bound_to_amount_and_effective_date():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    assert d.change('approve_price_change', 'approval', NOW).allowed
+    assert d.change('check_price_change', 'notice_authorization', NOW).allowed
+    for terms in ({'new_cents': 12000}, {'effective_on': '2026-12-24'}):
+        result = d.change('check_price_change', 'notice_authorization', NOW, **terms)
+        assert not result.allowed and result.why == 'LEGAL_RULE_VERSION_STALE'
