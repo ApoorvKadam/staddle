@@ -392,11 +392,13 @@ def test_a_refused_command_writes_nothing_but_the_gate_record():
     before = len(led.pending)
     for a in (act("a1", "record_notice", {"change": "PC1"}, source="renter"),
               act("a2", "record_notice", {"change": "PC1", "lease": "L0001", "document_sha256": "short", "recipient": "Pat", "channel": "email", "sent_to": EMAIL,
-                                          "attempted_on": "2026-11-23", "dispatch_accepted": True}),
+                                          "attempted_on": "2026-11-23", "effective_on": "2026-12-23", "new_cents": 10500, "dispatch_accepted": True}),
               act("a3", "record_exception", {"change": "PC1", "basis": "x", "covers_cents": 1, "document_sha256": SHA}, source="staff:manager"),
               act("a4", "melt_the_price", {})):
         res = pl.command(led, a, NOW, profile=UT)
         assert not res.allowed
+        if a.id == "a2":
+            assert "fingerprint" in res.check
     kinds = [e.kind for e in led.pending[before:]]
     assert kinds == ["gate.decided"] * 4
     assert not led.books.price_law.notices and not led.books.price_law.terms and not led.books.price_law.authorizations
