@@ -1312,8 +1312,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 if (ident, token) in fd.site_forms:     # a second press of the same page returns the first answer
                     return
                 shown = int(data["total"]) if data.get("total", "").isdecimal() else None
-                if shown is not None and fd.checkout_total(ident, rental) != shown:
-                    return "changed"        # the total moved since the page was shown: nothing is accepted or charged until the renter sees the new one
+                if shown is None or fd.checkout_total(ident, rental) != shown:
+                    return "changed"        # a total that is missing, not a number or moved since the page was shown: nothing is accepted or charged until the renter sees the current one
                 fd.site_forms.add((ident, token))
                 if not r.accepted:      # once accepted, a declined card can be tried again without accepting twice
                     args = {"sha256": data.get("sha256", "")}
