@@ -255,3 +255,14 @@ def test_a_decision_is_recorded_with_its_reasons_records_and_versions():
     assert rec.id == res.id and rec.versions["UT-notice"] == 1 and rec.invoice == "L0001:2027-02"
     assert any(r.startswith("terms:L0001#") for r in rec.records) and any(r.startswith("check:") for r in rec.records)
     assert rec.snapshot["new_cents"] == 10500 and rec.reasons == res.reasons
+
+
+def test_posted_basis_does_not_expose_mutable_decision_data():
+    led = book('Salt Lake City, UT')
+    pl.record_decision(led, NOW, change='PC1', point='invoice', outcome='allow', reasons=[], records=[],
+                       versions={'rule': 1}, lease='L0001', invoice='L0001:2026-12', snapshot={'nested': {'value': 1}})
+    basis = pl.posted_basis(led.books, 'L0001:2026-12')
+    basis.versions['rule'] = 2
+    basis.snapshot['nested']['value'] = 2
+    again = pl.posted_basis(led.books, 'L0001:2026-12')
+    assert again.versions == {'rule': 1} and again.snapshot == {'nested': {'value': 1}}

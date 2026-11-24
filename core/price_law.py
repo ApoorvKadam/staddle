@@ -9,6 +9,7 @@ lead records. A decision is recorded with the reasons it gave, the records it re
 invoice keeps the snapshot it was decided on. Like the lien workflow, anything the records cannot establish fails closed."""
 from __future__ import annotations
 
+from copy import deepcopy
 import hashlib
 import json
 import re
@@ -1012,7 +1013,7 @@ def _owner(run: _Run) -> None:
 def posted_basis(books: Books, invoice: str) -> Recorded | None:
     """What a posted invoice was decided on: the allowed decision recorded for it at invoice time, with the rule versions and records it read.
     It is kept as it was; a later rule update never rewrites it."""
-    return next((r for r in reversed(state(books).decisions) if r.invoice == invoice and r.point == "invoice" and r.outcome == "allow"), None)
+    return deepcopy(next((r for r in reversed(state(books).decisions) if r.invoice == invoice and r.point == "invoice" and r.outcome == "allow"), None))
 
 
 def _revision(change: PriceChange) -> dict:
