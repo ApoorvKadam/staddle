@@ -415,6 +415,8 @@ def record_terms(led: Ledger, at: datetime, *, lease: str, signed_on, agreement_
                  email_notice_authorized: bool = False, last_known_address: str = "", last_known_email: str = "", designated_method: str | None = None,
                  price_promise_until=None, price_promise_max_cents: int | None = None, rent_change_allowed: bool = True) -> int:
     """Take the terms from the signed agreement as a new version. The earlier versions stay, and a decision names the version it read."""
+    if not isinstance(notice_methods, (list, tuple)):
+        raise Refused("notice methods must be a list")
     methods = tuple(notice_methods)
     if not _clean(lease) or any(m not in CHANNELS for m in methods):
         raise Refused("name the lease and use only the ways of giving notice the system knows")

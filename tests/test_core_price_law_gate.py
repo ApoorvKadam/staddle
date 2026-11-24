@@ -283,3 +283,11 @@ def test_new_fee_with_zero_previous_amount_reaches_the_gate():
         d.store.append(STREAM, led.pending)
     result = d.change('check_price_change', 'notice_authorization', NOW, kind='fee_change', current_cents=0, new_cents=500)
     assert not result.allowed and result.why == 'OWNER_RULE'
+
+
+def test_null_notice_methods_get_an_audited_refusal():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    result = d.terms(notice_methods=None)
+    assert not result.allowed
+    assert not d.books().price_law or not d.books().price_law.terms
+    assert any(e.kind == 'gate.decided' for e in d.store._rows(STREAM))
