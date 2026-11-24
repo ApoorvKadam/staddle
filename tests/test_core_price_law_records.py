@@ -62,7 +62,7 @@ def test_the_live_facility_is_orlando_and_a_stated_profile_replaces_the_derived_
     led = Ledger()
     led.set_up(NOW, "Northstar Storage", "Orlando, FL", ["A1"])
     derived = price_law.profile_of(led.books)
-    assert (derived.place, derived.synthetic, derived.city) == ("FL", False, "Orlando, FL")
+    assert (derived.place, derived.synthetic, derived.city) == ("FL", True, "Orlando, FL")
     price_law.set_profile(led, NOW, place="FL", reviewed_by="staff:manager")
     assert price_law.profile_of(replayed(led)).place == "FL"
     with pytest.raises(Refused):

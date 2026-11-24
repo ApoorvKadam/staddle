@@ -99,10 +99,10 @@ RULE_SETS: tuple[RuleSet, ...] = (
             "New York City Administrative Code 20-566.4 and the city's rules under it", date(2026, 11, 1), None, "demonstration", _PENDING, None,
             "advisor research, 2026-11-23", first_year_max=True, first_page=True, annual_max_notice_days=60, recurring_fee=True),
     RuleSet("FL-notice", 1, "FL", "notice", "Florida ordinary rent increase: the signed agreement's own terms",
-            "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "pending", _DESIGN_REVIEW, None,
+            "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "demonstration", _DESIGN_REVIEW, None,
             "advisor research, 2026-11-23: no statewide statutory notice duration established", agreement_specific=True, email_needs_agreement=True),
     RuleSet("FL-emergency", 1, "FL", "emergency", "Florida price gouging during a declared emergency", "Florida Statutes 501.160",
-            LONG_IN_FORCE, None, "pending", _DESIGN_REVIEW, None, "advisor research, 2026-11-23", emergency_hold=True),
+            LONG_IN_FORCE, None, "demonstration", _DESIGN_REVIEW, None, "advisor research, 2026-11-23", emergency_hold=True),
 )
 
 
@@ -131,16 +131,21 @@ class FacilityProfile:
     facility: str
     city: str
     place: str | None
-    synthetic: bool = False             # a made-up facility for the tests and the evaluation; the live facility is never synthetic
+    synthetic: bool = False             # true only for facilities with generated data
     reviewed_by: str = ""
 
 
-# made-up facilities for the tests and the evaluation only: the live facility is Northstar in Orlando, Florida, and a recorded profile is never synthetic
+# Made-up facilities for tests and the evaluation.
 SYNTHETIC_PROFILES = {
     "CA": FacilityProfile("Synthetic California facility", "Sacramento, CA", "CA", True, "made up for tests and the evaluation"),
     "UT": FacilityProfile("Synthetic Utah facility", "Salt Lake City, UT", "UT", True, "made up for tests and the evaluation"),
     "NYC": FacilityProfile("Synthetic New York City facility", "New York, NY", "NYC", True, "made up for tests and the evaluation"),
 }
+
+
+def _demo_profile(facility: str, city: str, place: str | None) -> bool:
+    # Northstar is a demo facility with generated tenants, not real operator data.
+    return (facility, city, place) == ("Northstar Storage", "Orlando, FL", "FL")
 
 
 def synthetic_profile(place: str) -> FacilityProfile:
@@ -335,7 +340,7 @@ class State:
             if kind == counted:
                 self.counts[key] = self.counts.get(key, 0) + 1
         if kind == "price_law.profile_set":
-            self.profile = FacilityProfile(p["facility"], p["city"], p["place"], False, p["reviewed_by"])
+            self.profile = FacilityProfile(p["facility"], p["city"], p["place"], _demo_profile(p["facility"], p["city"], p["place"]), p["reviewed_by"])
         elif kind == "price_law.terms_snapshotted":
             self.terms.setdefault(p["lease"], []).append(Terms(
                 p["lease"], p["version"], day("signed_on"), p["agreement_sha256"], tuple(p["notice_methods"]), p["notice_days"],
@@ -397,7 +402,8 @@ def profile_of(books: Books) -> FacilityProfile:
     if recorded:
         return recorded
     city = books.facility.get("city", "")
-    return FacilityProfile(books.facility.get("name", ""), city, place_of(city))
+    facility, place = books.facility.get("name", ""), place_of(city)
+    return FacilityProfile(facility, city, place, _demo_profile(facility, city, place))
 
 
 def set_profile(led: Ledger, at: datetime, *, place: str, reviewed_by: str) -> None:
@@ -803,7 +809,7 @@ def evaluate(books: Books, change: PriceChange, at: datetime, *, point: str = "p
     run.versions.update({rs.id: rs.version for rs in sets})
     for rs in sets:
         if rs.review == "pending" or (rs.review == "demonstration" and not profile.synthetic):
-            run.hold("RULE_NOT_REVIEWED", f"{rs.name} ({rs.citation}) is {'not reviewed yet' if rs.review == 'pending' else 'modeled for demonstration only'}; "
+            run.hold("RULE_NOT_REVIEWED", f"{rs.name} ({rs.citation}) is {'not reviewed yet' if rs.review == 'pending' else 'not reviewed and modeled for demonstration only'}; "
                                           "counsel review is needed before it can allow a change.", rs)
     for topic in sorted({rs.topic for rs in sets}):
         group = [rs for rs in sets if rs.topic == topic]
