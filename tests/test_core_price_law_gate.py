@@ -291,3 +291,12 @@ def test_null_notice_methods_get_an_audited_refusal():
     assert not result.allowed
     assert not d.books().price_law or not d.books().price_law.terms
     assert any(e.kind == 'gate.decided' for e in d.store._rows(STREAM))
+
+
+@pytest.mark.parametrize('field', ['dispatch_accepted', 'certificate_of_mailing', 'postage_prepaid'])
+def test_notice_evidence_requires_actual_booleans(field):
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    result = d.notice(**{field: 'false'})
+    assert not result.allowed
+    assert not d.books().price_law or not d.books().price_law.notices
+    assert any(e.kind == 'gate.decided' and not e.payload['allowed'] for e in d.store._rows(STREAM))

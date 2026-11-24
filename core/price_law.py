@@ -503,6 +503,8 @@ def record_baseline(led: Ledger, at: datetime, *, restriction: str, subject: str
 def record_notice(led: Ledger, at: datetime, *, change: str, lease: str, document_sha256: str, recipient: str, channel: str, sent_to: str,
                   attempted_on, dispatch_accepted: bool, by: str, certificate_of_mailing: bool = False, postage_prepaid: bool = False,
                   confirmation: str | None = None, delivered_on=None, acknowledged_on=None, new_cents=None, effective_on=None) -> str:
+    if any(type(value) is not bool for value in (dispatch_accepted, certificate_of_mailing, postage_prepaid)):
+        raise Refused("notice evidence must be true or false")
     if channel not in CHANNELS or not _clean(recipient) or not _clean(change):
         raise Refused("a notice names its change, its recipient and a way of giving it the system knows")
     if not isinstance(new_cents, int) or isinstance(new_cents, bool) or new_cents <= 0:
