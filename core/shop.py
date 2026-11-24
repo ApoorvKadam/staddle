@@ -497,21 +497,26 @@ def pay(store: Store, stream: str, processor, quote: str, card: str, now: dateti
 
 
 def _confirm_none(store: Store, stream: str, processor, quote: str, key: str, now: datetime):
-    """The processor refused a request: only its own record that it holds no payment for the key lets the sale be tried again or cancelled."""
+    """The processor refused a request: only its own record that it holds no payment for the key lets the sale be tried again or cancelled.
+    Everything is read for the attempt that was sent (by its key), never for a newer one that replaced it while the request was out."""
+    from .billing import Refused
     from .delinquency import ProcessorRefused, ProcessorTimeout
     with store.write():
-        current = state(store.books(stream)).payments[quote]
+        sent = next((a for a in state(store.books(stream)).every_attempt(quote) if a['key'] == key), None)
+    if sent is None:
+        raise Refused('no such payment attempt')
     try:
-        found = processor.find(key, since=current['at'])
+        found = processor.find(key, since=sent['at'])
     except (ProcessorRefused, ProcessorTimeout):
-        return current                          # not confirmed: the sale stays as it is
+        return sent                             # not confirmed: the sale stays as it is
     if found is not None:
-        return _record_answer(store, stream, quote, found, now) or current
+        return _record_answer(store, stream, quote, found, now) or sent
     return _record_none(store, stream, quote, key, now)
 
 
 def _record_none(store: Store, stream: str, quote: str, key: str, now: datetime):
-    """Write down that the processor confirmed it holds no payment for this attempt's key."""
+    """Write down that the processor confirmed it holds no payment for this attempt's key, if that attempt is still the current one.
+    Returns the attempt with that key."""
     with store.write():
         books = store.books(stream)
         current = state(books).payments[quote]
@@ -520,7 +525,7 @@ def _record_none(store: Store, stream: str, quote: str, key: str, now: datetime)
             led.emit('shop.payment_problem', now, {'quote': quote}, 'shop:payment-problem:' + quote + (f":{current['attempt']}" if current.get('attempt') else ''),
                      source='processor')
             store.append(stream, led.pending)
-        return state(books).payments[quote]
+        return next(a for a in state(books).every_attempt(quote) if a['key'] == key)
 
 
 def _attempt_for(st: State, quote: str, answer: dict, stream: str) -> dict | None:
