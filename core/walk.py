@@ -118,6 +118,7 @@ class WorkOrder:
     changes: list[Change] = field(default_factory=list)     # every move, the report first
     reports: list[Report] = field(default_factory=list)     # the first report, then each one staff said is the same fault
     joined_into: str | None = None              # closed because staff said it is the same fault as this open order
+    kind: str | None = None
 
 
 class State:
@@ -139,7 +140,7 @@ class State:
 
     def apply(self, kind: str, at: datetime, p: dict) -> None:
         if kind == "work_order.reported":
-            o = self.orders[p["order"]] = WorkOrder(p["order"], p["unit"], p["problem"], p["by"], at)
+            o = self.orders[p["order"]] = WorkOrder(p["order"], p["unit"], p["problem"], p["by"], at, kind=p.get("kind"))
             o.changes.append(Change("reported", p["by"], at))
             o.reports.append(Report(p["by"], at, p["problem"]))
         elif kind == "work_order.reported_again":       # staff named the open order: the state does not move
@@ -232,6 +233,10 @@ class Act:
     to: str | None = None
     read: dict | None = None        # for an observation Tilden read from the staff member's words: the mark kept with it
     into: str | None = None         # for join_work_order: the open order the one in `about` joins
+    case_id: str | None = None
+    approval_id: str | None = None
+    authority_action: str | None = None
+    answers_record: str | None = None
 
 
 def _words(text: str | None) -> str:
@@ -251,7 +256,7 @@ def _seen(form: dict | None) -> str | None:
     return None
 
 
-def evaluate(books, wk: State, act: Act, now: datetime) -> tuple[bool, str]:
+def evaluate(books, wk: State, act: Act, now: datetime, agent_allowed: bool = False) -> tuple[bool, str]:
     """The checks, in the gate's order. 1. the action exists and the source is a staff role. 2. safety, fixed in code: the record it is
     about is there and in the right state, the unit exists, the values are from the lists, the words are short enough. 3 and 4. no owner
     rule or hold applies: nothing here moves money, a unit or the overlock record."""
@@ -259,9 +264,11 @@ def evaluate(books, wk: State, act: Act, now: datetime) -> tuple[bool, str]:
     if a not in ACTIONS:
         return False, "not an action the system knows"
     role = act.source.removeprefix("staff:")
-    if not act.source.startswith("staff:"):
+    if act.source == "agent:tilden" and not agent_allowed:
+        return False, "Tilden needs a live grant for this action and case"
+    if act.source != "agent:tilden" and not act.source.startswith("staff:"):
         return False, f"{NOT_STAFF.get(act.source, 'that source')} may not {ACTIONS[a]}; only staff may"
-    if role not in STAFF_ROLES:
+    if act.source != "agent:tilden" and role not in STAFF_ROLES:
         return False, f"{role or 'that'} is not a staff role; only staff may {ACTIONS[a]}"
     text = _words(act.text)
     if len(text) > NOTE_MAX:
@@ -325,6 +332,11 @@ def evaluate(books, wk: State, act: Act, now: datetime) -> tuple[bool, str]:
             return False, f"those work orders are on different units ({o.unit} and {keep.unit})"
         if "closed" in (o.state, keep.state):
             return False, "both work orders must still be open"
+        if a == "join_work_order" and act.source == "agent:tilden":
+            if "check" in (o.kind, keep.kind):
+                return False, "inspections cannot be joined"
+            if frozenset((o.id, keep.id)) in wk.apart:
+                return False, "staff kept those work orders apart"
         if a == "join_work_order" and o.state in ("work recorded", "staff checked"):      # its work would be hidden under the other order
             return False, "work is already recorded on that order; finish it instead of joining it"
         if a == "keep_work_orders_apart" and frozenset((o.id, keep.id)) in wk.apart:
@@ -347,7 +359,7 @@ def record(led: Ledger, wk: State, act: Act, now: datetime) -> str:
     who, text, a = act.source, _words(act.text), act.action
 
     def put(kind: str, payload: dict, key: str) -> None:
-        led.emit(kind, now, payload, f"{key}:{act.id}", source=who, command=act.id)
+        led.emit(kind, now, {**payload, **({"case_id": act.case_id} if act.source == "agent:tilden" else {})}, f"{key}:{act.id}", source=who, command=act.id)
         wk.apply(kind, now, payload)
     if a == "start_walk":
         wid = f"W{len(wk.walks) + 1:04d}"
@@ -376,23 +388,23 @@ def record(led: Ledger, wk: State, act: Act, now: datetime) -> str:
         return act.about
     if a == "report_work_order":
         oid = f"WO{len(wk.orders) + 1:04d}"
-        put("work_order.reported", {"order": oid, "unit": act.unit, "problem": text, "by": who}, "order")
+        put("work_order.reported", {"order": oid, "unit": act.unit, "problem": text, "by": who, **({"answers_record": act.answers_record} if act.answers_record else {}), **({"kind": "check"} if act.authority_action == "request_inspection" and who == "agent:tilden" else {})}, "order")
         return oid
     put(MOVES[a][0], {"order": act.about, "by": who, "text": text, **({"to": act.to} if a == "assign_work_order" else {})}, "order")
     return act.about
 
 
-def command(led: Ledger, wk: State, act: Act, now: datetime) -> Decision:
+def command(led: Ledger, wk: State, act: Act, now: datetime, agent_allowed: bool = False) -> Decision:
     """Check and record one command on the books and walk record `led` and `wk` hold. A command id already decided returns that
     decision and writes nothing."""
     books = led.books
     if act.id in books.decisions:
         p = books.decisions[act.id]
         return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"))
-    ok, check = evaluate(books, wk, act, now)
+    ok, check = evaluate(books, wk, act, now, agent_allowed)
     made = record(led, wk, act, now) if ok else None
     led.emit("gate.decided", now, {"id": act.id, "action": act.action, "source": act.source, "about": act.about, "unit": act.unit,
-                                   "command": act.id, "allowed": ok, "check": check, "made": made}, f"gate:{act.id}", source=act.source, command=act.id)
+                                   "command": act.id, "allowed": ok, "check": check, "made": made, **({"case_id": act.case_id} if act.source == "agent:tilden" else {})}, f"gate:{act.id}", source=act.source, command=act.id)
     return Decision(ok, act.action, check, command=act.id, made=made)
 
 
@@ -401,7 +413,19 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
     with store.write():
         books, wk = load(store, stream)
         led = Ledger(books)
-        d = command(led, wk, act, now)
+        agent_allowed = False
+        if act.source == "agent:tilden":
+            from core.tilden.authority import live_grant
+            unit = wk.orders[act.about].unit if act.about in wk.orders else act.unit
+            action = {"report_work_order": "link_reports" if act.about else "open_work_order",
+                      "join_work_order": "link_reports"}.get(act.action)
+            if act.authority_action == "request_inspection" and act.action == "report_work_order" and not act.about:
+                action = "request_inspection"
+            agent_allowed = bool(action and live_grant(store, stream, act.case_id, action, unit, now, act.approval_id))
+        d = command(led, wk, act, now, agent_allowed)
         if not d.repeated:
+            if d.allowed and act.source == 'agent:tilden' and act.approval_id:
+                from core.tilden.authority import use_approval
+                use_approval(store, stream, act.approval_id, now)
             d.events = [e.id for e in store.append(stream, led.pending) if e.id is not None]
         return d

@@ -54,7 +54,7 @@ def test_the_live_copy_prices_every_unit_and_nothing_else_moves(year):
         y = build(today=day, cutoff=at_local(day), standing=True)
         priced = [e for e in y.led.pending if e.kind == "unit.priced"]
         rest = [e for e in y.led.pending if e.kind not in ("unit.priced", "rental.adopted", "access.baselined") and not e.kind.startswith("protection.")
-                and not e.kind.startswith("lead.") and not (e.command or "").startswith("seed:")]      # the seeded lien file's steps; the protection records carry no money (test_core_protection_seed)
+                and not e.kind.startswith(("lead.", "tilden.authority.")) and not (e.command or "").startswith("seed:")]      # the seeded lien file's steps; the protection records carry no money (test_core_protection_seed)
         assert len(rest) == count and hashlib.sha256(repr(snapshot(rest)).encode()).hexdigest() == digest, day
         assert sorted(e.payload["unit"] for e in priced) == sorted(UNITS), day
         for e in priced:

@@ -1,0 +1,550 @@
+I’ll build 30 chronological unit records with a mix of straightforward turnovers, repairs, conflicting updates, decisions requiring staff judgment, and units that never become rentable within the record. I’ll check that every work entry points to an earlier entry and that each rentability cutoff is supported by the notes.
+U1.
+UNIT: A101 5x5
+E1: 2026-10-05 09:10, MOVE-OUT, Ana: "Customer finished moving out this morning and turned in the unit."
+E2: 2026-10-05 09:32, INSPECTION, Mo: "Walked all the way into A101. Empty, swept, no damage, no smell, floor dry. Door goes up and down normally and the latch catches. Good to rent."
+E3: 2026-10-05 10:15, NOTE, Ana: "Sent the former customer their final receipt. Account is closed and there is no hold on the space."
+RENTABLE AFTER: E2
+STAFF DECIDE: none
+MUST NOT: Treat the move-out entry alone as proof that the unit was inspected.
+          Delay availability until the final receipt is sent.
+WHY: The inspection establishes that the empty unit is clean, dry, secure and usable. The later administrative note does not affect rentability.
+
+U2.
+UNIT: A102 5x10
+E1: 2026-10-05 10:05, MOVE-OUT, Ana: "Rental ended and customer took their lock."
+E2: 2026-10-05 11:20, INSPECTION, Mo: "There's cardboard in the back corner and dust all along the side wall. Door works and I don't see damage, but it needs a proper cleanup."
+E3: 2026-10-06 08:55, WORK DONE, Luis, answers E2: "Picked up all the cardboard, swept the edges and mopped the floor. Floor was still damp when I left. Asked Mo to check it after it dries."
+E4: 2026-10-06 09:40, INSPECTION, Mo, answers E3: "Floor is dry now. Checked the back corner, nothing left behind. No smells or damage and the door locks fine. Ready."
+RENTABLE AFTER: E4
+STAFF DECIDE: none
+MUST NOT: Offer the unit with the cardboard and dust still inside.
+          Treat E3 as final clearance while the freshly mopped floor is still damp.
+WHY: Cleaning resolves the debris, but the unit is not confirmed dry until E4.
+
+U3.
+UNIT: B104 10x10
+E1: 2026-10-06 09:00, MOVE-OUT, Priya: "Lease ended. Space is vacant and the customer returned the access card."
+E2: 2026-10-06 09:30, REPORT, Dean: "Door comes down crooked at the bottom. Latch plate is bent and I couldn't get a padlock through it. Needs maintenance before another rental."
+E3: 2026-10-06 14:15, NOTE, Priya: "Maintenance contractor booked for tomorrow afternoon. Leaving B104 off the available list."
+E4: 2026-10-07 13:10, WORK DONE, Pavel, answers E2: "Straightened the door guide and replaced the bent strike plate. Door travels smoothly now. Didn't have a padlock with me to check the holes under load."
+E5: 2026-10-07 15:00, INSPECTION, Dean, answers E4: "Ran door fully open and shut five times and tested it with our padlock. Everything lines up and locks. Space itself is empty, clean and dry."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Rent the unit while the latch cannot accept a padlock.
+          Assume the contractor's door adjustment proves the locking mechanism works without the missing check.
+WHY: The physical repair is completed at E4, but E5 provides the first verified confirmation that the unit can be secured.
+
+U4.
+UNIT: B105 10x15
+E1: 2026-10-06 12:10, MOVE-OUT, Ana: "Tenant closed out B105 today."
+E2: 2026-10-06 12:55, INSPECTION, Mo: "Their padlock is still on the door. I can lift it only a couple of inches, so I haven't checked the inside. Can't clear it like this."
+E3: 2026-10-06 15:05, NOTE, Ana: "Spoke with the former renter using the number on file. They confirmed they left the lock by mistake and sent written permission for us to cut it. Saved the message to the account."
+E4: 2026-10-07 08:20, WORK DONE, Luis, answers E2: "Cut off the old padlock using the permission on file. Removed the pieces and checked that the empty hasp moves freely."
+E5: 2026-10-07 09:00, INSPECTION, Mo, answers E4: "Got inside and checked the whole room. No property left, no damage or water. Floor is clean. Door and latch both work with a new lock."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Cut the former renter's lock before the documented authorization.
+          Offer the unit before anyone can inspect its interior.
+WHY: Removing the authorized lock restores access. The complete interior inspection at E5 establishes readiness.
+
+U5.
+UNIT: C201 10x20
+E1: 2026-10-07 08:40, MOVE-OUT, Priya: "Customer vacated and lease ended."
+E2: 2026-10-07 09:25, REPORT, Dean: "Water dripping from a roof seam near the back. There's a wet strip about three feet long on the concrete. Don't put anyone in here."
+E3: 2026-10-08 11:30, WORK DONE, Luis, answers E2: "Mopped up the water and ran a fan for a few hours. Floor was looking better when I left. I didn't do anything to the roof."
+E4: 2026-10-09 08:10, INSPECTION, Dean, answers E3: "Concrete feels dry where Luis mopped, but I can still see a fresh drop forming overhead. Leak isn't fixed. Keeping it blocked."
+E5: 2026-10-14 08:40, NOTE, Priya: "Seven days since move-out. Roofing vendor has not completed the repair and C201 remains out of service."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Treat a dry-looking floor as proof that the roof leak has stopped.
+          Offer the unit while water is still entering from overhead.
+WHY: E3 treats the water already on the floor, not its cause. E4 confirms the active leak, and no later entry resolves it.
+
+U6.
+UNIT: C202 10x10
+E1: 2026-10-07 15:20, MOVE-OUT, Ana: "Customer moved everything out and ended their rental."
+E2: 2026-10-07 16:00, INSPECTION, Mo: "Found what looks like fresh mouse droppings behind the right wall corner. Small opening where the wall meets the floor. Not sure if this is one room or a problem along the whole row. Need manager to decide how far to extend treatment and how long to hold the space."
+E3: 2026-10-08 08:00, NOTE, Priya: "Decision from management: treat C202, arrange a separate check of neighboring units, and keep C202 off market until a clean follow-up at least 72 hours after treatment."
+E4: 2026-10-08 09:20, REPORT, Dean: "Confirmed fresh mouse droppings in C202 and an opening at the right rear corner. Pest crew needs to seal and treat it."
+E5: 2026-10-08 14:45, WORK DONE, Marta, answers E4: "Sealed the wall opening, removed contaminated debris and sanitized the corner. Set monitoring cards just outside the room for the follow-up check."
+E6: 2026-10-09 15:00, INSPECTION, Mo, answers E5: "Room looks clean and I don't see anything fresh. Monitoring period hasn't finished yet, so it stays unavailable."
+E7: 2026-10-12 11:15, INSPECTION, Mo, answers E5: "More than 72 hours after treatment. Cards are clear and there are no new droppings. Interior is clean, empty and dry. Door and latch work. Cleared for rental."
+RENTABLE AFTER: E7
+STAFF DECIDE: E2: Determine the treatment scope and clearance requirements for the suspected pest activity.
+MUST NOT: Release the unit immediately after sanitation at E5.
+          Ignore the required follow-up period.
+          Assume that checking C202 also resolves the condition of neighboring units.
+WHY: The manager establishes a specific clearance requirement. E6 is too early, and E7 is the first entry satisfying it.
+
+U7.
+UNIT: D301 10x10
+E1: 2026-10-08 08:15, MOVE-OUT, Priya: "Rental terminated today. Customer says they are done with the space."
+E2: 2026-10-08 08:50, INSPECTION, Dean: "Two plastic crates and a chair still inside. Everything else looks fine. These might belong to the renter and I don't have permission to throw them away. Need management to decide how to handle the property."
+E3: 2026-10-08 11:30, NOTE, Priya: "Spoke to the old renter. They acknowledged leaving the items and want to collect them. Manager granted pickup through October 10 at 17:00. Unit stays on hold."
+E4: 2026-10-10 16:25, NOTE, Ana: "Former renter came by and told me they loaded the chair and both crates. I let Dean know to do another walk-through."
+E5: 2026-10-10 16:55, INSPECTION, Dean, answers E2: "All three items are gone. No other belongings or trash, floor clean and dry, door locks normally. Nothing left to hold it for."
+RENTABLE AFTER: E5
+STAFF DECIDE: E2: Decide the permitted handling and removal arrangements for the former renter's remaining property.
+MUST NOT: Treat the remaining belongings as disposable trash.
+          Release the unit merely because the former renter says the items were collected.
+WHY: The items require authorized handling. Their removal and the unit's usable condition are confirmed at E5.
+
+U8.
+UNIT: D302 10x20
+E1: 2026-10-08 13:05, MOVE-OUT, Ana: "Lease closed and customer vacated."
+E2: 2026-10-08 13:50, REPORT, Luis: "Dark oily-looking puddle at the back left and a strong chemical smell. No label or container showing what it is. I'm not going to mop an unknown liquid. Need a manager to choose how we assess and clean this."
+E3: 2026-10-08 14:30, NOTE, Priya: "Management directed staff not to handle the liquid. Requested a qualified environmental vendor to identify it and recommend cleanup. Keeping D302 closed."
+E4: 2026-10-09 10:10, INSPECTION, Dean, answers E2: "Looked in from the doorway. Puddle is still there and the smell is noticeable. No cleanup has happened."
+E5: 2026-10-15 13:05, NOTE, Priya: "End of the seven-day check. Assessment vendor hasn't attended yet. No identification, cleanup or clearance received. Unit remains blocked."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Choose an appropriate professional assessment and remediation process for the unidentified substance.
+MUST NOT: Assign ordinary mopping of the unidentified liquid as routine turnover cleaning.
+          Offer the unit because the tenant moved out.
+          Mark the vendor request as if an assessment or cleanup had been completed.
+WHY: The unknown spill remains present, and the required assessment and remediation have not occurred.
+
+U9.
+UNIT: E401 5x10
+E1: 2026-10-09 09:10, MOVE-OUT, Priya: "Tenant checked out and cleared the locker."
+E2: 2026-10-09 10:00, INSPECTION, Mo: "Room is empty and tidy, but the ceiling light won't come on. There's a faint hum from the fixture. I left the light switched off."
+E3: 2026-10-09 11:20, REPORT, Dean: "E401 overhead light appears faulty. Need electrician to check the fixture and make sure it's safe."
+E4: 2026-10-10 09:30, WORK DONE, Pavel, answers E3: "Replaced the failed fixture and checked power at the switch. Light comes on now. Asked staff to make the final room check after I close up."
+E5: 2026-10-10 11:00, INSPECTION, Mo, answers E4: "Light works, fixture cover is secure and no wires are exposed. Room is empty, dry and clean. Door and lock are good."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Offer the interior unit with an unresolved faulty electrical fixture.
+          Treat an electrician appointment as completed repair.
+WHY: The electrical issue is repaired at E4, and the final inspection at E5 confirms that the room is usable.
+
+U10.
+UNIT: E402 5x5
+E1: 2026-10-09 14:10, MOVE-OUT, Ana: "Rental ended. Customer returned the space empty."
+E2: 2026-10-09 14:25, NOTE, Luis: "There's a scrape on the old number sticker at the bottom of the door. Looks ugly but I don't see damage to the actual metal. I'll flag it for the walk-through."
+E3: 2026-10-09 15:30, INSPECTION, Dean: "Checked the door and scraped sticker. Just cosmetic, no sharp edge or exposed damage. Door, latch, floor and walls are fine. Empty and clean. No reason to hold it for a sticker."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Classify the cosmetic sticker scrape as a structural door problem.
+          Require replacement of the sticker before releasing an otherwise usable unit.
+WHY: E3 distinguishes cosmetic wear from a functional defect and establishes that the unit can be rented.
+
+U11.
+UNIT: F101 10x10
+E1: 2026-10-10 08:05, MOVE-OUT, Priya: "Customer completed move-out of F101."
+E2: 2026-10-10 08:15, REPORT, Dean: "Looks like three boxes were left at the back of F101. Might need a junk pickup before we can use it."
+E3: 2026-10-10 08:40, NOTE, Dean: "Correction on my earlier report. I was looking through the door of F102, not F101. Read the door number wrong. F101 still needs its own proper check."
+E4: 2026-10-10 09:05, INSPECTION, Mo, answers E2: "Verified the F101 number on the door and walked the entire unit. Completely empty, swept, dry, no damage. Door and latch work. The boxes Dean mentioned aren't in this space."
+RENTABLE AFTER: E4
+STAFF DECIDE: none
+MUST NOT: Dispatch a junk-removal crew to F101 based on the misidentified report.
+          Apply the condition of F102 to F101.
+          Treat the correction alone as a completed inspection.
+WHY: E3 corrects the unit identification error. E4 independently establishes that F101 is ready.
+
+U12.
+UNIT: F103 10x15
+E1: 2026-10-10 12:00, MOVE-OUT, Ana: "F103 lease ended. Renter took most of their things."
+E2: 2026-10-10 13:10, INSPECTION, Mo: "There's a metal shelf screwed to the back wall and four sealed paint cans underneath it. Lease paperwork doesn't say whether that shelf is a facility fixture. Need manager to sort out ownership and what we're allowed to remove."
+E3: 2026-10-11 09:00, NOTE, Ana: "Former renter says the shelf and paint belong to them but they are out of town. They haven't arranged pickup or provided permission to dispose of anything."
+E4: 2026-10-14 10:30, NOTE, Priya: "Left another voicemail. No pickup time, ownership paperwork or management authorization for removal yet. Keeping the unit held."
+E5: 2026-10-17 12:00, INSPECTION, Dean, answers E2: "Shelf is still attached and the four cans are still here. No other changes. Still not clear for rental."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Determine ownership and the authorized disposition of the shelf and paint cans.
+MUST NOT: Treat disputed property as ordinary abandoned rubbish.
+          Remove the attached shelf without resolving ownership and removal authority.
+          Offer the space while the items remain.
+WHY: The space contains unresolved property, and no authorized removal or resolution is recorded within seven days.
+
+U13.
+UNIT: G201 10x20
+E1: 2026-10-11 09:00, MOVE-OUT, Ana: "Customer checked out of G201."
+E2: 2026-10-11 09:20, INSPECTION, Mo: "No belongings left, but there's grit and loose packing material all over the floor. Also noticed the roll-up door binding near the top. Needs cleaning and someone to sort the door."
+E3: 2026-10-11 10:00, REPORT, Dean: "Checked G201 door. Rollers are worn and one is dragging against the track. Repair needed before it can be used safely."
+E4: 2026-10-12 08:15, WORK DONE, Luis, answers E2: "Removed packing scraps, swept the full floor and vacuumed along both walls. Cleaning is finished. I didn't touch the door."
+E5: 2026-10-13 11:20, WORK DONE, Pavel, answers E3: "Replaced the worn rollers, adjusted the track and lubricated the mechanism. Door opens and closes without binding now."
+E6: 2026-10-13 12:00, INSPECTION, Mo, answers E5: "Tested the repaired door several times. Runs smoothly and locks. Floor is clean, no scraps or other issues. Ready for another customer."
+RENTABLE AFTER: E6
+STAFF DECIDE: none
+MUST NOT: Release the unit after cleaning alone while the door problem remains.
+          Count the door repair as completion of the separate cleaning issue.
+WHY: Both defects need resolution. E4 addresses debris, E5 addresses the rollers, and E6 confirms the final condition.
+
+U14.
+UNIT: G202 10x10
+E1: 2026-10-11 12:10, MOVE-OUT, Priya: "G202 rental ended at noon."
+E2: 2026-10-11 13:00, REPORT, Luis: "Large brown water mark on the back wall. Surface feels dry right now, but I can't tell whether we've still got water getting in."
+E3: 2026-10-12 09:10, NOTE, Dean: "We're doing a controlled water test at the outside seam today before deciding whether this is just an old stain. No painting until we've checked it."
+E4: 2026-10-12 10:30, INSPECTION, Dean, answers E2: "Watched the wall during the water test and for half an hour after. No water coming in, wall solid and dry. Mark is old discoloration only. Unit is empty, clean and secure. Safe to rent as it is."
+E5: 2026-10-13 16:20, NOTE, Priya: "Added cosmetic touch-up of G202 wall to the next painting round. No rental hold needed."
+RENTABLE AFTER: E4
+STAFF DECIDE: none
+MUST NOT: Ignore the initial possibility of active water intrusion without checking it.
+          Continue withholding the unit solely for cosmetic paint after E4 establishes that the wall is sound.
+WHY: The inspection rules out current water entry and confirms the unit's usable condition. Later painting is optional.
+
+U15.
+UNIT: H101 10x15
+E1: 2026-10-12 08:00, MOVE-OUT, Ana: "Tenant finished clearing H101 and ended lease."
+E2: 2026-10-12 08:30, NOTE, Mo: "Broken pallet boards and cardboard covering the back part of the floor. Need that hauled out before I can see what's underneath."
+E3: 2026-10-12 11:00, WORK DONE, Luis, answers E2: "Hauled all the boards and cardboard out. Swept the floor. Nothing else loose back there."
+E4: 2026-10-12 12:05, INSPECTION, Dean, answers E3: "With the pallets gone I can see a raised broken edge in the concrete near the back wall. It's high enough to catch a foot. Floor needs repair before we let anyone use this."
+E5: 2026-10-12 13:00, REPORT, Dean: "Raised concrete edge and cracked section near rear wall of H101. Trip hazard. Maintenance needs to level and patch it."
+E6: 2026-10-14 10:30, WORK DONE, Pavel, answers E5: "Ground down the raised lip, patched the cracked area and cleaned up the grinding dust. Patch has set and the floor is level."
+E7: 2026-10-14 12:40, INSPECTION, Mo, answers E6: "Checked the repaired spot by walking across it. Even and solid, no raised edge or loose material. Rest of unit clean and empty. Door works."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Mark ready just because the original debris was removed.
+          Overlook the newly exposed trip hazard.
+          Release the unit before the repair is complete and verified.
+WHY: Debris obscured a second problem. E4 reveals it, E6 repairs it, and E7 establishes a usable floor.
+
+U16.
+UNIT: H102 5x10
+E1: 2026-10-12 14:30, MOVE-OUT, Priya: "Lease ended and space vacated."
+E2: 2026-10-12 14:50, REPORT, Mo: "Sticky spill across the floor and what looks like adhesive residue on the rear wall. Wrappers left in the corner. Needs cleaning."
+E3: 2026-10-13 11:10, WORK DONE, Luis, answers E2: "Picked up wrappers and mopped the spill. Couldn't get the sticky stuff off the wall with what I had, and got called to another job. This isn't finished."
+E4: 2026-10-13 11:50, INSPECTION, Dean, answers E3: "Wall still has sticky patches. Floor is wet from mopping and still feels tacky by the door. Not cleared."
+E5: 2026-10-19 14:30, NOTE, Priya: "Seven-day follow-up. No additional cleaning has been logged and the cleaning ticket is still open. Keeping H102 unavailable."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Interpret E3 as a completed cleaning job.
+          Rent the unit with adhesive residue and an unresolved tacky floor.
+          Close the cleaning issue just because some of the work was attempted.
+WHY: The work entry explicitly says the job is unfinished. The later inspection confirms defects remain, with no subsequent completion.
+
+U17.
+UNIT: J301 10x20
+E1: 2026-10-13 08:00, MOVE-OUT, Ana: "J301 tenant moved out and ended rental."
+E2: 2026-10-13 08:45, INSPECTION, Dean: "Inside is clean, dry and empty. Door works. Problem is the contractor's big waste skip is sitting right across the approach to this door. A new customer couldn't get anything in or out."
+E3: 2026-10-13 09:05, NOTE, Priya: "Spoke to construction crew. They said they will move the skip later today. Keeping this unit unavailable until access is open."
+E4: 2026-10-13 15:50, WORK DONE, Luis, answers E2: "Moved the waste skip to the approved collection area with the contractor and swept the approach. Clear path to J301 now."
+E5: 2026-10-14 08:30, INSPECTION, Dean, answers E4: "Walked the approach with a handcart. Nothing blocking it. Door opens fully and the inside remains clean and empty. Good to rent."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Offer the unit while the customer's access is physically blocked.
+          Treat the contractor's promise to move the skip as completed work.
+WHY: The interior is usable early, but physical access is not restored and verified until E5.
+
+U18.
+UNIT: J302 10x15
+E1: 2026-10-13 10:20, MOVE-OUT, Priya: "Climate-controlled unit J302 is vacant following move-out."
+E2: 2026-10-13 11:05, REPORT, Mo: "Damp blanket left behind and condensation running down the lower wall. Feels humid inside. Something isn't right with the cooling."
+E3: 2026-10-14 10:00, WORK DONE, Luis, answers E2: "Removed the damp blanket, cleaned the wall and ran a drying fan. I didn't service the climate equipment."
+E4: 2026-10-15 08:25, INSPECTION, Dean, answers E3: "Moisture has come back on the wall. Vent isn't putting out cool air. Cleaning didn't solve the source."
+E5: 2026-10-15 09:20, REPORT, Dean: "J302 climate unit not cooling properly and condensate system may be failing. HVAC service required. Room has recurring moisture."
+E6: 2026-10-16 13:15, WORK DONE, Pavel, answers E5: "Replaced the failed condensate pump, cleared the drain and ran the cooling system through several cycles. No further leakage during the test."
+E7: 2026-10-18 14:20, INSPECTION, Mo, answers E6: "Over 48 hours since the HVAC repair. Walls and floor are dry, no musty smell, temperature holding steady. No property or debris inside. Door and lock work."
+RENTABLE AFTER: E7
+STAFF DECIDE: none
+MUST NOT: Treat removal of the blanket as a repair to the moisture source.
+          Release the unit while condensation is recurring.
+          Substitute a short equipment test for the later check of the room's condition.
+WHY: E3 addresses the immediate mess but not the equipment failure. E6 repairs the system and E7 confirms sustained dry conditions.
+
+U19.
+UNIT: K101 10x10
+E1: 2026-10-14 09:40, MOVE-OUT, Ana: "Customer vacated K101 and lease was ended."
+E2: 2026-10-14 10:10, NOTE, Priya: "Former renter still owes 85 dollars on the closed account. Billing confirmed the balance stays with that old account and there is no lien or hold on this empty space."
+E3: 2026-10-14 10:50, INSPECTION, Dean: "K101 is completely empty, swept and dry. No damage or odor. Door rolls and locks fine. All clear on the unit itself."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Confuse the former renter's unpaid account balance with a hold on the physical unit.
+          Mark the unit ready before confirming its condition.
+WHY: The balance is expressly not a hold on the space. E3 provides the required physical readiness evidence.
+
+U20.
+UNIT: K102 10x10
+E1: 2026-10-14 11:00, MOVE-OUT, Ana: "Tenant finished move-out of K102."
+E2: 2026-10-14 11:30, INSPECTION, Mo: "Musty odor and black fuzzy patches low on the back wall. I can't tell what the growth is or how deep the damage goes. Need management to approve qualified assessment and decide the repair scope. Not a regular wipe-down job."
+E3: 2026-10-14 14:40, NOTE, Priya: "Manager instructed us to keep K102 closed while a building-condition specialist assesses the wall. Decision on cleaning versus replacing the wall is pending their findings."
+E4: 2026-10-17 09:30, REPORT, Dean: "New damp patch showing below the discolored area. Wall still smells musty. No remediation has happened."
+E5: 2026-10-21 11:00, NOTE, Priya: "A week after move-out and specialist hasn't attended. Wall assessment and repair decision remain open. K102 is still blocked."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Authorize a qualified assessment and select the appropriate remediation scope for the suspected contamination and moisture damage.
+MUST NOT: Assume that the patches are harmless without assessment.
+          Assign ordinary cosmetic wiping as sufficient remediation.
+          Offer the unit while the wall and moisture condition remain unresolved.
+WHY: The inspection raises a potentially significant condition requiring professional assessment. Nothing in the following seven days establishes that the unit is safe or repaired.
+
+U21.
+UNIT: L201 5x10
+E1: 2026-10-15 08:30, MOVE-OUT, Ana: "L201 renter moved out and returned their keys."
+E2: 2026-10-15 09:15, NOTE, Priya: "Neighbor called saying there was a sharp smell somewhere around L201 this morning. They didn't know whether it was coming from inside. Asked Mo to check."
+E3: 2026-10-15 10:30, INSPECTION, Mo, answers E2: "Opened L201 and checked from front to back. No strange odor inside, no spills, no damp spots. Everything empty and clean. Door and lock fine. Only smell I noticed was floor cleaner out in the corridor."
+E4: 2026-10-15 13:40, NOTE, Priya: "Followed up with the neighbor. They said the corridor smell had gone away after the cleaning crew left. No further complaint."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Treat an unverified odor complaint as confirmed contamination inside L201.
+          Release the unit without investigating the complaint.
+          Keep it unavailable solely because a resolved corridor odor was reported.
+WHY: E3 directly investigates the reported concern and finds no unit defect. E4 provides additional confirmation but is not required for readiness.
+
+U22.
+UNIT: L202 10x20
+E1: 2026-10-15 12:00, MOVE-OUT, Priya: "Rental ended and tenant vacated L202."
+E2: 2026-10-15 12:25, REPORT, Dean: "Ceiling panel near the entrance is sagging badly. Looks like it might fall. Need it fixed before anyone moves into the room."
+E3: 2026-10-16 09:00, NOTE, Priya: "Maintenance contractor booked for Saturday to replace the damaged ceiling panel."
+E4: 2026-10-17 15:00, WORK DONE, Pavel, answers E2: "Removed the sagging panel. Found wet insulation above it, so I left that section open rather than covering up a moisture problem. Panel replacement is not complete. Roof crew needs to find the source."
+E5: 2026-10-17 16:05, INSPECTION, Dean, answers E4: "Ceiling is still open near the entrance. Insulation above looks wet and the exposed area isn't safe for customer use. Not ready."
+E6: 2026-10-22 12:00, NOTE, Priya: "Roof crew rescheduled to October 23. No further ceiling work completed and the room is still on hold seven days after move-out."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Mark the ceiling repair completed just because the loose panel was removed.
+          Install a replacement panel over known wet insulation without addressing the moisture source.
+          Rent the space while the ceiling remains exposed.
+WHY: E4 uncovers an additional moisture problem. Neither that problem nor the incomplete ceiling is resolved within the record.
+
+U23.
+UNIT: M101 10x10
+E1: 2026-10-16 08:00, MOVE-OUT, Ana: "M101 lease ended. Tenant says everything they wanted has been removed."
+E2: 2026-10-16 08:30, INSPECTION, Dean: "Found a plywood divider screwed into the concrete floor. Didn't see any approval for this addition. It's solid, but we need management to decide whether to keep it as a fixture or remove it and repair the mounting holes."
+E3: 2026-10-16 12:40, NOTE, Priya: "Manager reviewed the divider photos and decided to restore the original open layout. Authorized removing the divider and filling the anchor holes. Keep M101 blocked until completed."
+E4: 2026-10-17 11:15, WORK DONE, Luis, answers E2: "Took down the plywood divider, removed the anchors and patched the holes in the floor. Cleaned up screws, sawdust and other debris."
+E5: 2026-10-17 13:00, INSPECTION, Mo, answers E4: "Divider gone. Floor patches are flush and solid. No exposed screws, holes or remaining debris. Door works and room is empty and dry."
+RENTABLE AFTER: E5
+STAFF DECIDE: E2: Decide whether to retain the unauthorized divider or restore the unit's original layout.
+MUST NOT: Assume the tenant-installed divider is an approved permanent fixture.
+          Remove the divider before management resolves its disposition.
+          Rent the unit with unfinished anchor holes or exposed fasteners.
+WHY: The divider requires a discretionary disposition decision. Management orders removal, and the final inspection confirms restoration.
+
+U24.
+UNIT: M102 10x15
+E1: 2026-10-16 10:30, MOVE-OUT, Priya: "M102 tenant vacated and ended their lease."
+E2: 2026-10-16 11:00, NOTE, Ana: "Former renter says they lost a copy of the cylinder key months ago. They returned the other key today but cannot account for the missing one."
+E3: 2026-10-16 11:20, REPORT, Dean: "M102 has a keyed cylinder that could still be opened by the missing tenant key. Need the cylinder changed before renting to somebody new."
+E4: 2026-10-17 09:05, WORK DONE, Pavel, answers E3: "Removed the old lock cylinder and installed a new keyed cylinder with a different keyway. Checked both supplied new keys and verified the new lock operates properly."
+E5: 2026-10-17 10:00, INSPECTION, Dean, answers E4: "New cylinder is fitted securely and both new keys work. Door closes and locks properly. Room is empty, clean and dry, with no other issues."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Issue the unit to another renter while the former renter's missing key may still operate its lock.
+          Treat the return of one key as proof that all old keys are accounted for.
+          Mark the security issue resolved before the replacement is verified.
+WHY: The missing key creates an unresolved access risk. Replacement and verification restore secure control of the unit.
+
+U25.
+UNIT: N101 10x15
+E1: 2026-10-17 09:00, MOVE-OUT, Ana: "N101 lease ended and tenant removed their belongings."
+E2: 2026-10-17 09:20, NOTE, Ana: "Former renter called after checkout saying our forklift damaged their door last week. They say an insurance claim is being filed and want the dent left untouched for photos. Manager needs to decide whether to preserve the unit for an adjuster or release it after documenting the damage."
+E3: 2026-10-17 11:10, INSPECTION, Dean, answers E2: "Door has a shallow dent near the bottom. It rolls, closes and seals without trouble. Interior is empty and clean. Photographed the dent, but I haven't cleared the claim hold."
+E4: 2026-10-18 08:45, NOTE, Priya: "Manager decided to preserve the unit in its current condition until the insurer's inspection. No repair work or new rental until the evidence visit is complete."
+E5: 2026-10-24 09:00, NOTE, Priya: "Seven-day status check. Adjuster still has not visited and management's preservation hold remains in effect."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Determine how to preserve evidence for the damage claim and whether the unit must remain unavailable.
+MUST NOT: Automatically release the room merely because the door is functional.
+          Repair or alter the disputed damage while the preservation hold is active.
+          Treat photographs alone as termination of the manager's hold.
+WHY: The unit appears physically serviceable, but a documented management hold prevents rental. No later entry lifts it.
+
+U26.
+UNIT: N102 5x5
+E1: 2026-10-17 13:30, MOVE-OUT, Priya: "N102 tenant checked out and the rental is closed."
+E2: 2026-10-17 14:00, REPORT, Luis: "There's a rattling sound when the door moves. Could be something loose in the door assembly. Needs a check."
+E3: 2026-10-17 14:35, INSPECTION, Dean, answers E2: "Tracked the rattle to the loose plastic number tag on the outside. Tracks, rollers and latch are solid, and nothing is catching or unsafe. Room is empty, clean and dry. Just a cosmetic tag issue."
+E4: 2026-10-18 08:30, NOTE, Priya: "Put the number tag replacement on the nonurgent signage list. No availability hold needed for N102."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Assume a rattling noise proves a serious door defect without investigation.
+          Keep the unit unavailable after the inspection isolates the harmless tag issue.
+          Treat the cosmetic tag replacement as a prerequisite for rental.
+WHY: E3 establishes that the noise is unrelated to door operation or security. The room is otherwise ready.
+
+U27.
+UNIT: P201 10x10
+E1: 2026-10-18 08:30, MOVE-OUT, Ana: "Tenant left P201 empty and closed their rental."
+E2: 2026-10-18 08:55, INSPECTION, Mo: "Whole room is empty, swept and dry. Walls and floor good. Door moves normally but the screws holding the hasp are stripped, so a padlock won't stay secure. That's the only problem I found."
+E3: 2026-10-18 11:20, WORK DONE, Pavel, answers E2: "Installed a new hasp with fresh anchors. Tested it with a padlock and pulled firmly to confirm it's secure. Door opens and closes properly. Rechecked the room, still clean and empty with no other issues."
+E4: 2026-10-18 12:05, NOTE, Priya: "Closed the hasp maintenance ticket based on Pavel's completed repair and functional checks. Unit is back in available inventory."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Offer the unit while the locking hasp is unsecured.
+          Delay the unit solely for an additional inspection when E2 established all other conditions and E3 explicitly verifies the completed repair.
+WHY: The only identified defect is the hasp. E3 resolves that defect and documents functional checks, so a separate later inspection is not needed to establish readiness.
+
+U28.
+UNIT: P202 10x20
+E1: 2026-10-18 10:00, MOVE-OUT, Priya: "P202 customer vacated and terminated the lease."
+E2: 2026-10-18 10:20, REPORT, Dean: "Water standing on the floor under the overhead pipe at the back. Might be from the pipe joint. Needs plumbing and drying before we can use the room."
+E3: 2026-10-18 13:00, NOTE, Ana: "Plumber booked for tomorrow to check the overhead pipe. Unit blocked until the water problem is resolved."
+E4: 2026-10-19 15:00, WORK DONE, Pavel, answers E2: "Found a leaking joint in the overhead pipe and replaced the fitting. Dried the floor and ran a fan. No dripping from the joint during my test."
+E5: 2026-10-21 08:20, INSPECTION, Dean, answers E4: "Pipe joint is dry but there's fresh moisture coming up along the concrete slab seam nearby. Floor is wet again. Looks like we have another source of water."
+E6: 2026-10-25 10:00, NOTE, Priya: "Seven days after checkout. Foundation vendor hasn't assessed the slab moisture yet. No repairs completed for that issue. P202 stays unavailable."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Mark the entire water problem solved because the overhead pipe was repaired.
+          Disregard moisture discovered after the repair.
+          Rent the unit while the slab is still admitting water.
+WHY: E4 repairs one source of water, but E5 reveals another. No later entry resolves or clears the slab moisture.
+
+U29.
+UNIT: Q301 10x10
+E1: 2026-10-19 08:00, MOVE-OUT, Ana: "Customer ended Q301 rental and moved their stored items."
+E2: 2026-10-19 08:30, NOTE, Mo: "Found a small propane cylinder standing in the back corner. No gas smell, but we shouldn't put this in the normal trash. Need supervisor to authorize the proper collection route. Leaving it where it is for now."
+E3: 2026-10-19 09:40, NOTE, Priya: "Manager approved collection by our contracted hazardous-materials disposal service. Unit stays unavailable until the cylinder is gone and the room is checked."
+E4: 2026-10-20 10:15, WORK DONE, Marta, answers E2: "Collected the cylinder through the approved waste service. Checked the area where it stood. No visible leaks, residue or odor. Left the room empty."
+E5: 2026-10-20 11:00, INSPECTION, Dean, answers E4: "Cylinder is gone. No fuel smell or stains in the corner. Whole room clean and dry, door and lock working properly. Clear to rent."
+RENTABLE AFTER: E5
+STAFF DECIDE: E2: Authorize an appropriate collection and disposal arrangement for the propane cylinder.
+MUST NOT: Put the cylinder into ordinary facility trash.
+          Treat the presence of the cylinder as acceptable for the next renter.
+          Release the unit before authorized removal and inspection.
+WHY: The cylinder needs specific handling authorization. The approved collection and subsequent inspection resolve the problem.
+
+U30.
+UNIT: Q302 10x15
+E1: 2026-10-19 13:20, MOVE-OUT, Priya: "Tenant checked out of Q302 and the lease is closed."
+E2: 2026-10-19 14:05, INSPECTION, Mo: "Floor needs sweeping and the bottom door seal has torn away on one side. Otherwise the room looks okay on this first walk. Put in a cleanup and seal replacement."
+E3: 2026-10-20 10:40, WORK DONE, Luis, answers E2: "Swept and vacuumed the whole floor, replaced the torn door seal and checked that the door shuts against it. Cleaned up all the old seal pieces."
+E4: 2026-10-20 14:25, INSPECTION, Dean, answers E3: "Cleaning looks good and the new seal is working. While checking the back corner more closely, I spotted a small tagged crate wedged behind the pipe chase. It has the old renter's name on it. I can't tell whether it's abandoned or supposed to be returned. Manager needs to decide the property handling before we release the room."
+E5: 2026-10-21 09:15, NOTE, Ana: "Sent the former tenant a message about the crate. No reply yet. Manager says leave it untouched while the property disposition is checked. Q302 remains held."
+E6: 2026-10-26 13:20, NOTE, Priya: "Seven days after move-out. Crate remains in place, renter hasn't responded and no disposal or removal authorization has been issued. Unit still unavailable."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E4: Determine the lawful and authorized disposition of the newly discovered former renter's property.
+MUST NOT: Treat the completed cleaning and door-seal work as proof that the whole unit is ready.
+          Dispose of or move the tagged crate without authorization.
+          Ignore the new property issue because it was missed during the first inspection.
+          Offer the unit while the crate and property hold remain unresolved.
+WHY: E3 resolves the original maintenance issues, but E4 discovers a separate obstacle requiring human judgment. The property remains unresolved at the seven-day cutoff.
+
+END OF SET UNIT-READY-PILOT-1.
+U21.
+UNIT: L201 5x10
+E1: 2026-10-15 08:30, MOVE-OUT, Ana: "L201 renter moved out and returned their keys."
+E2: 2026-10-15 09:15, NOTE, Priya: "Neighbor called saying there was a sharp smell somewhere around L201 this morning. They didn't know whether it was coming from inside. Asked Mo to check."
+E3: 2026-10-15 10:30, INSPECTION, Mo, answers E2: "Opened L201 and checked from front to back. No strange odor inside, no spills, no damp spots. Everything empty and clean. Door and lock fine. Only smell I noticed was floor cleaner out in the corridor."
+E4: 2026-10-15 13:40, NOTE, Priya: "Followed up with the neighbor. They said the corridor smell had gone away after the cleaning crew left. No further complaint."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Treat an unverified odor complaint as confirmed contamination inside L201.
+          Release the unit without investigating the complaint.
+          Keep it unavailable solely because a resolved corridor odor was reported.
+WHY: E3 directly investigates the reported concern and finds no unit defect. E4 provides additional confirmation but is not required for readiness.
+
+U22.
+UNIT: L202 10x20
+E1: 2026-10-15 12:00, MOVE-OUT, Priya: "Rental ended and tenant vacated L202."
+E2: 2026-10-15 12:25, REPORT, Dean: "Ceiling panel near the entrance is sagging badly. Looks like it might fall. Need it fixed before anyone moves into the room."
+E3: 2026-10-16 09:00, NOTE, Priya: "Maintenance contractor booked for Saturday to replace the damaged ceiling panel."
+E4: 2026-10-17 15:00, WORK DONE, Pavel, answers E2: "Removed the sagging panel. Found wet insulation above it, so I left that section open rather than covering up a moisture problem. Panel replacement is not complete. Roof crew needs to find the source."
+E5: 2026-10-17 16:05, INSPECTION, Dean, answers E4: "Ceiling is still open near the entrance. Insulation above looks wet and the exposed area isn't safe for customer use. Not ready."
+E6: 2026-10-22 12:00, NOTE, Priya: "Roof crew rescheduled to October 23. No further ceiling work completed and the room is still on hold seven days after move-out."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Mark the ceiling repair completed just because the loose panel was removed.
+          Install a replacement panel over known wet insulation without addressing the moisture source.
+          Rent the space while the ceiling remains exposed.
+WHY: E4 uncovers an additional moisture problem. Neither that problem nor the incomplete ceiling is resolved within the record.
+
+U23.
+UNIT: M101 10x10
+E1: 2026-10-16 08:00, MOVE-OUT, Ana: "M101 lease ended. Tenant says everything they wanted has been removed."
+E2: 2026-10-16 08:30, INSPECTION, Dean: "Found a plywood divider screwed into the concrete floor. Didn't see any approval for this addition. It's solid, but we need management to decide whether to keep it as a fixture or remove it and repair the mounting holes."
+E3: 2026-10-16 12:40, NOTE, Priya: "Manager reviewed the divider photos and decided to restore the original open layout. Authorized removing the divider and filling the anchor holes. Keep M101 blocked until completed."
+E4: 2026-10-17 11:15, WORK DONE, Luis, answers E2: "Took down the plywood divider, removed the anchors and patched the holes in the floor. Cleaned up screws, sawdust and other debris."
+E5: 2026-10-17 13:00, INSPECTION, Mo, answers E4: "Divider gone. Floor patches are flush and solid. No exposed screws, holes or remaining debris. Door works and room is empty and dry."
+RENTABLE AFTER: E5
+STAFF DECIDE: E2: Decide whether to retain the unauthorized divider or restore the unit's original layout.
+MUST NOT: Assume the tenant-installed divider is an approved permanent fixture.
+          Remove the divider before management resolves its disposition.
+          Rent the unit with unfinished anchor holes or exposed fasteners.
+WHY: The divider requires a discretionary disposition decision. Management orders removal, and the final inspection confirms restoration.
+
+U24.
+UNIT: M102 10x15
+E1: 2026-10-16 10:30, MOVE-OUT, Priya: "M102 tenant vacated and ended their lease."
+E2: 2026-10-16 11:00, NOTE, Ana: "Former renter says they lost a copy of the cylinder key months ago. They returned the other key today but cannot account for the missing one."
+E3: 2026-10-16 11:20, REPORT, Dean: "M102 has a keyed cylinder that could still be opened by the missing tenant key. Need the cylinder changed before renting to somebody new."
+E4: 2026-10-17 09:05, WORK DONE, Pavel, answers E3: "Removed the old lock cylinder and installed a new keyed cylinder with a different keyway. Checked both supplied new keys and verified the new lock operates properly."
+E5: 2026-10-17 10:00, INSPECTION, Dean, answers E4: "New cylinder is fitted securely and both new keys work. Door closes and locks properly. Room is empty, clean and dry, with no other issues."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Issue the unit to another renter while the former renter's missing key may still operate its lock.
+          Treat the return of one key as proof that all old keys are accounted for.
+          Mark the security issue resolved before the replacement is verified.
+WHY: The missing key creates an unresolved access risk. Replacement and verification restore secure control of the unit.
+
+U25.
+UNIT: N101 10x15
+E1: 2026-10-17 09:00, MOVE-OUT, Ana: "N101 lease ended and tenant removed their belongings."
+E2: 2026-10-17 09:20, NOTE, Ana: "Former renter called after checkout saying our forklift damaged their door last week. They say an insurance claim is being filed and want the dent left untouched for photos. Manager needs to decide whether to preserve the unit for an adjuster or release it after documenting the damage."
+E3: 2026-10-17 11:10, INSPECTION, Dean, answers E2: "Door has a shallow dent near the bottom. It rolls, closes and seals without trouble. Interior is empty and clean. Photographed the dent, but I haven't cleared the claim hold."
+E4: 2026-10-18 08:45, NOTE, Priya: "Manager decided to preserve the unit in its current condition until the insurer's inspection. No repair work or new rental until the evidence visit is complete."
+E5: 2026-10-24 09:00, NOTE, Priya: "Seven-day status check. Adjuster still has not visited and management's preservation hold remains in effect."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Determine how to preserve evidence for the damage claim and whether the unit must remain unavailable.
+MUST NOT: Automatically release the room merely because the door is functional.
+          Repair or alter the disputed damage while the preservation hold is active.
+          Treat photographs alone as termination of the manager's hold.
+WHY: The unit appears physically serviceable, but a documented management hold prevents rental. No later entry lifts it.
+
+U26.
+UNIT: N102 5x5
+E1: 2026-10-17 13:30, MOVE-OUT, Priya: "N102 tenant checked out and the rental is closed."
+E2: 2026-10-17 14:00, REPORT, Luis: "There's a rattling sound when the door moves. Could be something loose in the door assembly. Needs a check."
+E3: 2026-10-17 14:35, INSPECTION, Dean, answers E2: "Tracked the rattle to the loose plastic number tag on the outside. Tracks, rollers and latch are solid, and nothing is catching or unsafe. Room is empty, clean and dry. Just a cosmetic tag issue."
+E4: 2026-10-18 08:30, NOTE, Priya: "Put the number tag replacement on the nonurgent signage list. No availability hold needed for N102."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Assume a rattling noise proves a serious door defect without investigation.
+          Keep the unit unavailable after the inspection isolates the harmless tag issue.
+          Treat the cosmetic tag replacement as a prerequisite for rental.
+WHY: E3 establishes that the noise is unrelated to door operation or security. The room is otherwise ready.
+
+U27.
+UNIT: P201 10x10
+E1: 2026-10-18 08:30, MOVE-OUT, Ana: "Tenant left P201 empty and closed their rental."
+E2: 2026-10-18 08:55, INSPECTION, Mo: "Whole room is empty, swept and dry. Walls and floor good. Door moves normally but the screws holding the hasp are stripped, so a padlock won't stay secure. That's the only problem I found."
+E3: 2026-10-18 11:20, WORK DONE, Pavel, answers E2: "Installed a new hasp with fresh anchors. Tested it with a padlock and pulled firmly to confirm it's secure. Door opens and closes properly. Rechecked the room, still clean and empty with no other issues."
+E4: 2026-10-18 12:05, NOTE, Priya: "Closed the hasp maintenance ticket based on Pavel's completed repair and functional checks. Unit is back in available inventory."
+RENTABLE AFTER: E3
+STAFF DECIDE: none
+MUST NOT: Offer the unit while the locking hasp is unsecured.
+          Delay the unit solely for an additional inspection when E2 established all other conditions and E3 explicitly verifies the completed repair.
+WHY: The only identified defect is the hasp. E3 resolves that defect and documents functional checks, so a separate later inspection is not needed to establish readiness.
+
+U28.
+UNIT: P202 10x20
+E1: 2026-10-18 10:00, MOVE-OUT, Priya: "P202 customer vacated and terminated the lease."
+E2: 2026-10-18 10:20, REPORT, Dean: "Water standing on the floor under the overhead pipe at the back. Might be from the pipe joint. Needs plumbing and drying before we can use the room."
+E3: 2026-10-18 13:00, NOTE, Ana: "Plumber booked for tomorrow to check the overhead pipe. Unit blocked until the water problem is resolved."
+E4: 2026-10-19 15:00, WORK DONE, Pavel, answers E2: "Found a leaking joint in the overhead pipe and replaced the fitting. Dried the floor and ran a fan. No dripping from the joint during my test."
+E5: 2026-10-21 08:20, INSPECTION, Dean, answers E4: "Pipe joint is dry but there's fresh moisture coming up along the concrete slab seam nearby. Floor is wet again. Looks like we have another source of water."
+E6: 2026-10-25 10:00, NOTE, Priya: "Seven days after checkout. Foundation vendor hasn't assessed the slab moisture yet. No repairs completed for that issue. P202 stays unavailable."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Mark the entire water problem solved because the overhead pipe was repaired.
+          Disregard moisture discovered after the repair.
+          Rent the unit while the slab is still admitting water.
+WHY: E4 repairs one source of water, but E5 reveals another. No later entry resolves or clears the slab moisture.
+
+U29.
+UNIT: Q301 10x10
+E1: 2026-10-19 08:00, MOVE-OUT, Ana: "Customer ended Q301 rental and moved their stored items."
+E2: 2026-10-19 08:30, NOTE, Mo: "Found a small propane cylinder standing in the back corner. No gas smell, but we shouldn't put this in the normal trash. Need supervisor to authorize the proper collection route. Leaving it where it is for now."
+E3: 2026-10-19 09:40, NOTE, Priya: "Manager approved collection by our contracted hazardous-materials disposal service. Unit stays unavailable until the cylinder is gone and the room is checked."
+E4: 2026-10-20 10:15, WORK DONE, Marta, answers E2: "Collected the cylinder through the approved waste service. Checked the area where it stood. No visible leaks, residue or odor. Left the room empty."
+E5: 2026-10-20 11:00, INSPECTION, Dean, answers E4: "Cylinder is gone. No fuel smell or stains in the corner. Whole room clean and dry, door and lock working properly. Clear to rent."
+RENTABLE AFTER: E5
+STAFF DECIDE: E2: Authorize an appropriate collection and disposal arrangement for the propane cylinder.
+MUST NOT: Put the cylinder into ordinary facility trash.
+          Treat the presence of the cylinder as acceptable for the next renter.
+          Release the unit before authorized removal and inspection.
+WHY: The cylinder needs specific handling authorization. The approved collection and subsequent inspection resolve the problem.
+
+U30.
+UNIT: Q302 10x15
+E1: 2026-10-19 13:20, MOVE-OUT, Priya: "Tenant checked out of Q302 and the lease is closed."
+E2: 2026-10-19 14:05, INSPECTION, Mo: "Floor needs sweeping and the bottom door seal has torn away on one side. Otherwise the room looks okay on this first walk. Put in a cleanup and seal replacement."
+E3: 2026-10-20 10:40, WORK DONE, Luis, answers E2: "Swept and vacuumed the whole floor, replaced the torn door seal and checked that the door shuts against it. Cleaned up all the old seal pieces."
+E4: 2026-10-20 14:25, INSPECTION, Dean, answers E3: "Cleaning looks good and the new seal is working. While checking the back corner more closely, I spotted a small tagged crate wedged behind the pipe chase. It has the old renter's name on it. I can't tell whether it's abandoned or supposed to be returned. Manager needs to decide the property handling before we release the room."
+E5: 2026-10-21 09:15, NOTE, Ana: "Sent the former tenant a message about the crate. No reply yet. Manager says leave it untouched while the property disposition is checked. Q302 remains held."
+E6: 2026-10-26 13:20, NOTE, Priya: "Seven days after move-out. Crate remains in place, renter hasn't responded and no disposal or removal authorization has been issued. Unit still unavailable."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E4: Determine the lawful and authorized disposition of the newly discovered former renter's property.
+MUST NOT: Treat the completed cleaning and door-seal work as proof that the whole unit is ready.
+          Dispose of or move the tagged crate without authorization.
+          Ignore the new property issue because it was missed during the first inspection.
+          Offer the unit while the crate and property hold remain unresolved.
+WHY: E3 resolves the original maintenance issues, but E4 discovers a separate obstacle requiring human judgment. The property remains unresolved at the seven-day cutoff.
+
+END OF SET UNIT-READY-PILOT-1.
