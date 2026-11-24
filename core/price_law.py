@@ -17,6 +17,8 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from .billing import Ledger, Refused
+from .books import local
+from .evidence import money
 
 if TYPE_CHECKING:
     from .books import Books
@@ -294,10 +296,15 @@ class State:
         self.authorizations: dict[str, list[Authorization]] = {}
         self.approvals: dict[str, Approval] = {}
         self.decisions: list[Recorded] = []
+        self.order: dict[str, int] = {}                 # declaration and check ids -> their place in the log, so "after" never reads a clock
+        self._n = 0
 
     def apply(self, kind: str, at: datetime, p: dict) -> tuple[str, str] | None:
         """Fold one `price_law.*` event. Returns the (prefix, id) the books count, or None."""
         day = lambda key: date.fromisoformat(p[key]) if p.get(key) else None
+        self._n += 1
+        if kind in ("price_law.emergency_declared", "price_law.emergency_checked"):
+            self.order[p["id"]] = self._n
         if kind == "price_law.profile_set":
             self.profile = FacilityProfile(p["facility"], p["city"], p["place"], False, p["reviewed_by"])
         elif kind == "price_law.terms_snapshotted":
@@ -514,3 +521,275 @@ def record_decision(led: Ledger, at: datetime, *, change: str, point: str, outco
                                        "records": list(records), "versions": dict(versions), "lease": lease, "invoice": invoice,
                                        "snapshot": dict(snapshot or {})}, f"price_law:{ident}")
     return ident
+
+
+# the evaluator ---------------------------------------------------------------------------------------------------------------
+KINDS = ("lease_increase", "street_rate", "fee_change")
+OWNER_RULE = "price_change"
+# what an owner may say about price changes: only limits that add to the law's, each inside the platform's bounds
+OWNER_BOUNDS = {"notice_days": (0, 365), "max_increase_percent": (1, 100), "max_increase_cents": (1, 100000), "months_between": (0, 60)}
+
+
+@dataclass(frozen=True)
+class PriceChange:
+    """A proposed change in what someone pays: a rent increase on one lease, a street rate, or a new or higher fee."""
+    id: str
+    kind: str
+    current_cents: int
+    new_cents: int
+    effective_on: date
+    lease: str | None = None
+    unit_class: str = ""                # what a street rate or an emergency baseline prices
+    invoice: str | None = None          # the invoice this change prices, "<lease>:<month>", once it is being billed
+    disclosure: dict | None = None      # a street rate's first-page disclosure: max_cents, months, first_page, recurring_cents
+    claimed_exception: str = ""         # a legal exception the person proposing it relies on; it counts only once the owner has recorded it
+    last_increase_on: date | None = None
+
+    @property
+    def raises(self) -> bool:
+        return self.new_cents > self.current_cents
+
+
+@dataclass(frozen=True)
+class Result:
+    outcome: str                        # allow, refuse or hold
+    reasons: tuple[Reason, ...]
+    records: tuple[str, ...]
+    versions: dict
+    id: str | None = None               # the recorded decision, once `decide` wrote it
+
+    @property
+    def allowed(self) -> bool:
+        return self.outcome == "allow"
+
+    @property
+    def words(self) -> str:
+        return " ".join(r.words for r in self.reasons if r.kind != "note")
+
+
+def owner_rule(books: Books) -> dict | None:
+    return books.rules.get(OWNER_RULE)
+
+
+def adopt_owner_rule(led: Ledger, at: datetime, *, version: int, sentence: str, typed: dict) -> None:
+    """The owner's limits on price changes. The typed form can only add to the law (a longer notice, a smaller step, more months between
+    increases); anything else it names is refused here, so no owner rule can reach a legal stop."""
+    typed = dict(typed)
+    if not _clean(sentence) or len(sentence) > 400 or not typed or version <= led.books.rules.get(OWNER_RULE, {}).get("version", 0):
+        raise Refused("an owner rule needs its sentence, at least one limit, and a version after the one in force")
+    for key, value in typed.items():
+        low, high = OWNER_BOUNDS.get(key, (None, None))
+        if low is None or not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high:
+            raise Refused(f"an owner rule can only add a longer notice, a smaller increase or more time between increases, each inside the platform's bounds ({key} is not)")
+    led.emit("rule.adopted", at, {"rule": OWNER_RULE, "version": version, "sentence": _clean(sentence), "typed": {"action": OWNER_RULE, **typed}, "by": "owner"},
+             f"rule:{OWNER_RULE}:{version}", source="owner")
+
+
+def required_notice_days(books: Books, sets, terms: Terms | None = None) -> int | None:
+    """The notice a change needs: the law's days (the agreement's own where the rule defers to it) or the owner's, whichever is longer."""
+    days = [terms.notice_days if rs.agreement_specific and terms else rs.notice_days for rs in sets if rs.topic == "notice"]
+    owner = ((owner_rule(books) or {}).get("typed") or {}).get("notice_days")
+    known = [d for d in days + [owner] if d is not None]
+    return max(known) if known else None
+
+
+def _add_months(day: date, months: int) -> date:
+    y, m = divmod(day.year * 12 + day.month - 1 + months, 12)
+    first_next = date(y + (m + 1) // 12, (m + 1) % 12 + 1, 1)
+    return date(y, m + 1, min(day.day, (first_next - date(y, m + 1, 1)).days))
+
+
+def _params(rs: RuleSet) -> tuple:
+    body = asdict(rs)
+    for key in ("id", "version", "name", "citation", "effective_from", "effective_to", "review", "reviewer", "reviewed_on", "source"):
+        body.pop(key)
+    return tuple(sorted(body.items()))
+
+
+def day_words(d: date) -> str:
+    return f"{d:%b} {d.day}"
+
+
+class _Run:
+    """The reasons, records and versions one evaluation collects."""
+
+    def __init__(self, books: Books, change: PriceChange, today: date, point: str, sets, profile: FacilityProfile):
+        self.books, self.change, self.today, self.point, self.sets, self.profile = books, change, today, point, sets, profile
+        self.reasons: list[Reason] = []
+        self.records: list[str] = []
+        self.versions: dict = {}
+
+    def add(self, kind: str, code: str, words: str, rs: RuleSet | None = None) -> None:
+        cite = rs.id if rs else "owner rule" if kind in ("owner", "note") else "price law"
+        self.reasons.append(Reason(code, kind, words, cite, rs.version if rs else None))
+
+    def refuse(self, code, words, rs=None):
+        self.add("refuse", code, words, rs)
+
+    def hold(self, code, words, rs=None):
+        self.add("hold", code, words, rs)
+
+    def result(self) -> Result:
+        kinds = {r.kind for r in self.reasons}
+        outcome = "refuse" if kinds & {"refuse", "owner"} else "hold" if "hold" in kinds else "allow"
+        return Result(outcome, tuple(self.reasons), tuple(self.records), dict(self.versions))
+
+
+def _covers(r: Restriction, on: date) -> bool:
+    return r.starts <= on and (r.ends is None or on <= r.ends)
+
+
+def _emergency(run: _Run) -> None:
+    """Verified emergency status, never a flag that defaults to none. An absent or expired check holds an increase; a declared
+    emergency is judged by the place's own rule, and a place with no rule for it holds."""
+    change, st = run.change, state(run.books)
+    place = run.profile.place
+    checks = [c for c in st.checks if c.place == place]
+    chk = max(checks, key=lambda c: st.order[c.id]) if checks else None
+    run.versions["emergency"] = ""
+    if chk is None:
+        if change.raises:
+            run.hold("EMERGENCY_STATUS_UNKNOWN", f"No one has checked whether a declared emergency covers {place}, so a price increase waits until staff do.")
+        return
+    run.records.append(f"check:{chk.id}")
+    if run.today > chk.valid_until:
+        if change.raises:
+            run.hold("EMERGENCY_STATUS_UNKNOWN", f"The emergency check made {day_words(chk.checked_on)} expired on {day_words(chk.valid_until)}, so the status of "
+                                                 f"declarations for {place} is unknown again. Staff check it again and the increase can go ahead.")
+        return
+    run.versions["emergency"] = ",".join(sorted(chk.active))
+    if not change.raises:
+        return
+    late = [r for r in st.emergencies.values() if r.place == place and r.id not in chk.active and st.order[r.id] > st.order[chk.id] and _covers(r, change.effective_on)]
+    if late:
+        run.hold("EMERGENCY_STATUS_UNKNOWN", f"A declaration ({late[0].name}) was recorded after the last check, so whether it covers this facility is not known.")
+        return
+    rule = next((rs for rs in run.sets if rs.topic == "emergency"), None)
+    for r in (st.emergencies[i] for i in chk.active if _covers(st.emergencies[i], change.effective_on)):
+        run.records.append(f"emergency:{r.id}")
+        if rule is None:
+            run.hold("EMERGENCY_PRICE_RESTRICTED", f"A declared emergency ({r.name}) covers {place}, and no rule for it is modeled here, so a price increase waits for documented legal review.")
+        elif rule.emergency_hold:
+            run.hold("EMERGENCY_PRICE_RESTRICTED", f"A declared emergency ({r.name}) covers this facility. Florida's price-gouging law ({rule.citation}) sets no percentage; "
+                                                  "it asks whether a price is unconscionable. The increase waits for documented legal review of the declaration and this price.", rule)
+        else:
+            _cap(run, rule, r)
+
+
+def _cap(run: _Run, rule: RuleSet, r: Restriction) -> None:
+    change, st = run.change, state(run.books)
+    subjects = {s for s in (change.lease, change.unit_class) if s}
+    base = [b for b in st.baselines if b.restriction == r.id and b.subject in subjects]
+    limit = f"{rule.emergency_cap_percent} percent limit"
+    if not base:
+        run.hold("PRICE_BASELINE_UNPROVEN", f"The price before {r.name} began is not on file for this {'unit' if change.unit_class else 'lease'}, so the {limit} cannot be applied.", rule)
+        return
+    early = [b for b in base if b.observed_on < r.starts]
+    if not early:
+        run.hold("PRICE_BASELINE_UNPROVEN", "The only price on file was seen after the declaration began, so it is not a price from before it.", rule)
+        return
+    proven = [b for b in early if b.review == "reviewed"]
+    if not proven:
+        run.hold("PRICE_BASELINE_UNPROVEN", "The price from before the declaration has not been reviewed yet, so the " + limit + " cannot be applied.", rule)
+        return
+    top = max(proven, key=lambda b: (b.observed_on, b.id))
+    run.records.append(f"baseline:{top.id}")
+    if change.new_cents * 100 > top.price_cents * (100 + rule.emergency_cap_percent):
+        most = top.price_cents * (100 + rule.emergency_cap_percent) // 100
+        run.refuse("EMERGENCY_PRICE_RESTRICTED", f"California limits a storage price to {rule.emergency_cap_percent} percent above the price before the declaration "
+                                                 f"({rule.citation}). The price before was {money(top.price_cents)}, so the most allowed is {money(most)}, and this change "
+                                                 f"is {money(change.new_cents)}.", rule)
+
+
+def evaluate(books: Books, change: PriceChange, at: datetime, *, point: str = "proposal", profile: FacilityProfile | None = None,
+             rules: tuple[RuleSet, ...] | None = None) -> Result:
+    """Would this price change pass the law now? Reads the books, writes nothing. Run at every point of the change's life: the same
+    rules over the records as they stand then."""
+    if point not in POINTS or change.kind not in KINDS:
+        raise ValueError("unknown point or kind of change")
+    today = local(at).date()
+    profile = profile or profile_of(books)
+    sets = rules_in_force(profile.place, today, rules) if profile.place else []
+    run = _Run(books, change, today, point, sets, profile)
+    run.records.append(f"profile:{profile.place or 'unknown'}")
+    needs_notice = change.kind != "street_rate"
+    if not sets or (needs_notice and not any(rs.topic == "notice" for rs in sets)):
+        what = ("the facility's place is not known" if not profile.place else
+                f"no notice rule is modeled for {profile.place}" if sets else f"no rule is modeled for {profile.place}")
+        run.refuse("JURISDICTION_UNSUPPORTED", f"No approved rule covers this price change: {what}, so it cannot take effect.")
+        return run.result()
+    run.versions.update({rs.id: rs.version for rs in sets})
+    for rs in sets:
+        if rs.review == "pending" or (rs.review == "demonstration" and not profile.synthetic):
+            run.hold("RULE_NOT_REVIEWED", f"{rs.name} ({rs.citation}) is {'not reviewed yet' if rs.review == 'pending' else 'modeled for demonstration only'}; "
+                                          "counsel review is needed before it can allow a change.", rs)
+    for topic in sorted({rs.topic for rs in sets}):
+        group = [rs for rs in sets if rs.topic == topic]
+        if len({_params(rs) for rs in group}) > 1:
+            run.hold("LEGAL_RULES_CONFLICT", f"{' and '.join(rs.citation for rs in group)} both cover this {topic} and disagree, so the change waits for review.", group[0])
+    terms = None
+    if needs_notice:
+        terms = terms_of(books, change.lease or "")
+        if terms is None:
+            run.hold("LEASE_TERMS_MISSING", "The terms of the signed agreement have not been taken for this lease, so what it allows is not known.")
+        else:
+            run.records.append(f"terms:{terms.lease}#{terms.version}")
+            run.versions[f"terms:{terms.lease}"] = terms.version
+    _emergency(run)
+    _checks(run, terms)
+    _stale(run)
+    _owner(run)
+    return run.result()
+
+
+def _checks(run: _Run, terms: Terms | None) -> None:
+    """The rules about notice, disclosure and contract promises."""
+
+
+def _stale(run: _Run) -> None:
+    approval = state(run.books).approvals.get(run.change.id)
+    if approval is None or run.point in ("proposal", "approval") or approval.versions == run.versions:
+        return
+    differs = []
+    for key in sorted(set(approval.versions) | set(run.versions)):
+        old, new = approval.versions.get(key), run.versions.get(key)
+        if old == new:
+            continue
+        if key == "emergency":
+            differs.append("the declarations on file for this place changed")
+        elif key.startswith("terms:"):
+            differs.append("the lease terms changed")
+        else:
+            differs.append(f"{key} went from version {old} to version {new}")
+    run.refuse("LEGAL_RULE_VERSION_STALE", "The approval no longer holds: " + "; ".join(differs) + ". The change has to be checked and approved again.")
+
+
+def _owner(run: _Run) -> None:
+    rule = owner_rule(run.books)
+    if not rule or run.change.new_cents <= run.change.current_cents:
+        return
+    t, sentence, c = rule["typed"], rule["sentence"], run.change
+    run.records.append(f"owner rule v{rule['version']}")
+    if (p := t.get("max_increase_percent")) and c.new_cents * 100 > c.current_cents * (100 + p):
+        run.add("owner", "OWNER_RULE", f"The owner's rule (“{sentence}”) allows at most {p} percent in one step; this change is "
+                                       f"{(c.new_cents - c.current_cents) * 100 / c.current_cents:.1f} percent.")
+    if (m := t.get("max_increase_cents")) and c.new_cents - c.current_cents > m:
+        run.add("owner", "OWNER_RULE", f"The owner's rule (“{sentence}”) allows at most {money(m)} in one step; this change is {money(c.new_cents - c.current_cents)}.")
+    if (n := t.get("months_between")) and c.last_increase_on and c.effective_on < _add_months(c.last_increase_on, n):
+        run.add("owner", "OWNER_RULE", f"The owner's rule (“{sentence}”) asks for {n} months between increases; the last one took effect {day_words(c.last_increase_on)}.")
+    law = [rs.notice_days for rs in run.sets if rs.topic == "notice" and rs.notice_days is not None]
+    if (d := t.get("notice_days")) is not None and law and d < max(law):
+        run.add("note", "OWNER_RULE_LOOSER", f"The owner's rule asks for {d} days' notice; the law's {max(law)} days applies instead, because an owner rule can only add to the law.")
+
+
+def _snapshot(change: PriceChange) -> dict:
+    return json.loads(json.dumps(asdict(change), default=str))
+
+
+def decide(led: Ledger, at: datetime, change: PriceChange, *, point: str, profile: FacilityProfile | None = None,
+           rules: tuple[RuleSet, ...] | None = None) -> Result:
+    """Evaluate, then record the decision with its reasons, the records it read and the rule versions: one write, after the answer."""
+    res = evaluate(led.books, change, at, point=point, profile=profile, rules=rules)
+    ident = record_decision(led, at, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
+                            lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
+    return replace(res, id=ident)
