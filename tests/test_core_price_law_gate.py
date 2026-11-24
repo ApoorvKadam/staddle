@@ -403,3 +403,10 @@ def test_unposted_invoice_is_rechecked_when_emergency_status_expires():
     with pytest.raises(pl.Refused):
         pl.post_invoice(led, at_local(date(2027, 1, 5), 10), decision=decision.made, profile=d.profile)
     assert not led.pending
+
+
+def test_non_string_lease_is_an_audited_refusal():
+    d = Desk("Synthetic Utah facility", "Salt Lake City, UT", pl.SYNTHETIC_PROFILES["UT"])
+    result = d.change("check_price_change", "proposal", NOW, lease=["L0001"])
+    assert not result.allowed and "lease" in result.check.lower()
+    assert any(e.kind == "gate.decided" and e.payload["id"] == result.command and not e.payload["allowed"] for e in d.store._rows(STREAM))

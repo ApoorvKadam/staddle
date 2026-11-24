@@ -1177,6 +1177,8 @@ def _maybe(value, label: str) -> date | None:
 
 def _change_from(about: str | None, f: dict) -> PriceChange:
     """A price change from a command's form. Every field is checked here, before anything is evaluated or written."""
+    if f.get("lease") is not None and not isinstance(f["lease"], str):
+        raise Refused("the lease must be a string")
     cents = [f.get("current_cents"), f.get("new_cents")]
     if (not about or f.get("kind") not in KINDS
             or any(not isinstance(v, int) or isinstance(v, bool) for v in cents)
