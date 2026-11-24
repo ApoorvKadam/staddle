@@ -97,6 +97,9 @@ RULE_SETS: tuple[RuleSet, ...] = (
     RuleSet("NYC-disclosure", 1, "NYC", "disclosure", "New York City disclosed maximum occupancy fee",
             "New York City Administrative Code 20-566.4 and the city's rules under it", LONG_IN_FORCE, None, "demonstration", _PENDING, None,
             "advisor research, 2026-11-23", first_year_max=True, annual_max_notice_days=60, recurring_fee=True),
+    RuleSet("FL-notice", 1, "FL", "notice", "Florida ordinary rent increase: the signed agreement's own terms",
+            "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "reviewed", _REVIEWED_BY, date(2026, 11, 23),
+            "advisor research, 2026-11-23: no statewide statutory notice duration established", agreement_specific=True, email_needs_agreement=True),
     RuleSet("FL-emergency", 1, "FL", "emergency", "Florida price gouging during a declared emergency", "Florida Statutes 501.160",
             LONG_IN_FORCE, None, "reviewed", _REVIEWED_BY, date(2026, 11, 23), "advisor research, 2026-11-23", emergency_hold=True),
 )
@@ -115,7 +118,7 @@ def rules_in_force(place: str | None, on: date, rules: tuple[RuleSet, ...] | Non
 def place_of(city: str) -> str | None:
     """The place whose rules a facility falls under, from its city text ("Orlando, FL"): a state code, or NYC for the city, since
     New York City's rules are the city's and not the state's. None when the text names no state."""
-    match = re.search(r"^(.*?),?\s*([A-Z]{2})\s*$", (city or "").strip())
+    match = re.search(r"^(.*?)[,\s]+([A-Z]{2})\s*$", (city or "").strip())
     if not match:
         return None
     name, state = match.group(1).strip().lower(), match.group(2)
@@ -129,6 +132,18 @@ class FacilityProfile:
     place: str | None
     synthetic: bool = False             # a made-up facility for the tests and the evaluation; the live facility is never synthetic
     reviewed_by: str = ""
+
+
+# made-up facilities for the tests and the evaluation only: the live facility is Northstar in Orlando, Florida, and a recorded profile is never synthetic
+SYNTHETIC_PROFILES = {
+    "CA": FacilityProfile("Synthetic California facility", "Sacramento, CA", "CA", True, "made up for tests and the evaluation"),
+    "UT": FacilityProfile("Synthetic Utah facility", "Salt Lake City, UT", "UT", True, "made up for tests and the evaluation"),
+    "NYC": FacilityProfile("Synthetic New York City facility", "New York, NY", "NYC", True, "made up for tests and the evaluation"),
+}
+
+
+def synthetic_profile(place: str) -> FacilityProfile:
+    return SYNTHETIC_PROFILES[place]
 
 
 def _clean(text: str) -> str:
@@ -865,6 +880,7 @@ def _notice(run: _Run, terms: Terms) -> None:
     if rule is None:
         return
     name = PLACE_NAMES.get(rule.place, rule.place)
+    src = "The signed agreement" if rule.agreement_specific else name
     law = terms.notice_days if rule.agreement_specific else rule.notice_days
     if law is None:
         run.hold("LEASE_TERMS_MISSING", f"{rule.citation} leaves the notice period to the agreement, and the agreement states none, so the increase waits for review.", rule)
@@ -875,7 +891,7 @@ def _notice(run: _Run, terms: Terms) -> None:
             earliest = run.today + timedelta(days=days)
             if c.effective_on < earliest:
                 if who is None:
-                    run.refuse("NOTICE_PERIOD_TOO_SHORT", f"{name} requires {law} days' written notice ({rule.citation}). If notice is given today the earliest this can take "
+                    run.refuse("NOTICE_PERIOD_TOO_SHORT", f"{src} requires {law} days' written notice ({rule.citation}). If notice is given today the earliest this can take "
                                                           f"effect is {day_words(earliest)}; this change takes effect {day_words(c.effective_on)}.", rule)
                 else:
                     run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; if notice is given today the earliest is {day_words(earliest)}.")
@@ -902,7 +918,7 @@ def _notice(run: _Run, terms: Terms) -> None:
         earliest = first + timedelta(days=days)
         if c.effective_on < earliest:
             if who is None:
-                run.refuse("NOTICE_PERIOD_TOO_SHORT", f"{name} requires {law} days' written notice. Notice counted from {day_words(first)}, so the earliest this can take "
+                run.refuse("NOTICE_PERIOD_TOO_SHORT", f"{src} requires {law} days' written notice. Notice counted from {day_words(first)}, so the earliest this can take "
                                                       f"effect is {day_words(earliest)}; this change takes effect {day_words(c.effective_on)}.", rule)
             else:
                 run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; counted from {day_words(first)} the earliest is {day_words(earliest)}.")
@@ -914,7 +930,7 @@ def _notice(run: _Run, terms: Terms) -> None:
 def _served(rule: RuleSet, terms: Terms, n: Notice, days: int) -> tuple[date | None, tuple]:
     """When a notice legally counts as served under this rule, or why it does not, as (kind, code, words). Attempted, accepted for
     delivery, served, delivered and acknowledged are different things: only what the rule names counts."""
-    name = PLACE_NAMES.get(rule.place, rule.place)
+    name = "The signed agreement" if rule.agreement_specific else PLACE_NAMES.get(rule.place, rule.place)
     methods = terms.notice_methods if rule.agreement_specific else rule.methods
     way = CHANNEL_WORDS[n.channel]
     if not methods:

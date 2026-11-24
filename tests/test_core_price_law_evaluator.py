@@ -53,7 +53,7 @@ def test_a_place_no_rule_covers_gets_no_activation_and_only_that_reason():
 
 def test_a_place_with_only_an_emergency_rule_cannot_activate_a_lease_increase():
     led = book("Orlando, FL")
-    only_emergency = tuple(rs for rs in pl.RULE_SETS if rs.place == "FL")
+    only_emergency = tuple(rs for rs in pl.RULE_SETS if rs.place == "FL" and rs.topic == "emergency")
     res = pl.evaluate(led.books, change(), NOW, profile=pl.profile_of(led.books), rules=only_emergency)
     assert codes(res) == ["JURISDICTION_UNSUPPORTED"] and "notice" in res.reasons[0].words
 
