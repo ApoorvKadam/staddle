@@ -747,6 +747,9 @@ def evaluate(books: Books, change: PriceChange, at: datetime, *, point: str = "p
     sets = rules_in_force(profile.place, today, rules) if profile.place else []
     run = _Run(books, change, today, point, sets, profile)
     run.records.append(f"profile:{profile.place or 'unknown'}")
+    if point == "invoice" and not _valid_invoice(change.invoice, change.lease):
+        run.refuse("INVOICE_INVALID", "The invoice must name its lease and month as <lease>:<YYYY-MM>.")
+        return run.result()
     needs_notice = change.kind != "street_rate"
     if not sets or (needs_notice and not any(rs.topic == "notice" for rs in sets)):
         what = ("the facility's place is not known" if not profile.place else
@@ -1028,7 +1031,7 @@ def posted_basis(books: Books, invoice: str) -> Recorded | None:
         return None
     decision_id, charge_id = posting
     charge = books.charges.get(charge_id)
-    basis = next ( (r for r in state(books).decisions if r.id == decision_id), None)
+    basis = next((r for r in state(books).decisions if r.id == decision_id), None)
     if not charge or not basis or basis.point != "invoice" or basis.outcome != "allow" or basis.invoice != invoice:
         return None
     if not _valid_invoice(invoice, basis.lease) or charge.lease != basis.lease or charge.cents != basis.snapshot.get("new_cents"):
@@ -1069,9 +1072,8 @@ def _snapshot(change: PriceChange) -> dict:
 def decide(led: Ledger, at: datetime, change: PriceChange, *, point: str, profile: FacilityProfile | None = None,
            rules: tuple[RuleSet, ...] | None = None) -> Result:
     """Evaluate, then record the decision with its reasons, the records it read and the rule versions: one write, after the answer."""
-    if point == "invoice" and not _valid_invoice(change.invoice, change.lease):
-        raise Refused("the invoice must name its lease and month as <lease>:<YYYY-MM>")
-    if (point == "invoice" and (basis := posted_basis(led.books, change.invoice)) and basis.change == change.id
+    if (point == "invoice" and _valid_invoice(change.invoice, change.lease)
+            and (basis := posted_basis(led.books, change.invoice)) and basis.change == change.id
             and basis.lease == change.lease and basis.invoice == change.invoice and basis.snapshot == _snapshot(change)):
         return Result(basis.outcome, basis.reasons, basis.records, basis.versions, basis.id)       # already posted: its decision stands
     res = evaluate(led.books, change, at, point=point, profile=profile, rules=rules)

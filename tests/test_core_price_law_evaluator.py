@@ -277,3 +277,12 @@ def test_posted_basis_does_not_expose_mutable_decision_data():
     basis.snapshot['disclosure']['nested']['value'] = 2
     again = pl.posted_basis(led.books, c.invoice)
     assert again.versions == {'rule': 1} and again.snapshot['disclosure']['nested']['value'] == 1
+
+
+def test_direct_invoice_evaluation_requires_a_matching_lease_and_month():
+    led = book('Salt Lake City, UT')
+    checked(led, 'UT')
+    lease_terms(led)
+    for invoice in ('L0002:2027-01', 'L0001:2027-13', None):
+        result = pl.evaluate(led.books, change(invoice=invoice), NOW, profile=UT, point='invoice')
+        assert 'INVOICE_INVALID' in codes(result) and not result.allowed
