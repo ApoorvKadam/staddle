@@ -13,19 +13,21 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass, field, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .billing import Ledger, Refused
 from .books import local
 from .evidence import money
+from .gate import Decision, STAFF_ROLES
+from .store import Store
 
 if TYPE_CHECKING:
     from .books import Books
 
 # how a notice can reach a tenant; a text message and a dashboard banner are named so they can be refused in words
 CHANNELS = ("hand", "first_class_mail", "email", "text", "dashboard")
-CHANNEL_WORDS = {"hand": "hand delivery", "first_class_mail": "first-class mail", "email": "e-mail", "text": "a text message",
+CHANNEL_WORDS = {"hand": "hand delivery", "first_class_mail": "first-class mail", "email": "email", "text": "a text message",
                  "dashboard": "a notice in the tenant's online account"}
 # where in a price change's life the law is checked; each runs the same evaluator over the records as they stand then
 POINTS = ("proposal", "approval", "publication", "notice_authorization", "notice_completion", "quote_acceptance", "activation", "invoice")
@@ -667,6 +669,10 @@ def _emergency(run: _Run) -> None:
     rule = next((rs for rs in run.sets if rs.topic == "emergency"), None)
     for r in (st.emergencies[i] for i in chk.active if _covers(st.emergencies[i], change.effective_on)):
         run.records.append(f"emergency:{r.id}")
+        if auth := _authorized(run):
+            run.add("note", "EMERGENCY_EXCEPTION_RECORDED", f"The owner recorded a documented legal exception for this price ({auth.basis}); it lifts the emergency "
+                                                          "restriction for this change only.")
+            continue
         if rule is None:
             run.hold("EMERGENCY_PRICE_RESTRICTED", f"A declared emergency ({r.name}) covers {place}, and no rule for it is modeled here, so a price increase waits for documented legal review.")
         elif rule.emergency_hold:
@@ -742,8 +748,204 @@ def evaluate(books: Books, change: PriceChange, at: datetime, *, point: str = "p
     return run.result()
 
 
+PLACE_NAMES = {"CA": "California", "UT": "Utah", "NYC": "New York City", "FL": "Florida"}
+PRE_SERVICE = ("proposal", "approval", "publication", "notice_authorization", "quote_acceptance")
+
+
+def _list(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " or " + items[-1]
+
+
+def _ways(methods) -> str:
+    return _list([CHANNEL_WORDS[m] for m in methods])
+
+
+def _plain(text: str) -> str:
+    return " ".join(str(text).lower().replace(",", " ").replace(".", " ").split())
+
+
+def _authorized(run: _Run) -> Authorization | None:
+    """The owner's recorded exception for this change, covering at least this price. Nothing else lifts an emergency restriction."""
+    return next((a for a in state(run.books).authorizations.get(run.change.id, ()) if a.by == "owner" and a.covers_cents >= run.change.new_cents), None)
+
+
 def _checks(run: _Run, terms: Terms | None) -> None:
-    """The rules about notice, disclosure and contract promises."""
+    """The rules about notice, disclosure, contract promises and claimed exceptions."""
+    c = run.change
+    if c.claimed_exception and not _authorized(run):
+        run.refuse("LEGAL_EXCEPTION_UNVERIFIED", f"The change relies on a legal exception (“{c.claimed_exception}”), but the owner has not recorded one with its document "
+                                                 "for this price, so it does not count.")
+    if c.kind == "street_rate":
+        _street_disclosure(run)
+    elif terms is not None and c.raises:
+        if c.kind == "lease_increase":
+            _promise(run, terms)
+            _disclosed(run, terms)
+        _notice(run, terms)
+
+
+def _promise(run: _Run, terms: Terms) -> None:
+    c = run.change
+    if not terms.rent_change_allowed:
+        run.refuse("CONTRACTUAL_PRICE_PROMISE", "The signed agreement does not let rent change during the term.")
+    if terms.price_promise_until and c.effective_on <= terms.price_promise_until:
+        cap = terms.price_promise_max_cents if terms.price_promise_max_cents is not None else c.current_cents
+        if c.new_cents > cap:
+            promised = "no increase" if terms.price_promise_max_cents is None else f"a price no higher than {money(cap)}"
+            run.refuse("CONTRACTUAL_PRICE_PROMISE", f"The agreement promises {promised} through {day_words(terms.price_promise_until)}; this change takes effect {day_words(c.effective_on)}.")
+
+
+def _disclosed(run: _Run, terms: Terms) -> None:
+    """A maximum the facility stated binds it where it stated it; where a rule requires the statement, its absence stops an increase."""
+    c, st = run.change, state(run.books)
+    first_end = _add_months(terms.signed_on, 12) - timedelta(days=1)
+    in_first = terms.signed_on <= c.effective_on <= first_end
+    covering = [m for m in st.commitments.get(c.lease or "", ()) if m.covers_from <= c.effective_on <= m.covers_to]
+    run.records.extend(f"commitment:{m.id}" for m in covering)
+    annual = next((rs for rs in run.sets if rs.annual_max_notice_days), None)
+    untimely = set()
+    for rs in (r for r in run.sets if r.topic == "disclosure"):
+        name = PLACE_NAMES.get(rs.place, rs.place)
+        if rs.first_year_max and terms.signed_on >= rs.effective_from and in_first and not any(m.kind == "first_year" for m in covering):
+            run.refuse("DISCLOSURE_MISSING_OR_INVALID", f"The agreement was signed {day_words(terms.signed_on)}, after {rs.citation} began, so it had to state a "
+                                                        "first-year maximum and none is on file.", rs)
+        if rs.annual_max_notice_days and c.effective_on > first_end:
+            yearly = [m for m in covering if m.kind == "anniversary"]
+            timely = [m for m in yearly if m.disclosed_on <= m.covers_from - timedelta(days=rs.annual_max_notice_days)]
+            untimely = {m.id for m in yearly} - {m.id for m in timely}
+            if not yearly:
+                run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
+                                                        f"none covers {day_words(c.effective_on)}.", rs)
+            elif not timely:
+                last = max(yearly, key=lambda m: m.id)
+                run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
+                                                        f"the notice for the year starting {day_words(last.covers_from)} was given {day_words(last.disclosed_on)}.", rs)
+    if annual is None:
+        untimely = set()
+    for kind, words in (("first_year", "first-year"), ("anniversary", "yearly")):
+        binding = [m for m in covering if m.kind == kind and m.id not in untimely]
+        if binding:
+            m = max(binding, key=lambda m: m.id)
+            if c.new_cents > m.max_cents:
+                run.refuse("DISCLOSED_MAX_EXCEEDED", f"The {words} maximum disclosed for this lease is {money(m.max_cents)} through {day_words(m.covers_to)}; this change would charge {money(c.new_cents)}.")
+
+
+def _street_disclosure(run: _Run) -> None:
+    c = run.change
+    rules = [rs for rs in run.sets if rs.topic == "disclosure"]
+    if not rules:
+        return
+    rs = rules[0]
+    name = PLACE_NAMES.get(rs.place, rs.place)
+    d = c.disclosure
+    if not isinstance(d, dict):
+        run.refuse("DISCLOSURE_MISSING_OR_INVALID", f"{name} requires this rate's disclosure ({rs.citation}) and none is attached.", rs)
+        return
+    top, missing = d.get("max_cents"), []
+    if not isinstance(top, int) or isinstance(top, bool) or top <= 0:
+        missing.append("a maximum rental fee")
+    for r in rules:
+        if r.first_year_max and not (isinstance(d.get("months"), int) and d["months"] >= 12):
+            missing.append("that maximum for the first 12 months")
+        if r.first_page and d.get("first_page") is not True:
+            missing.append("the disclosure shown prominently on the first page")
+        if r.recurring_fee and not (isinstance(d.get("recurring_cents"), int) and d["recurring_cents"] >= c.new_cents):
+            missing.append("the complete recurring fee, including required recurring charges")
+    if missing:
+        run.refuse("DISCLOSURE_MISSING_OR_INVALID", f"{name}'s disclosure ({rs.citation}) is incomplete; it needs " + ", ".join(dict.fromkeys(missing)) + ".", rs)
+    elif c.new_cents > top:
+        run.refuse("DISCLOSED_MAX_EXCEEDED", f"The disclosure states a maximum of {money(top)}; this rate is {money(c.new_cents)}.", rs)
+    elif any(r.recurring_fee for r in rules) and d["recurring_cents"] > top:
+        run.refuse("DISCLOSED_MAX_EXCEEDED", f"The disclosure states a maximum of {money(top)}; the recurring fee is {money(d['recurring_cents'])}.", rs)
+
+
+def _notice(run: _Run, terms: Terms) -> None:
+    c, st = run.change, state(run.books)
+    rule = next((rs for rs in run.sets if rs.topic == "notice"), None)
+    if rule is None:
+        return
+    name = PLACE_NAMES.get(rule.place, rule.place)
+    law = terms.notice_days if rule.agreement_specific else rule.notice_days
+    if law is None:
+        run.hold("LEASE_TERMS_MISSING", f"{rule.citation} leaves the notice period to the agreement, and the agreement states none, so the increase waits for review.", rule)
+        return
+    owner = ((owner_rule(run.books) or {}).get("typed") or {}).get("notice_days")
+    if run.point in PRE_SERVICE:
+        for days, who in ((law, None), (owner or 0, "owner")):
+            earliest = run.today + timedelta(days=days)
+            if c.effective_on < earliest:
+                if who is None:
+                    run.refuse("NOTICE_PERIOD_TOO_SHORT", f"{name} requires {law} days' written notice ({rule.citation}). If notice is given today the earliest this can take "
+                                                          f"effect is {day_words(earliest)}; this change takes effect {day_words(c.effective_on)}.", rule)
+                else:
+                    run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; if notice is given today the earliest is {day_words(earliest)}.")
+                break
+        return
+    notices = st.notices.get(c.id, ())
+    if not notices:
+        if c.kind == "fee_change":
+            run.refuse("FEE_CHANGE_NOTICE_MISSING", "A new or higher fee needs its own notice, and none is on file for it.", rule)
+        else:
+            run.refuse("NOTICE_SERVICE_UNPROVEN", f"No notice of this increase is on file, so {name}'s {law} days' notice has not been shown.", rule)
+        return
+    served, problems = [], []
+    for n in notices:
+        run.records.append(f"notice:{n.id}")
+        when, problem = _served(rule, terms, n, law)
+        (served.append(when) if when else problems.append(problem))
+    if not served:
+        kind, code, words = problems[0]
+        run.add(kind, code, words, rule)
+        return
+    first = min(served)
+    for days, who in ((law, None), (owner or 0, "owner")):
+        earliest = first + timedelta(days=days)
+        if c.effective_on < earliest:
+            if who is None:
+                run.refuse("NOTICE_PERIOD_TOO_SHORT", f"{name} requires {law} days' written notice. Notice counted from {day_words(first)}, so the earliest this can take "
+                                                      f"effect is {day_words(earliest)}; this change takes effect {day_words(c.effective_on)}.", rule)
+            else:
+                run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; counted from {day_words(first)} the earliest is {day_words(earliest)}.")
+            return
+    if run.point in ("activation", "invoice") and run.today < c.effective_on:
+        run.refuse("NOTICE_PERIOD_TOO_SHORT", f"This change takes effect {day_words(c.effective_on)}; it cannot be activated or billed before then.", rule)
+
+
+def _served(rule: RuleSet, terms: Terms, n: Notice, days: int) -> tuple[date | None, tuple]:
+    """When a notice legally counts as served under this rule, or why it does not, as (kind, code, words). Attempted, accepted for
+    delivery, served, delivered and acknowledged are different things: only what the rule names counts."""
+    name = PLACE_NAMES.get(rule.place, rule.place)
+    methods = terms.notice_methods if rule.agreement_specific else rule.methods
+    way = CHANNEL_WORDS[n.channel]
+    if not methods:
+        return None, ("hold", "LEASE_TERMS_MISSING", f"{rule.citation} leaves the ways of giving notice to the agreement, and the agreement lists none.")
+    if n.channel not in methods or n.channel in ("text", "dashboard"):
+        return None, ("refuse", "NOTICE_METHOD_NOT_PERMITTED", f"{name} requires {days} days' written notice by {_ways(methods)}; {way} does not count.")
+    if terms.notice_methods and n.channel not in terms.notice_methods:
+        return None, ("refuse", "NOTICE_METHOD_NOT_PERMITTED", f"The agreement allows notice only by {_ways(terms.notice_methods)}; {way} is not one of them.")
+    if rule.designated_method:
+        if not terms.designated_method:
+            return None, ("hold", "LEASE_TERMS_MISSING", "The way the tenant asked to be notified is not on file, and the rule sends notice the way the tenant asked.")
+        if n.channel != terms.designated_method:
+            return None, ("refuse", "NOTICE_METHOD_NOT_PERMITTED", f"The tenant asked for notice by {CHANNEL_WORDS[terms.designated_method]}; {way} is not that.")
+    if n.channel == "email":
+        if rule.email_needs_agreement and not terms.email_notice_authorized:
+            return None, ("refuse", "NOTICE_METHOD_NOT_PERMITTED", f"The agreement does not authorize notice by email, which {rule.citation} requires.")
+        if not terms.last_known_email or n.sent_to.lower() != terms.last_known_email:
+            return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", f"The email went to {n.sent_to}, which is not the last known address on file ({terms.last_known_email or 'none'}).")
+        if not n.dispatch_accepted:
+            return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", "The email was never accepted for delivery by the mail service, so it was not sent.")
+        return n.attempted_on, ()
+    if n.channel == "first_class_mail":
+        lacks = [w for ok, w in ((n.certificate_of_mailing, "a certificate of mailing"), (n.postage_prepaid, "prepaid postage")) if not ok]
+        if lacks:
+            return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", "The mailing has no " + " and no ".join(lacks) + ", so first-class mailing is not proven.")
+        if not terms.last_known_address or _plain(n.sent_to) != _plain(terms.last_known_address):
+            return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", f"The mailing went to {n.sent_to}, but the last known address on file is {terms.last_known_address or 'none'}.")
+        return n.attempted_on, ()
+    if not n.delivered_on:
+        return None, ("refuse", "NOTICE_SERVICE_UNPROVEN", "The hand delivery has not been recorded as delivered.")
+    return n.delivered_on, ()
 
 
 def _stale(run: _Run) -> None:
@@ -793,3 +995,141 @@ def decide(led: Ledger, at: datetime, change: PriceChange, *, point: str, profil
     ident = record_decision(led, at, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
                             lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
     return replace(res, id=ident)
+
+
+# staff commands ---------------------------------------------------------------------------------------------------------------
+ACTIONS = ("record_terms", "record_commitment", "record_notice", "update_notice", "record_emergency", "extend_emergency", "record_emergency_check",
+           "record_baseline", "record_exception", "check_price_change", "approve_price_change")
+OWNER_ONLY = ("record_exception",)
+
+
+@dataclass
+class Act:
+    id: str
+    action: str
+    source: str
+    about: str | None = None            # the price change a check or approval is about
+    form: dict | None = None
+
+
+def _when(value, label: str) -> date:
+    try:
+        return date.fromisoformat(value) if isinstance(value, str) else _date(value, label)
+    except ValueError:
+        raise Refused(f"enter a valid {label}") from None
+
+
+def _maybe(value, label: str) -> date | None:
+    return _when(value, label) if value else None
+
+
+def _change_from(about: str | None, f: dict) -> PriceChange:
+    """A price change from a command's form. Every field is checked here, before anything is evaluated or written."""
+    cents = [f.get("current_cents"), f.get("new_cents")]
+    if not about or f.get("kind") not in KINDS or any(not isinstance(v, int) or isinstance(v, bool) or v <= 0 for v in cents):
+        raise Refused("name the change, its kind and its current and new amounts")
+    return PriceChange(about, f["kind"], cents[0], cents[1], _when(f.get("effective_on"), "effective date"), f.get("lease") or None,
+                       str(f.get("unit_class", "")), f.get("invoice") or None, f.get("disclosure"), str(f.get("claimed_exception", "")),
+                       _maybe(f.get("last_increase_on"), "date of the last increase"))
+
+
+def _stated(res: Result) -> tuple[str, str | None]:
+    """The words and named reason a decision gives: a hold says it is held for review, and no approval clears it."""
+    if res.allowed:
+        notes = " ".join(r.words for r in res.reasons if r.kind == "note")
+        return ("The price-change rules allow it. " + notes).strip(), None
+    first = next(r for r in res.reasons if r.kind != "note")
+    return ("Held for review: " if res.outcome == "hold" else "") + res.words, first.code
+
+
+def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | None = None) -> Decision:
+    """One staff command, through the one gate: the person, the action and every field are checked, the law is evaluated, and only then
+    is anything written, so a refusal never follows a write. A command id repeated returns its first decision."""
+    books = led.books
+    if act.id in books.decisions:
+        p = books.decisions[act.id]
+        return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
+    f = act.form or {}
+    ok, why, check, made = False, "refused", "That action is not available.", None
+    try:
+        if not (act.source == "owner" or (act.source.startswith("staff:") and act.source[6:] in STAFF_ROLES)):
+            raise Refused("Only staff or the owner may do that.")
+        if act.action not in ACTIONS:
+            raise Refused("That action is not available.")
+        if act.action in OWNER_ONLY and act.source != "owner":
+            raise Refused("Only the owner records a legal exception.")
+        who = act.source
+        if act.action == "record_terms":
+            made = record_terms(led, now, lease=f.get("lease", ""), signed_on=_when(f.get("signed_on"), "signing date"), agreement_sha256=f.get("agreement_sha256"),
+                                notice_methods=f.get("notice_methods", []), notice_days=f.get("notice_days"),
+                                email_notice_authorized=f.get("email_notice_authorized", False), last_known_address=f.get("last_known_address", ""),
+                                last_known_email=f.get("last_known_email", ""), designated_method=f.get("designated_method"),
+                                price_promise_until=_maybe(f.get("price_promise_until"), "promise date"),
+                                price_promise_max_cents=f.get("price_promise_max_cents"), rent_change_allowed=f.get("rent_change_allowed", True))
+            check = "Lease terms recorded from the signed agreement."
+        elif act.action == "record_commitment":
+            made = record_commitment(led, now, lease=f.get("lease", ""), kind=f.get("kind"), max_cents=f.get("max_cents"),
+                                     covers_from=_when(f.get("covers_from"), "start date"), covers_to=_when(f.get("covers_to"), "end date"),
+                                     disclosed_on=_when(f.get("disclosed_on"), "disclosure date"), evidence_sha256=f.get("evidence_sha256"))
+            check = "Disclosed maximum recorded."
+        elif act.action == "record_notice":
+            made = record_notice(led, now, change=f.get("change", ""), lease=f.get("lease", ""), document_sha256=f.get("document_sha256"),
+                                 recipient=f.get("recipient", ""), channel=f.get("channel"), sent_to=f.get("sent_to", ""),
+                                 attempted_on=_when(f.get("attempted_on"), "date it was sent"), dispatch_accepted=f.get("dispatch_accepted", False), by=who,
+                                 certificate_of_mailing=f.get("certificate_of_mailing", False), postage_prepaid=f.get("postage_prepaid", False),
+                                 confirmation=f.get("confirmation"), delivered_on=_maybe(f.get("delivered_on"), "delivery date"),
+                                 acknowledged_on=_maybe(f.get("acknowledged_on"), "acknowledgment date"))
+            check = "Notice recorded as attempted. Whether it counts as service is decided when the change is checked."
+        elif act.action == "update_notice":
+            update_notice(led, now, change=f.get("change", ""), notice=f.get("notice", ""), confirmation=f.get("confirmation"),
+                          delivered_on=_maybe(f.get("delivered_on"), "delivery date"), acknowledged_on=_maybe(f.get("acknowledged_on"), "acknowledgment date"))
+            made, check = f.get("notice"), "Notice updated."
+        elif act.action == "record_emergency":
+            made = record_emergency(led, now, place=f.get("place", ""), name=f.get("name", ""), source=f.get("source", ""), starts=_when(f.get("starts"), "start date"),
+                                    ends=_maybe(f.get("ends"), "end date"), products=f.get("products", ["storage"]), scope=f.get("scope", ""))
+            check = "Declaration recorded. It is not applied until staff check the facility's status."
+        elif act.action == "extend_emergency":
+            record_emergency_extension(led, now, restriction=f.get("restriction", ""), ends=_when(f.get("ends"), "end date"), source=f.get("source", ""))
+            made, check = f.get("restriction"), "Extension recorded."
+        elif act.action == "record_emergency_check":
+            made = record_emergency_check(led, now, place=f.get("place", ""), checked_on=_when(f.get("checked_on"), "check date"),
+                                          valid_until=_when(f.get("valid_until"), "expiry date"), by=who, source=f.get("source", ""), active=f.get("active", []))
+            check = "Emergency status recorded until its expiry date."
+        elif act.action == "record_baseline":
+            made = record_baseline(led, now, restriction=f.get("restriction", ""), subject=f.get("subject", ""), price_cents=f.get("price_cents"),
+                                   observed_on=_when(f.get("observed_on"), "observation date"), source=f.get("source", ""), review=f.get("review", "pending"), by=who)
+            check = "Pre-declaration price recorded."
+        elif act.action == "record_exception":
+            made = record_exception(led, now, change=f.get("change", ""), basis=f.get("basis", ""), covers_cents=f.get("covers_cents"),
+                                    document_sha256=f.get("document_sha256"), by=who)
+            check = "Legal exception recorded for the price it covers."
+        else:
+            point = "approval" if act.action == "approve_price_change" else f.get("point", "proposal")
+            if point not in POINTS:
+                raise Refused("choose where in the change's life it is being checked")
+            change = _change_from(act.about, f)
+            res = evaluate(books, change, now, point=point, profile=profile)
+            made = record_decision(led, now, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
+                                   lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
+            if res.allowed and act.action == "approve_price_change":
+                record_approval(led, now, change=change.id, versions=res.versions, by=who)
+            check, code = _stated(res)
+            ok, why = res.allowed, code
+            if ok:
+                why = None
+        if act.action not in ("check_price_change", "approve_price_change"):
+            ok, why = True, None
+    except Refused as exc:
+        check, made = str(exc), None
+    led.emit("gate.decided", now, {"id": act.id, "action": act.action, "source": act.source, "about": act.about, "command": act.id,
+                                 "allowed": ok, "check": check, "why": why, "made": made}, f"gate:{act.id}", source=act.source, command=act.id)
+    return Decision(ok, act.action, check, command=act.id, made=made, why=why)
+
+
+def run(store: Store, stream: str, act: Act, now: datetime, profile: FacilityProfile | None = None) -> Decision:
+    with store.write():
+        led = Ledger(store.books(stream))
+        decision = command(led, act, now, profile)
+        if not decision.repeated:
+            decision.events = [event.id for event in store.append(stream, led.pending) if event.id is not None]
+        return decision

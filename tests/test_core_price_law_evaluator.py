@@ -63,22 +63,23 @@ def test_an_unreviewed_rule_set_holds_and_a_demonstration_set_works_only_for_a_m
     lease_terms(led)
     checked(led, "CA")
     real_ca = replace(CA, synthetic=False)
-    res = pl.evaluate(led.books, change(kind="street_rate", lease=None), NOW, profile=real_ca)
+    street = change(kind="street_rate", lease=None, disclosure={"max_cents": 20000, "months": 12, "first_page": True})
+    res = pl.evaluate(led.books, street, NOW, profile=real_ca)
     assert "RULE_NOT_REVIEWED" in codes(res) and res.outcome == "hold"
-    assert "RULE_NOT_REVIEWED" not in codes(pl.evaluate(led.books, change(kind="street_rate", lease=None), NOW, profile=CA))
+    assert pl.evaluate(led.books, street, NOW, profile=CA).outcome == "allow"
     pending = tuple(replace(rs, review="pending") for rs in pl.RULE_SETS)
-    assert "RULE_NOT_REVIEWED" in codes(pl.evaluate(led.books, change(kind="street_rate", lease=None), NOW, profile=CA, rules=pending))
+    assert "RULE_NOT_REVIEWED" in codes(pl.evaluate(led.books, street, NOW, profile=CA, rules=pending))
 
 
 def test_two_rule_sets_that_disagree_on_one_topic_hold_instead_of_choosing():
-    led = book()
+    led = book("Salt Lake City, UT")
     lease_terms(led)
-    checked(led, "CA")
-    other = replace(next(rs for rs in pl.RULE_SETS if rs.id == "CA-notice"), id="CA-notice-b", notice_days=45)
-    res = pl.evaluate(led.books, change(), NOW, profile=CA, rules=pl.RULE_SETS + (other,))
+    checked(led, "UT")
+    other = replace(next(rs for rs in pl.RULE_SETS if rs.id == "UT-notice"), id="UT-notice-b", notice_days=45)
+    res = pl.evaluate(led.books, change(), NOW, profile=UT, rules=pl.RULE_SETS + (other,))
     assert "LEGAL_RULES_CONFLICT" in codes(res) and res.outcome == "hold"
     same = replace(other, notice_days=30)
-    assert "LEGAL_RULES_CONFLICT" not in codes(pl.evaluate(led.books, change(), NOW, profile=CA, rules=pl.RULE_SETS + (same,)))
+    assert "LEGAL_RULES_CONFLICT" not in codes(pl.evaluate(led.books, change(), NOW, profile=UT, rules=pl.RULE_SETS + (same,)))
 
 
 def test_a_lease_change_with_no_terms_taken_from_the_agreement_holds():
