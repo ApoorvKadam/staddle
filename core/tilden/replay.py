@@ -102,8 +102,9 @@ def _date(value):
     raise ValueError(f'cannot read date and time: {value}')
 
 
-def parse(text):
-    """Read the case format; a missing year uses 2026 for reproducible runs."""
+def parse(text, skipped=None):
+    """Read the case format; a missing year uses 2026 for reproducible runs. With `skipped`, a case that cannot be read is
+    listed there with its reason and the rest are returned; without it the first such case stops the read."""
     blocks = re.split(r'(?m)^\s*(?=U\d+\.\s*$)', text.strip())
     # an author's reply can open with a line about what follows, and can arrive in parts that repeat cases; the text before the
     # first case is not a case, and when a case number comes again the author's last version is the one kept
@@ -117,58 +118,64 @@ def parse(text):
     blocks = sorted(latest.values(), key=lambda b: int(re.match(r'\s*U(\d+)', b).group(1)) if re.match(r'\s*U\d+', b) else 0)
     out = []
     for block in blocks:
-        match = re.fullmatch(r'\s*(U\d+)\.\s*\n\s*UNIT:\s*(.*?)\s*\n(.*)', block, re.S)
-        if not match:
-            raise ValueError('invalid case header')
-        ident, unit_line, body = match.groups()
-        unit_match = re.fullmatch(r'(\S+)\s+(.+)', unit_line.strip())
-        if not unit_match:
-            raise ValueError(f'{ident}: unit and size required')
-        unit, size = unit_match.groups()
-        labels = re.search(r'(?m)^\s*RENTABLE AFTER:\s*(.*?)\s*\n\s*STAFF DECIDE:\s*(.*?)\s*\n\s*MUST NOT:\s*(.*?)\s*\n\s*WHY:\s*(.*)\Z', body, re.S)
-        if not labels:
-            raise ValueError(f'{ident}: missing labels')
-        rentable, staff, forbidden, why = labels.groups()
-        rentable = rentable.strip()
-        rentable = None if rentable.lower() == 'never in this record' else rentable
-        staff = ' '.join(staff.split())
-        staff_match = re.fullmatch(r'(E\d+):\s*(.+)', staff)
-        if staff.lower() == 'none':
-            staff_id, reason = None, ''
-        elif staff_match:
-            staff_id, reason = staff_match.groups()
-        else:
-            raise ValueError(f'{ident}: invalid staff label')
-        entries_text = body[:labels.start()].strip()
-        pattern = re.compile(r'(?ms)^\s*(E\d+):\s*(.*?),\s*(MOVE-OUT|NOTE|REPORT|WORK DONE|INSPECTION),\s*(.*?):\s*"(.*?)"\s*(?=^\s*E\d+:|\Z)')
-        entries = []
-        end = 0
-        for item in pattern.finditer(entries_text):
-            if entries_text[end:item.start()].strip():
-                raise ValueError(f'{ident}: invalid entry')
-            eid, when, kind, author, words = item.groups()
-            answer = re.fullmatch(r'(.*?),\s*answers\s+(E\d+)', author.strip(), re.I)
-            who, ref = (answer.group(1).strip(), answer.group(2)) if answer else (author.strip(), None)
-            entries.append(Entry(eid, _date(when), kind, who, ' '.join(words.split()), ref))
-            end = item.end()
-        if not entries or entries_text[end:].strip():
-            raise ValueError(f'{ident}: invalid entries')
-        ids = [e.id for e in entries]
-        if len(set(ids)) != len(ids) or entries[0].kind != 'MOVE-OUT':
-            raise ValueError(f'{ident}: invalid entry sequence')
-        for i, entry in enumerate(entries):
-            if entry.answers and entry.answers not in ids[:i]:
-                raise ValueError(f'{ident}: answer must name an earlier entry')
-            if entry.kind == 'WORK DONE' and (not entry.answers or entries[ids.index(entry.answers)].kind not in ('NOTE', 'REPORT', 'INSPECTION')):
-                raise ValueError(f'{ident}: work must answer a note, report or inspection')
-            if i and entry.at < entries[i - 1].at:
-                raise ValueError(f'{ident}: entries are out of time order')
-        if rentable is not None and rentable not in ids or staff_id is not None and staff_id not in ids:
-            raise ValueError(f'{ident}: label names an unknown entry')
-        must_not = [line.strip().removeprefix('- ').strip() for line in forbidden.splitlines() if line.strip()]
-        if len(must_not) == 1 and must_not[0].lower() == 'none':
-            must_not = []
-        out.append(Case(ident, unit, size, entries, rentable, staff_id, reason, must_not, ' '.join(why.split())))
+        try:
+            match = re.fullmatch(r'\s*(U\d+)\.\s*\n\s*UNIT:\s*(.*?)\s*\n(.*)', block, re.S)
+            if not match:
+                raise ValueError('invalid case header')
+            ident, unit_line, body = match.groups()
+            unit_match = re.fullmatch(r'(\S+)\s+(.+)', unit_line.strip())
+            if not unit_match:
+                raise ValueError(f'{ident}: unit and size required')
+            unit, size = unit_match.groups()
+            labels = re.search(r'(?m)^\s*RENTABLE AFTER:\s*(.*?)\s*\n\s*STAFF DECIDE:\s*(.*?)\s*\n\s*MUST NOT:\s*(.*?)\s*\n\s*WHY:\s*(.*)\Z', body, re.S)
+            if not labels:
+                raise ValueError(f'{ident}: missing labels')
+            rentable, staff, forbidden, why = labels.groups()
+            rentable = rentable.strip()
+            rentable = None if rentable.lower() == 'never in this record' else rentable
+            staff = ' '.join(staff.split())
+            staff_match = re.fullmatch(r'(E\d+):\s*(.+)', staff)
+            if staff.lower() == 'none':
+                staff_id, reason = None, ''
+            elif staff_match:
+                staff_id, reason = staff_match.groups()
+            else:
+                raise ValueError(f'{ident}: invalid staff label')
+            entries_text = body[:labels.start()].strip()
+            pattern = re.compile(r'(?ms)^\s*(E\d+):\s*(.*?),\s*(MOVE-OUT|NOTE|REPORT|WORK DONE|INSPECTION),\s*(.*?):\s*"(.*?)"\s*(?=^\s*E\d+:|\Z)')
+            entries = []
+            end = 0
+            for item in pattern.finditer(entries_text):
+                if entries_text[end:item.start()].strip():
+                    raise ValueError(f'{ident}: invalid entry')
+                eid, when, kind, author, words = item.groups()
+                answer = re.fullmatch(r'(.*?),\s*answers\s+(E\d+)', author.strip(), re.I)
+                who, ref = (answer.group(1).strip(), answer.group(2)) if answer else (author.strip(), None)
+                entries.append(Entry(eid, _date(when), kind, who, ' '.join(words.split()), ref))
+                end = item.end()
+            if not entries or entries_text[end:].strip():
+                raise ValueError(f'{ident}: invalid entries')
+            ids = [e.id for e in entries]
+            if len(set(ids)) != len(ids) or entries[0].kind != 'MOVE-OUT':
+                raise ValueError(f'{ident}: invalid entry sequence')
+            for i, entry in enumerate(entries):
+                if entry.answers and entry.answers not in ids[:i]:
+                    raise ValueError(f'{ident}: answer must name an earlier entry')
+                if entry.kind == 'WORK DONE' and (not entry.answers or entries[ids.index(entry.answers)].kind not in ('NOTE', 'REPORT', 'INSPECTION')):
+                    raise ValueError(f'{ident}: work must answer a note, report or inspection')
+                if i and entry.at < entries[i - 1].at:
+                    raise ValueError(f'{ident}: entries are out of time order')
+            if rentable is not None and rentable not in ids or staff_id is not None and staff_id not in ids:
+                raise ValueError(f'{ident}: label names an unknown entry')
+            must_not = [line.strip().removeprefix('- ').strip() for line in forbidden.splitlines() if line.strip()]
+            if len(must_not) == 1 and must_not[0].lower() == 'none':
+                must_not = []
+            out.append(Case(ident, unit, size, entries, rentable, staff_id, reason, must_not, ' '.join(why.split())))
+        except ValueError as exc:
+            # a case the loader cannot read is left out of every worker's score and listed, never fixed by editing the set
+            if skipped is None:
+                raise
+            skipped.append(str(exc))
     if not out:
         raise ValueError('no cases')
     return out
