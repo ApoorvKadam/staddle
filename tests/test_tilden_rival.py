@@ -621,3 +621,98 @@ def test_the_practice_and_pilot_records_replay_with_no_early_release_and_no_need
     totals = replay.totals([replay.score(c, replay.replay(c, lambda store, stream, now: rival.arm(store, stream, now, check=fake_check))) for c in pilot])
     assert totals['released_early'] == 0 and totals['needless_handoff'] == 0 and totals['premature_handoff'] == 0
     assert totals['missed_handoff'] == 0 and totals['release_right'] >= 26
+
+
+# ---- review fixes: partial work, refused work orders that stay wanted, no-work closures ---------------------------------------
+@pytest.mark.parametrize('words', [
+    ['Fixed half of the latch'],
+    ['Partly fixed the track, the rest is still to do'],
+    ['Only one of the two hinges was replaced'],
+    ['Replaced one of the three hinges, the others wait for parts'],
+])
+def test_explicit_partial_work_is_unfinished_not_a_fix(words):
+    assert read_finish(words, UNIT)[0] == 'problem'
+
+
+@pytest.mark.parametrize('words', [
+    ['Replaced the roller, the door sits half an inch higher now and rolls smooth'],
+    ['Fixed the latch, it sits half an inch lower now and the door closes fine'],
+    ['Adjusted the track, it moves only one inch either way and the door rolls fine'],
+])
+def test_a_measurement_with_half_or_one_in_it_is_not_unfinished_work(words):
+    assert read_finish(words, UNIT)[0] == 'fine'
+
+
+def _door_orders(w):
+    return [o for o in w.mine() if o.kind != 'check']
+
+
+def _damaged_door_refused():
+    """A walk note with the door marked damaged, while the gate's second check says the work would remove a tenant's things."""
+    check = Counting(**{'remove or dispose': 0.95})
+    w = world_with(check)
+    w.move_out()
+    w.note('Panel is dented near the bottom.', door='damaged')
+    assert not _door_orders(w) and rival.BELONGINGS in _topics(w)          # refused: the unit stays held and staff are asked
+    return w, check
+
+
+def test_a_refused_work_order_for_a_damaged_door_is_opened_when_a_later_staff_record_makes_it_possible():
+    w, check = _damaged_door_refused()
+    w.arm()
+    assert not _door_orders(w)                                             # nothing new was written: not tried again
+    check.answers['remove or dispose'] = 0.05                              # the second check no longer sees tenant items
+    w.report('Light flickers in the ceiling.')                             # a new staff record, saying nothing about the door
+    [order] = _door_orders(w)
+    assert 'dented' in order.problem
+    w.arm()
+    w.arm()
+    assert len(_door_orders(w)) == 1
+
+
+def test_a_refused_work_order_is_not_retried_when_staff_corrected_the_observation_it_answered():
+    w, check = _damaged_door_refused()
+    check.answers['remove or dispose'] = 0.05
+    obs = max(walk.load(w.store, S)[1].observations)
+    w.staff('correct_observation', about=obs, form={'lock': 'absent', 'whose': 'unknown', 'tag': 'absent', 'door': 'closed'},
+            text='Panel is fine, nothing wrong with the door.')
+    w.arm()
+    assert not _door_orders(w)
+
+
+def test_a_refused_work_order_is_not_retried_when_a_later_look_finds_the_door_fine():
+    w, check = _damaged_door_refused()
+    check.answers['remove or dispose'] = 0.05
+    w.note('Walked it again. Door and panel are fine, nothing wrong. Room is clean and empty.')
+    assert not _door_orders(w)
+
+
+def test_a_work_order_that_went_through_on_retry_is_not_opened_again_after_the_repair():
+    w, check = _damaged_door_refused()
+    check.answers['remove or dispose'] = 0.05
+    w.report('Light flickers in the ceiling.')
+    [order] = _door_orders(w)
+    w.finish(order.id, 'Replaced the dented panel')
+    w.report('Latch is bent and will not catch.')
+    assert len(_door_orders(w)) == 1                                        # the panel order stands alone
+    assert sum('dent' in o.problem for o in _door_orders(w)) == 1
+
+
+def test_a_refused_work_order_is_not_retried_when_a_newer_walk_sees_the_door_undamaged():
+    w, check = _damaged_door_refused()
+    check.answers['remove or dispose'] = 0.05
+    w.note('Customer called about parking.', door='closed')
+    assert not any('dent' in o.problem for o in _door_orders(w))
+
+
+def test_a_report_closed_with_no_work_is_not_the_last_repair_for_a_later_failed_repair_handoff():
+    w = World()
+    w.move_out()
+    light = w.report('Light flickers in the ceiling.')
+    w.finish(light, 'Replaced the bulb and the fixture.')                  # an inspection is now asked for
+    rattle = w.report('There is a rattling sound when the door moves.')
+    w.note('Walked it. The rattle was a loose number tag on the outside. Door, track and latch are solid, room is clean and empty. Ready to rent.')
+    closed = next(e for e in w.store.stream_events(S) if e.kind == 'work_order.closed' and e.payload['order'] == rattle)
+    assert closed.payload['no_work']                                       # nothing was repaired for the rattle
+    w.finish(w.inspection().id, 'Inspected: the door still rattles at the track.')
+    assert rival.FAILING not in _topics(w)                                 # the only repair was the light, which this fault is not about
