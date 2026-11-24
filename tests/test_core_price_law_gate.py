@@ -374,3 +374,13 @@ def test_reapproval_counts_qualifying_service_for_unchanged_increase(monkeypatch
     assert d.change('approve_price_change', 'approval', later).allowed
     assert not d.change('approve_price_change', 'approval', later, about='PC2').allowed
     assert not d.change('approve_price_change', 'approval', later, new_cents=11000).allowed
+
+
+def test_invoice_current_rent_must_match_billing_state():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    on = at_local(date(2026, 12, 23), 10)
+    forged = d.change('check_price_change', 'invoice', on, current_cents=12000, new_cents=12000, invoice='L0001:2026-12')
+    assert not forged.allowed
+    unchanged = d.change('check_price_change', 'invoice', on, current_cents=10000, new_cents=10000, invoice='L0001:2026-12')
+    assert unchanged.allowed

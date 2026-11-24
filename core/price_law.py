@@ -772,6 +772,9 @@ def evaluate(books: Books, change: PriceChange, at: datetime, *, point: str = "p
     if point == "invoice" and not _valid_invoice(change.invoice, change.lease):
         run.refuse("INVOICE_INVALID", "The invoice must name its lease and month as <lease>:<YYYY-MM>.")
         return run.result()
+    if point == "invoice" and change.kind == "lease_increase" and (lease := books.leases.get(change.lease)) and change.current_cents != lease.rent_cents:
+        run.refuse("CURRENT_RENT_MISMATCH", "The current rent does not match the lease's recorded rent.")
+        return run.result()
     needs_notice = change.kind != "street_rate"
     if not sets or (needs_notice and not any(rs.topic == "notice" for rs in sets)):
         what = ("the facility's place is not known" if not profile.place else
