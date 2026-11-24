@@ -66,8 +66,9 @@ def test_a_fresh_copy_has_a_verified_code_for_every_existing_tenant_and_the_book
     rent, books = desk.rent_view("a"), desk.view("a")[0]
     adopted = [r for r in rent.rentals.values() if r.provenance]
     active = [x for x in books.leases.values() if x.ended is None]
-    assert len(adopted) == len(active) == 112 and len({r.access for r in adopted}) == 112      # 112 on this day; the default seed day has 113
-    for r in adopted:
+    held = [r for r in rent.rentals.values() if r.state == "active"]               # the adopted ones and Maya's, the seeded year's one new rental
+    assert len(adopted) == 112 and len(active) == len(held) == 113 and len({r.access for r in held}) == 113      # 112 adopted on this day; the default seed day has 113
+    for r in held:
         a = rent.access[r.access]
         seen = gate(desk, "a").read_back(a.user)
         assert a.state == "verified" and a.simulated and a.user == renting.baseline_user(r.unit)
@@ -89,7 +90,7 @@ def test_building_the_year_does_not_save_the_gate_file_once_per_code(tmp_path):
     desk = desk_at(tmp_path)
     desk.access = Counting(path=desk.access.path)
     desk.ready()
-    assert len(desk.access.baseline) == 112
+    assert len(desk.access.baseline) == 113                      # 112 adopted rentals and Maya's
     assert not saves and not os.path.exists(desk.access.path)
 
 
@@ -213,12 +214,12 @@ def test_a_revoke_saved_but_never_answered_is_found_on_the_retry_not_made_again(
     assert code_of(again, "a", rental) == {"code": None, "groups": []}
 
 
-def test_the_default_seed_gives_all_113_existing_tenants_a_code_and_the_books_do_not_move():
+def test_the_default_seed_gives_all_113_existing_tenants_and_the_seeded_renter_a_code_and_the_books_do_not_move():
     from core.seed import build
     year = build(standing=True)
     books = year.led.books
     events = [e for e in year.led.pending if e.kind == "access.baselined"]
-    assert len(events) == 113 and len({e.payload["user"] for e in events}) == 113
+    assert len(events) == 114 and len({e.payload["user"] for e in events}) == 114
     assert sum(c.open_cents for t in books.tenants for c in books.open_charges(t)) == 299600
     assert sum(bool(books.open_charges(t)) for t in books.tenants) == 23
 
@@ -239,7 +240,7 @@ def test_a_seeded_record_that_does_not_match_the_gate_is_refused_and_the_baselin
     bad = types.SimpleNamespace(kind=events[0].kind, payload={**events[0].payload, "code_sha256": "0" * 64})
     with pytest.raises(ValueError):
         desk.access.know([bad])
-    assert len(desk.access.baseline) == 112
+    assert len(desk.access.baseline) == 113
 
 
 def test_a_rental_adopted_later_has_no_baseline_code_and_keeps_the_staff_check(tmp_path):
