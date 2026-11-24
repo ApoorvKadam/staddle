@@ -931,8 +931,9 @@ def _shop_payment_problem(led: Ledger, intent: Intent, now: datetime) -> None:
         from . import shop
         for quote in intent.shop_quotes:
             payment = shop.state(led.books).payments.get(quote)
-            if payment and not payment.get('problem'):
-                led.emit('shop.payment_problem', now, {'quote': quote}, 'shop:payment-problem:' + quote, source='processor')
+            if payment and payment['key'] == intent.key and not payment.get('problem'):         # only the attempt this intent made, never a newer one
+                led.emit('shop.payment_problem', now, {'quote': quote}, 'shop:payment-problem:' + quote + (f":{payment['attempt']}" if payment.get('attempt') else ''),
+                         source='processor')
 
 
 def _settle(led: Ledger, intent: Intent, p: dict, now: datetime) -> None:
@@ -968,7 +969,12 @@ def _settle(led: Ledger, intent: Intent, p: dict, now: datetime) -> None:
             if intent.shop_quotes:
                 from . import shop
                 for quote in intent.shop_quotes:
-                    payment = shop.state(led.books).payments[quote]
+                    held = shop.state(led.books)
+                    payment = held.payments[quote]
+                    older = next((a for a in held.every_attempt(quote) if a['key'] == intent.key and a is not payment), None)
+                    if older is not None:           # an attempt a newer one replaced: the return is recorded on it alone
+                        shop._emit_answer(led, quote, older, p, now)
+                        continue
                     if payment['status'] == 'succeeded':
                         led.emit('shop.payment_answered', now, {'quote': quote, 'status': 'returned', 'previous': 'succeeded',
                                  'outside': p['id'], 'cents': payment['cents']}, f'shop:checkout-answer:{intent.id}:{quote}:returned',
@@ -980,6 +986,10 @@ def _settle(led: Ledger, intent: Intent, p: dict, now: datetime) -> None:
         for quote in intent.shop_quotes:
             st = shop.state(led.books)
             payment = st.payments[quote]
+            older = next((a for a in st.every_attempt(quote) if a['key'] == intent.key and a is not payment), None)
+            if older is not None:           # a late answer from an attempt a newer one replaced is recorded on that attempt, never on the new one
+                shop._emit_answer(led, quote, older, {**p, 'status': {'pending': 'processing', 'closed': 'failed'}.get(to, to)}, now)
+                continue
             old = payment['status']
             status = {'pending': 'processing', 'closed': 'failed'}.get(to, to)
             if old == status:

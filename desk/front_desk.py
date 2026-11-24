@@ -113,7 +113,8 @@ class FrontDesk:
         self._proposals: OrderedDict[str, tuple] = OrderedDict()     # visitor -> (id, proposal, sentence, rule versions, day)
         self._resets: dict[str, int] = {}                            # visitor -> how many times their copy was reset
         self._notes: dict[str, str] = {}                             # visitor -> why a going back was refused, shown once on the Rules page
-        self._step_saved: set[str] = set()                          # visitors whose kept note follows a record that was saved
+        self._site_notes: dict[str, str] = {}                         # visitor -> why the website inquiry was refused, shown once beside the form
+        self._shop_notes: dict[str, tuple[str, bool]] = {}           # visitor -> (why a shop step was refused, whether part of it was saved), shown once on the Shop page only
         self._step_notes: dict[str, str] = {}                        # visitor -> why a staff step on a tenant was refused, shown once there
         self._reset_notes: dict[str, str] = {}                       # visitor -> why Start over was refused, shown once on Home
         self._hold_until = 0.0                                       # monotonic time before which a held day does not ask the processor again
@@ -896,15 +897,13 @@ class FrontDesk:
     def _shop_done(self, store: Store, stream: str, now: datetime, d, visitor: str, saved: str = "") -> None:
         """After a shop step: keep why it was refused, and run the daily check so Today shows what the step settled. `saved` leads the
         note when an earlier part of the same step was recorded, so the page does not say nothing changed."""
-        self._step_saved.discard(visitor)
         if d.allowed:
-            self._step_notes.pop(visitor, None)
+            self._shop_notes.pop(visitor, None)
         elif saved:
             why = d.check.rstrip(". ")
-            self._keep(self._step_notes, visitor, f"{saved} {why[:1].lower() + why[1:] if why[1:2].islower() else why}")
-            self._step_saved.add(visitor)
+            self._keep_shop(visitor, f"{saved} {why[:1].lower() + why[1:] if why[1:2].islower() else why}", True)
         else:
-            self._keep(self._step_notes, visitor, d.check)
+            self._keep_shop(visitor, d.check, False)
         try:
             shop.sweep(store, stream, now)
         except Exception:
@@ -951,11 +950,15 @@ class FrontDesk:
 
     # collections ------------------------------------------------------------------------------------------------------------
     def _keep(self, notes: dict[str, str], visitor: str, text: str) -> None:
-        if notes is self._step_notes:
-            self._step_saved.discard(visitor)           # a new note is a plain refusal unless the caller says part of its step was saved
         notes[visitor] = f"{text[:1].upper()}{text[1:]}" + ("" if text.endswith(".") else ".")
         while len(notes) > 64:
             notes.pop(next(iter(notes)))
+
+    def _keep_shop(self, visitor: str, text: str, partial: bool) -> None:
+        """The shop's own note: kept with its partial-save flag, so no other page can take one without the other."""
+        self._shop_notes[visitor] = (f"{text[:1].upper()}{text[1:]}" + ("" if text.endswith(".") else "."), partial)
+        while len(self._shop_notes) > 64:
+            self._shop_notes.pop(next(iter(self._shop_notes)))
 
     def staff_step(self, visitor: str, cmd: Command) -> None:
         """A staff step on a tenant's collections, through the gate on this copy. A refusal is kept to be shown once on that page."""
@@ -1015,15 +1018,21 @@ class FrontDesk:
     def take_step_note(self, visitor: str) -> str:
         """Why the last staff step on a tenant was refused, once; empty when nothing was."""
         with self.lock:
-            self._step_saved.discard(visitor)
             return self._step_notes.pop(visitor, "")
+
+    def put_site_note(self, visitor: str, text: str) -> None:
+        with self.lock:
+            self._site_notes[visitor] = f"{text[:1].upper()}{text[1:]}" + ("" if text.endswith(".") else ".")
+
+    def take_site_note(self, visitor: str) -> str:
+        """Why the last website inquiry was refused, once."""
+        with self.lock:
+            return self._site_notes.pop(visitor, "")
 
     def take_shop_note(self, visitor: str) -> tuple[str, bool]:
         """The last shop step's note, once, and whether part of that step was saved before it was refused."""
         with self.lock:
-            partial = visitor in self._step_saved
-            self._step_saved.discard(visitor)
-            return self._step_notes.pop(visitor, ""), partial
+            return self._shop_notes.pop(visitor, ("", False))
 
     def acknowledge(self, visitor: str, task: str, who: str) -> None:
         """Staff saw a collections task on this copy; a task already acknowledged, or not here, changes nothing."""

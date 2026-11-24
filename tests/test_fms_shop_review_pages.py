@@ -87,7 +87,7 @@ def test_the_add_product_fields_are_required_before_the_browser_posts(fms_url, s
             tag = re.search(rf'<(?:input|select)[^>]*name="{field}"[^>]*>', form)
             assert tag and "required" in tag.group(0), field
         refused = post(c, "add_product", product="Padlock", price="5", cost="2")
-        assert "Nothing changed. Give a product, price, cost, tax class" in seen(c.get(refused.headers["location"]).text)
+        assert "Nothing changed. Give the tax class." in seen(c.get(refused.headers["location"]).text)       # only the missing field is named
 
 
 def test_a_recount_asked_without_findings_clears_two_counts_that_disagree(fms_url, sim):

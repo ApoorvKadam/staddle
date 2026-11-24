@@ -15,7 +15,7 @@
     </article>
     {% else %}<p>No units are available right now.</p>{% endfor %}
   </div>
-  <section><h2>Ask about storage</h2><form class="website-form" method="post" action="/rent/inquiry">
+  <section id="ask"><h2>Ask about storage</h2>{% if inquiry_note %}<p class="website-notice" role="alert">{{ inquiry_note }}</p>{% endif %}<form class="website-form" method="post" action="/rent/inquiry"><input type="hidden" name="token" value="{{ token }}">
     <label>Name <input name="name" required maxlength="80"></label><label>Phone <input name="phone" type="tel" maxlength="30"></label>
     <label>Email <input name="email" type="email" maxlength="120"></label><label>Unit size <input name="size" maxlength="20"></label>
     <label>Start date <input name="start" type="date"></label><label>Message <textarea name="message" maxlength="1000"></textarea></label>

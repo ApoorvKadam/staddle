@@ -900,6 +900,7 @@ class Rent:
             if cents:
                 p["refund"] = {"cents": cents, "state": "pending"}
         led.emit("rental.cancelled", now, p, f"cancelled:{r.id}", source=source)
+        release_add_ons(led, r.id, now, source)
         for kind in ("payment", "activation", "hold"):
             self.close(led, now, r.id, kind)
         if r.transfer:
@@ -908,6 +909,21 @@ class Rent:
             self.task(led, now, r.id, "refund", f"Unit {r.unit} was paid for but the rental never started ({reason}); refund "
                                                 f"{money(p['refund']['cents'])}, which stays on the tenant's account until the refund is confirmed.",
                       key=f"refund:{r.id}")
+
+
+def release_add_ons(led: Ledger, rental: str, now: datetime, source: str = "code") -> None:
+    """Put back on the shelf the merchandise added to a rental that closed, when nobody paid for it: no payment was started, or the
+    processor's answer says the attempt can no longer succeed. An attempt that can still settle keeps its reservation; a payment that
+    comes in later is posted by the late-payment rules, and a later failure releases it on the next pass."""
+    from . import shop
+    st = shop.state(led.books)
+    for quote, owner in list(st.attachments.items()):
+        if owner != rental or quote in st.sales or quote in st.cancelled or (quote in st.payments and not st.can_close(quote)):
+            continue
+        q = st.quotes[quote]
+        led.emit("shop.quote_cancelled", now, dict(quote=quote, product=q["product"], quantity=q["quantity"],
+                                                    reason="The rental was cancelled before the add-on was paid for.", by=source),
+                 f"shop:release:{quote}", source=source)
 
 
 class RentLedger(Ledger):
@@ -1409,7 +1425,8 @@ def add_shop_items(store: Store, stream: str, rental: str, items: list, source: 
     with store.write():
         books, rent = load(store, stream)
         r = rent.rentals.get(rental)
-        if not r or r.state not in WAITING or rent.holder(r.unit, now) != ('rental', rental) or r.pay_ops:
+        if (not r or r.state not in WAITING or rent.holder(r.unit, now) != ('rental', rental) or rent.uncertain(r)
+                or r.payments or delinquency.unsettled(books, r.tenant)):         # a payment that was answered (a declined card) does not stop a change; one that can still come in does
             raise Refused('the rental is not available for adding merchandise')
         if not isinstance(items, list) or not items:
             raise Refused('choose merchandise to add')
@@ -1445,7 +1462,23 @@ def checkout_due(books: Books, rent: "Rent", r, now: datetime) -> tuple[int, lis
     old = rent.rentals[rent.transfers[r.transfer].rental] if r.transfer else None
     cents = rent.short(r, now, old)
     quotes = [q for q, owner in st.attachments.items() if owner == r.id and q not in st.sales and q not in st.cancelled]
+    op = next((o for o in r.pay_ops if rent.ops[o].how is None), None)
+    held = delinquency.state(books).intents.get(rent.ops[op].intent) if op is not None and rent.ops[op].intent else None
+    held = held or (_add_on_intent(books, rent, r) if op is None else None)
+    if held is not None:            # a request already written holds its own amount (credit may have come since): the page shows it, so the resume matches
+        return cents, quotes, held.cents
     return cents, quotes, cents + sum(st.quotes[q]['price'] * st.quotes[q]['quantity'] for q in quotes)
+
+
+def _add_on_intent(books: Books, rent: "Rent", r) -> "delinquency.Intent | None":
+    """The unsettled intent that asked only for this rental's add-ons. No operation of the rental names it, so it is found from the
+    add-ons it carries (each is attached to this rental), never from another tenant's or another rental's payment."""
+    from . import shop
+    attached = shop.state(books).attachments
+    named = {rent.ops[o].intent for o in r.pay_ops}
+    return next((i for i in delinquency.state(books).intents.values()
+                 if i.state in delinquency.UNSETTLED and i.shop_quotes and i.id not in named
+                 and i.tenant == r.tenant and all(attached.get(q) == r.id for q in i.shop_quotes)), None)
 
 
 def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rental: str, card: str, now: datetime,
@@ -1462,7 +1495,14 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
         if r is None:
             raise Refused("no such rental")
         op = next((o for o in r.pay_ops if rent.ops[o].how is None), None)
-        if op is None:
+        unsent = _add_on_intent(books, rent, r) if op is None else None
+        if unsent is not None:
+            if r.state not in WAITING:
+                raise Refused(f"the rental is {r.state}")       # an intent that may still settle is checked with the processor, not asked again
+            if expected_cents is not None and expected_cents != unsent.cents:
+                raise TotalChanged(expected_cents, unsent.cents)
+            iid = unsent.id                 # an add-on-only intent written before its request went out: resumed with its own key, the rental untouched
+        elif op is None:
             if r.state not in WAITING:
                 raise Refused(f"the rental is {r.state}")
             if rent.holder(r.unit, now) != ("rental", r.id):
@@ -1472,18 +1512,22 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
             from . import shop
             shop_state = shop.state(books)
             cents, quotes, total = checkout_due(books, rent, r, now)
-            if quotes and any(q in shop_state.payments for q in quotes):
-                raise Refused('staff must review the earlier merchandise payment')
+            if any(q in shop_state.payments and not shop_state.can_close(q) for q in quotes):
+                raise Refused('staff must review the earlier merchandise payment')       # an earlier attempt that can still settle is never replaced
             if not total:               # the rental and its add-ons both need nothing: credit covering the rental alone does not stop an add-on's payment
                 raise Refused("the rental is already paid for")
             if expected_cents is not None and expected_cents != total:
                 raise TotalChanged(expected_cents, total)
             led = RentLedger(books, rent)
             iid = delinquency.open_intent(led, stream, processor, r.tenant, total, now, shop_quotes=quotes)
+            key = delinquency.state(books).intents[iid].key
             for quote in quotes:
                 q = shop_state.quotes[quote]
-                led.emit('shop.payment_requested', now, {'quote': quote, 'key': delinquency.state(books).intents[iid].key,
-                         'cents': q['price'] * q['quantity'], 'status': 'open', 'intent': iid},
+                if quote in shop_state.payments:        # an attempt that was declined or never reached the processor: the new one replaces it, the old stays on record under its own key
+                    led.emit('shop.payment_retried', now, {'quote': quote, 'key': key, 'previous': shop_state.payments[quote]['status'], 'intent': iid},
+                             f'shop:checkout-retry:{iid}:{quote}', source='processor')
+                    continue
+                led.emit('shop.payment_requested', now, {'quote': quote, 'key': key, 'cents': q['price'] * q['quantity'], 'status': 'open', 'intent': iid},
                          f'shop:checkout-payment:{iid}:{quote}', source='processor')
             if cents:                   # add-ons paid alone leave the rental's own payment operations untouched
                 op = f"{r.id}:pay:{len(r.pay_ops) + 1}"
@@ -1494,6 +1538,9 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
             raise Refused("a payment for this rental is already out, started without the processor")
         else:
             iid = rent.ops[op].intent
+            asked = delinquency.state(books).intents[iid].cents
+            if expected_cents is not None and expected_cents != asked:
+                raise TotalChanged(expected_cents, asked)       # the open request holds another amount: it is neither sent nor replaced
     delinquency.send(store, stream, processor, iid, card, now)
     settle_payments(store, stream, now)
     return delinquency.state(store.books(stream)).intents[iid]
@@ -1542,6 +1589,13 @@ def settle_payments(store: Store, stream: str, now: datetime) -> None:
     for a in acts:
         if a.id not in books.decisions:
             run(store, stream, a, now)
+    with store.write():             # a cancelled rental's add-on whose payment has since been answered as failed or never received is released now
+        books, rent = load(store, stream)
+        led = Ledger(books)
+        for r in rent.rentals.values():
+            if r.state == "cancelled":
+                release_add_ons(led, r.id, now)
+        store.append(stream, led.pending)
 
 
 # the gate's access system --------------------------------------------------------------------------------------------------

@@ -97,8 +97,12 @@ def capture(led: Ledger, at: datetime, *, source: str, name: str, phone: str = "
     phone = normal_phone(phone)
     email = (email or "").strip().lower()
     permissions = list(permissions or [])
-    if source not in SOURCES or not name or not (phone or email):
-        raise Refused("give a source, name and phone or email")
+    if source not in SOURCES:
+        raise Refused("choose where the inquiry came from")
+    if not name:
+        raise Refused("give a name")
+    if not (phone or email):
+        raise Refused("give a phone number or an email, so the inquiry can be answered")
     if any(channel not in CHANNELS for channel in permissions):
         raise Refused("choose a contact channel")
     try:
@@ -149,6 +153,13 @@ ESCALATE_MINUTES = 15
 LATER_HOURS = (24, 48)
 
 
+def closed_reason(lead: Lead) -> str:
+    """Why an inquiry that staff closed (not a fit, or a duplicate) takes no more contact, schedule or close steps; empty when it is open.
+    A converted inquiry has its own refusal."""
+    return {"unqualified": "This inquiry was closed as not a fit, so it is not reopened here. If the person writes again, that makes a new inquiry.",
+            "duplicate": "This inquiry was closed as a duplicate of another one, so it is not reopened here. Work on the original inquiry."}.get(lead.status, "")
+
+
 def due(lead: Lead, now: datetime) -> list[tuple[str, datetime]]:
     if lead.status in ("converted", "unqualified", "duplicate"):
         return []
@@ -196,6 +207,9 @@ def command(led: Ledger, act: Act, now: datetime, rent=None) -> Decision:
         else:
             if lead is None:
                 raise Refused("There is no such inquiry.")
+            if act.action in ("contact", "schedule", "unqualify") and closed_reason(lead):
+                why = "LEAD_CLOSED"             # a closed inquiry is not reopened here; a new message from the same person makes a new linked inquiry
+                raise Refused(closed_reason(lead))
             if act.action not in ("send", "stop", "convert") and (lead.status == "converted" or (rent is not None and conversion_evidence(books, rent, lead))):
                 why = "LEAD_ALREADY_CONVERTED"
                 raise Refused("This inquiry is marked converted or has a matching rental; no follow-up was recorded.")
