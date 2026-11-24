@@ -179,13 +179,14 @@ def test_an_emergency_check_that_expires_holds_the_next_increase_until_staff_che
     assert d.checked("UT", valid_until="2026-12-31").allowed
     d.terms()
     d.notice()
+    assert d.notice(change="PC2").allowed
     on = at_local(date(2026, 12, 23), 10)
     assert d.change("check_price_change", "activation", on).allowed
     late = at_local(date(2027, 1, 5), 10)
     held = d.change("check_price_change", "activation", late, about="PC2")
     assert (held.allowed, held.why) == (False, "EMERGENCY_STATUS_UNKNOWN") and "expired on Dec 31" in held.check
     assert d.go("record_emergency_check", at=late, place="UT", checked_on="2027-01-05", valid_until="2027-04-05", source="state emergency page", active=[]).allowed
-    assert d.change("check_price_change", "activation", late, about="PC3", new_cents=10600).why != "EMERGENCY_STATUS_UNKNOWN"
+    assert d.change("check_price_change", "activation", late, about="PC2").allowed
 
 
 def test_nothing_is_decided_for_a_place_no_rule_covers_and_the_decision_is_still_recorded():
