@@ -46,7 +46,7 @@ class Desk:
         return self.go("record_terms", **{**form, **over})
 
     def notice(self, change="PC1", **over):
-        form = {"change": change, "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": "1 Main St, Anytown",
+        form = {"new_cents": 10500, "effective_on": "2026-12-23", "change": change, "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": "1 Main St, Anytown",
                 "attempted_on": "2026-11-23", "dispatch_accepted": True, "certificate_of_mailing": True, "postage_prepaid": True}
         return self.go("record_notice", **{**form, **over})
 
@@ -60,7 +60,7 @@ class Desk:
         out = {"proposal": self.change("check_price_change", "proposal", NOW, effective_on=eff, **over)}
         out["approval"] = self.change("approve_price_change", "approval", NOW, effective_on=eff, **over)
         out["notice_authorization"] = self.change("check_price_change", "notice_authorization", NOW, effective_on=eff, **over)
-        out["notice"] = self.notice()
+        out["notice"] = self.notice(effective_on=eff, new_cents=over.get("new_cents", 10500))
         out["notice_completion"] = self.change("check_price_change", "notice_completion", NOW, effective_on=eff, **over)
         on = at_local(effective, 10)
         out["activation"] = self.change("check_price_change", "activation", on, effective_on=eff, **over)
@@ -212,3 +212,12 @@ def test_approval_is_bound_to_amount_and_effective_date():
     for terms in ({'new_cents': 12000}, {'effective_on': '2026-12-24'}):
         result = d.change('check_price_change', 'notice_authorization', NOW, **terms)
         assert not result.allowed and result.why == 'LEGAL_RULE_VERSION_STALE'
+
+
+def test_notice_requires_the_served_amount_date_and_lease():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    assert d.notice(new_cents=10500, effective_on='2026-12-23').allowed
+    assert d.change('check_price_change', 'notice_completion', NOW).allowed
+    for terms in ({'new_cents': 12000}, {'effective_on': '2026-12-24'}):
+        assert not d.change('check_price_change', 'notice_completion', NOW, **terms).allowed

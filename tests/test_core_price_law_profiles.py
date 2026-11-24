@@ -33,7 +33,7 @@ def change(**over):
 
 
 def notice(led, **over):
-    args = {"change": "PC1", "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": ADDRESS,
+    args = {"new_cents": 10500, "effective_on": date(2026, 12, 23), "change": "PC1", "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": ADDRESS,
             "attempted_on": TODAY, "dispatch_accepted": True, "certificate_of_mailing": True, "postage_prepaid": True, "by": "staff:front_desk"}
     return pl.record_notice(led, NOW, **{**args, **over})
 

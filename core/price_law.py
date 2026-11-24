@@ -243,6 +243,8 @@ class Notice:
     change: str
     lease: str
     document_sha256: str
+    new_cents: int | None
+    effective_on: date | None
     recipient: str
     channel: str
     sent_to: str
@@ -352,7 +354,7 @@ class State:
             return "PLB", p["id"]
         elif kind == "price_law.notice_served":
             self.notices.setdefault(p["change"], []).append(Notice(
-                p["id"], p["change"], p["lease"], p["document_sha256"], p["recipient"], p["channel"], p["sent_to"], day("attempted_on"),
+                p["id"], p["change"], p["lease"], p["document_sha256"], p.get("new_cents"), day("effective_on"), p["recipient"], p["channel"], p["sent_to"], day("attempted_on"),
                 p["dispatch_accepted"], p["certificate_of_mailing"], p["postage_prepaid"], p["confirmation"], day("delivered_on"),
                 day("acknowledged_on"), p["by"], at))
             return "PLN", p["id"]
@@ -494,15 +496,18 @@ def record_baseline(led: Ledger, at: datetime, *, restriction: str, subject: str
 # notices ----------------------------------------------------------------------------------------------------------------------
 def record_notice(led: Ledger, at: datetime, *, change: str, lease: str, document_sha256: str, recipient: str, channel: str, sent_to: str,
                   attempted_on, dispatch_accepted: bool, by: str, certificate_of_mailing: bool = False, postage_prepaid: bool = False,
-                  confirmation: str | None = None, delivered_on=None, acknowledged_on=None) -> str:
+                  confirmation: str | None = None, delivered_on=None, acknowledged_on=None, new_cents=None, effective_on=None) -> str:
     if channel not in CHANNELS or not _clean(recipient) or not _clean(change):
         raise Refused("a notice names its change, its recipient and a way of giving it the system knows")
+    if not isinstance(new_cents, int) or isinstance(new_cents, bool) or new_cents <= 0:
+        raise Refused("enter the amount stated in the notice")
+    effective = _date(effective_on, "effective date stated in the notice")
     tried = _date(attempted_on, "date it was sent")
     sha = _sha(document_sha256, "notice")
     out = [(_date(d, "date").isoformat() if d else None) for d in (delivered_on, acknowledged_on)]
     ident = led.books.next_id("PLN")
     led.emit("price_law.notice_served", at, {
-        "id": ident, "change": change, "lease": lease, "document_sha256": sha, "recipient": _clean(recipient), "channel": channel, "sent_to": _clean(sent_to),
+        "id": ident, "change": change, "lease": lease, "document_sha256": sha, "new_cents": new_cents, "effective_on": effective.isoformat(), "recipient": _clean(recipient), "channel": channel, "sent_to": _clean(sent_to),
         "attempted_on": tried.isoformat(), "dispatch_accepted": bool(dispatch_accepted), "certificate_of_mailing": bool(certificate_of_mailing),
         "postage_prepaid": bool(postage_prepaid), "confirmation": confirmation, "delivered_on": out[0], "acknowledged_on": out[1], "by": by}, f"price_law:{ident}")
     return ident
@@ -899,7 +904,7 @@ def _notice(run: _Run, terms: Terms) -> None:
                     run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; if notice is given today the earliest is {day_words(earliest)}.")
                 break
         return
-    notices = st.notices.get(c.id, ())
+    notices = [n for n in st.notices.get(c.id, ()) if n.new_cents == c.new_cents and n.effective_on == c.effective_on]
     if not notices:
         if c.kind == "fee_change":
             run.refuse("FEE_CHANGE_NOTICE_MISSING", "A new or higher fee needs its own notice, and none is on file for it.", rule)
@@ -1112,7 +1117,8 @@ def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | Non
                                  attempted_on=_when(f.get("attempted_on"), "date it was sent"), dispatch_accepted=f.get("dispatch_accepted", False), by=who,
                                  certificate_of_mailing=f.get("certificate_of_mailing", False), postage_prepaid=f.get("postage_prepaid", False),
                                  confirmation=f.get("confirmation"), delivered_on=_maybe(f.get("delivered_on"), "delivery date"),
-                                 acknowledged_on=_maybe(f.get("acknowledged_on"), "acknowledgment date"))
+                                 acknowledged_on=_maybe(f.get("acknowledged_on"), "acknowledgment date"), new_cents=f.get("new_cents"),
+                                 effective_on=_when(f.get("effective_on"), "effective date stated in the notice"))
             check = "Notice recorded as attempted. Whether it counts as service is decided when the change is checked."
         elif act.action == "update_notice":
             update_notice(led, now, change=f.get("change", ""), notice=f.get("notice", ""), confirmation=f.get("confirmation"),

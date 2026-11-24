@@ -124,13 +124,13 @@ def test_an_emergency_restriction_and_its_verification_are_separate_records_and_
 
 def test_notice_service_keeps_each_stage_apart():
     led = Ledger()
-    ident = price_law.record_notice(led, NOW, change="PC1", lease="L0001", document_sha256="d" * 64, recipient="Pat Tenant", channel="email",
+    ident = price_law.record_notice(led, NOW, new_cents=10500, effective_on=D(2026, 12, 23), change="PC1", lease="L0001", document_sha256="d" * 64, recipient="Pat Tenant", channel="email",
                                     sent_to="t@example.com", attempted_on=D(2026, 11, 20), dispatch_accepted=True, by="staff:front_desk")
     notice = replayed(led).price_law.notices["PC1"][0]
     assert (notice.id, notice.channel, notice.dispatch_accepted) == (ident, "email", True)
     assert (notice.delivered_on, notice.acknowledged_on, notice.confirmation) == (None, None, None)
     with pytest.raises(Refused):
-        price_law.record_notice(led, NOW, change="PC1", lease="L0001", document_sha256="x", recipient="Pat", channel="email", sent_to="t@example.com",
+        price_law.record_notice(led, NOW, new_cents=10500, effective_on=D(2026, 12, 23), change="PC1", lease="L0001", document_sha256="x", recipient="Pat", channel="email", sent_to="t@example.com",
                                 attempted_on=D(2026, 11, 20), dispatch_accepted=True, by="staff:front_desk")
 
 

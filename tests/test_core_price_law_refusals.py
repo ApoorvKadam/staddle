@@ -33,7 +33,7 @@ def terms(led, **over):
 
 
 def notice(led, change="PC1", **over):
-    args = {"change": change, "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": ADDRESS,
+    args = {"new_cents": 10500, "effective_on": date(2026, 12, 23), "change": change, "lease": "L0001", "document_sha256": SHA, "recipient": "Pat Tenant", "channel": "first_class_mail", "sent_to": ADDRESS,
             "attempted_on": TODAY, "dispatch_accepted": True, "certificate_of_mailing": True, "postage_prepaid": True, "by": "staff:front_desk"}
     return pl.record_notice(led, NOW, **{**args, **over})
 
@@ -172,6 +172,7 @@ def test_new_york_city_needs_60_days_and_the_way_the_tenant_designated():
     led = book(NYC)
     terms(led, designated_method="email", last_known_address="5 Broad St, New York, NY 10004")
     commit(led, kind="first_year", max_cents=12000)
+    notice(led, channel="email", sent_to=EMAIL, certificate_of_mailing=False, postage_prepaid=False, attempted_on=TODAY, effective_on=date(2027, 1, 22))
     notice(led, channel="email", sent_to=EMAIL, certificate_of_mailing=False, postage_prepaid=False, attempted_on=TODAY)
     short = verdict(led, change(effective_on=date(2026, 12, 23)), NYC)
     assert short[:2] == ("refuse", ["NOTICE_PERIOD_TOO_SHORT"]) and "60 days" in short[2].words
@@ -179,13 +180,13 @@ def test_new_york_city_needs_60_days_and_the_way_the_tenant_designated():
     led = book(NYC)
     terms(led, designated_method="email", last_known_address="5 Broad St, New York, NY 10004")
     commit(led, kind="first_year", max_cents=12000)
-    notice(led, sent_to="5 Broad St, New York, NY 10004")
+    notice(led, sent_to="5 Broad St, New York, NY 10004", effective_on=date(2027, 1, 22))
     out, codes, res = verdict(led, change(effective_on=date(2027, 1, 22)), NYC, "activation", at_local(date(2027, 1, 22), 10))
     assert (out, codes) == ("refuse", ["NOTICE_METHOD_NOT_PERMITTED"]) and "asked" in res.reasons[0].words
     led = book(NYC)
     terms(led, designated_method=None)
     commit(led, kind="first_year", max_cents=12000)
-    notice(led)
+    notice(led, effective_on=date(2027, 1, 22))
     assert verdict(led, change(effective_on=date(2027, 1, 22)), NYC, "activation", at_local(date(2027, 1, 22), 10))[:2] == ("hold", ["LEASE_TERMS_MISSING"])
 
 
@@ -225,7 +226,7 @@ def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_eac
     led = book(NYC)
     terms(led, designated_method="first_class_mail", last_known_address="5 Broad St, New York, NY 10004")
     commit(led, kind="first_year", max_cents=12000)
-    notice(led, sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5))
+    notice(led, sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5))
     c = change(effective_on=date(2027, 4, 5))
     at = at_local(date(2027, 4, 5), 10)
     pl.record_emergency_check(led, NOW, place="NYC", checked_on=date(2027, 4, 1), valid_until=date(2027, 4, 30), by="staff:manager", source="city page", active=[])
@@ -236,6 +237,7 @@ def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_eac
     assert late[:2] == ("refuse", ["ANNUAL_MAX_NOTICE_MISSING"]) and "Jan 20" in late[2].words
     commit(led, kind="anniversary", max_cents=12500, covers_from=date(2027, 3, 2), covers_to=date(2028, 3, 1), disclosed_on=date(2026, 12, 20))
     assert verdict(led, c, NYC, "activation", at)[:2] == ("allow", [])
+    notice(led, sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5), new_cents=12600)
     assert verdict(led, change(effective_on=date(2027, 4, 5), new_cents=12600), NYC, "activation", at)[1] == ["DISCLOSED_MAX_EXCEEDED"]
 
 
