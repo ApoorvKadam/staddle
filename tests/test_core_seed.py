@@ -42,8 +42,8 @@ def test_the_fixed_year_stays_byte_identical(year):
 # are the ones this test held before cards were put on file.
 # Maya's move-in on the first-month deal adds 20 events (her tenant, reservation, agreement, lease, charges, payment, gate code and
 # the deal's own records); with hers left out the count and fingerprint are the earlier 3294 and 45df80c0..., so nothing else moved.
-LIVE_COPY = {date(2026, 11, 14): (3314, "e6a6f7be8dc23d3db3b0f89261f1b89439830ea277c154a05e1e183ee3f19a64"),
-             date(2026, 12, 3): (3472, "6ee9cbe9c27d753dc93a191fe97fd6494fea12b35599b270d24d926bf311ea0d")}
+LIVE_COPY = {date(2026, 11, 14): (3314, "071df3a4bcb6d8929b4e9e0b737aaf4a3013fe28aa170d86f5dbad684595291d"),
+             date(2026, 12, 3): (3472, "cd9d9fac7ad947ae2b3f3ad3e70c38de845c73cbdc9bc9675a53c2f88a354ce8")}
 
 
 def test_the_live_copy_prices_every_unit_and_nothing_else_moves(year):

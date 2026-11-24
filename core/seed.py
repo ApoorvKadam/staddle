@@ -230,18 +230,18 @@ class Year:
             break
 
     def promoted_move_in(self, rent: renting.Rent) -> None:
-        """One first-month deal is live on 10x10 units ("$1 for the rest of this month", new customers, once each), and one new tenant, Maya,
-        moved into a vacant 10x10 unit on it yesterday: reserve, check out, pay, accept, each through renting's own command and the gate. On
+        """One first-month deal is live on 5x10 and 10x10 units ("$1 for the rest of this month", new customers, once each), and one new
+        tenant, Maya, moved into a vacant 5x10 unit on it yesterday, so the year's one vacant 10x10 and another 5x10 stay free for a visitor: reserve, check out, pay, accept, each through renting's own command and the gate. On
         the 1st, the month's rent run had already passed before her lease existed, so her lease's rent for the new month is billed the way the run
         would have. Her gate code is held on the simulated gate like every other tenant's. Nothing is drawn, so no other part of the year moves."""
         led, b = self.led, self.led.books
         effective = self.today - timedelta(days=30)
         promotions.publish_version(led, "first-month", {
-            "name": "$1 first month", "unit_types": ["10x10"], "customers": "new", "price_cents": 100, "covers": "rest_of_first_month",
+            "name": "$1 first month", "unit_types": ["5x10", "10x10"], "customers": "new", "price_cents": 100, "covers": "rest_of_first_month",
             "proration": "by_days", "expires": (self.today + timedelta(days=60)).isoformat(), "stacks_with": [], "transfer": "end",
             "max_redemptions": 10, "max_concession_cents": 150000}, effective, "staff:office_manager", at_local(effective, 9, 30))
         taken = {u for v in self.walked.values() for u in (v if isinstance(v, list) else [v])}        # the units yesterday's walk is about
-        unit = next((u for u in sorted(b.units) if u.startswith("B") and u not in taken and rent._target_free(u, self.now) is None), None)
+        unit = next((u for u in sorted(b.units) if u.startswith("A") and u not in taken and rent._target_free(u, self.now) is None), None)
         if unit is None:
             return
         when = at_local(self.today - timedelta(days=1), 15)
