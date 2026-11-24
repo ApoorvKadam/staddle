@@ -418,6 +418,8 @@ def record_terms(led: Ledger, at: datetime, *, lease: str, signed_on, agreement_
     """Take the terms from the signed agreement as a new version. The earlier versions stay, and a decision names the version it read."""
     if not isinstance(notice_methods, (list, tuple)):
         raise Refused("notice methods must be a list")
+    if not isinstance(email_notice_authorized, bool) or not isinstance(rent_change_allowed, bool):
+        raise Refused("agreement permissions must be booleans")
     methods = tuple(notice_methods)
     if not _clean(lease) or any(m not in CHANNELS for m in methods):
         raise Refused("name the lease and use only the ways of giving notice the system knows")
@@ -434,10 +436,10 @@ def record_terms(led: Ledger, at: datetime, *, lease: str, signed_on, agreement_
     version = len(state(led.books).terms.get(lease, ())) + 1
     led.emit("price_law.terms_snapshotted", at, {
         "lease": lease, "version": version, "signed_on": signed.isoformat(), "agreement_sha256": sha, "notice_methods": list(methods),
-        "notice_days": notice_days, "email_notice_authorized": bool(email_notice_authorized), "last_known_address": _clean(last_known_address),
+        "notice_days": notice_days, "email_notice_authorized": email_notice_authorized, "last_known_address": _clean(last_known_address),
         "last_known_email": _clean(last_known_email).lower(), "designated_method": designated_method,
         "price_promise_until": promise.isoformat() if promise else None, "price_promise_max_cents": price_promise_max_cents,
-        "rent_change_allowed": bool(rent_change_allowed)}, f"price_law:terms:{lease}:{version}")
+        "rent_change_allowed": rent_change_allowed}, f"price_law:terms:{lease}:{version}")
     return version
 
 

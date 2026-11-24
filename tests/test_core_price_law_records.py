@@ -144,3 +144,13 @@ def test_a_recorded_decision_names_its_reasons_records_and_rule_version_and_repl
     assert rec.reasons[0].code == "NOTICE_PERIOD_TOO_SHORT" and rec.reasons[0].cite == "CA-notice"
     with pytest.raises(Refused):
         price_law.record_decision(led, NOW, change="PC1", point="whenever", outcome="allow", reasons=[], records=[], versions={}, lease=None, invoice=None)
+
+
+@pytest.mark.parametrize("field", ["email_notice_authorized", "rent_change_allowed"])
+@pytest.mark.parametrize("value", ["false", 0, None])
+def test_terms_reject_non_boolean_permissions_without_writing(field, value):
+    led = Ledger()
+    with pytest.raises(Refused):
+        price_law.record_terms(led, NOW, lease="L0001", signed_on=D(2026, 3, 2),
+                               agreement_sha256="a" * 64, notice_methods=[], **{field: value})
+    assert not led.pending
