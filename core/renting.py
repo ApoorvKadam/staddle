@@ -1432,6 +1432,9 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
             raise Refused("a payment for this rental is already out, started without the processor")
         else:
             iid = rent.ops[op].intent
+            asked = delinquency.state(books).intents[iid].cents
+            if expected_cents is not None and expected_cents != asked:
+                raise TotalChanged(expected_cents, asked)       # the open request holds another amount: it is neither sent nor replaced
     delinquency.send(store, stream, processor, iid, card, now)
     settle_payments(store, stream, now)
     return delinquency.state(store.books(stream)).intents[iid]
