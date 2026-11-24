@@ -43,6 +43,16 @@ def _clause(note: str, words: str) -> str:
     return next((s for s in _SENTENCE.split(note) if found_in(words, s)), note)
 
 
+# a part of a sentence: "Water on the floor, the ceiling could be leaking" holds a seen fact and a guess, judged apart
+_PART = re.compile(r",|\bbut\b|\bwhile\b")
+
+
+def _part(note: str, words: str) -> str:
+    """The comma part of the sentence that holds the quoted words; the sentence when the quote spans parts."""
+    sentence = _clause(note, words)
+    return next((p for p in _PART.split(sentence) if found_in(words, p)), sentence)
+
+
 GUESS_WORDS = re.compile(r"\b(?:think|thinks|thought|guess|guesses|probably|maybe|might|perhaps|seems?|looks like|assume[sd]?|believe[sd]?|suppose[sd]?|not sure|could be)\b", re.I)
 MONEY_WORDS = re.compile(r"\$|\bdollars?\b|\brefunds?(?:ed)?\b|\bcharge[ds]?\b|\bfees?\b|\bowes?\b|\bowed\b", re.I)
 
@@ -128,7 +138,7 @@ def check_note(raw: dict, note: str, route: tuple[str, ...], chosen: str | None 
         # cleaning and repair must be what was seen; a guess may only be a check. Money never becomes work: a fee in a note is a request
         if kind not in WORK or not words or not found_in(words, note) or MONEY_WORDS.search(words):
             continue
-        if kind != "check" and GUESS_WORDS.search(_clause(note, words)):
+        if kind != "check" and GUESS_WORDS.search(_part(note, words)):
             continue
         if kind == "cleaning" and held is not None and _clause(note, words) == held:      # said in the same sentence as the belongings
             r.dropped.append("work")
@@ -152,13 +162,15 @@ def check_note(raw: dict, note: str, route: tuple[str, ...], chosen: str | None 
         r.refusal = "The note does not say which unit it is about, so nothing was recorded."
     elif unit_key(r.unit) not in {unit_key(u) for u in route}:
         r.refusal = f"Unit {r.unit} is not on this walk's route, so nothing was recorded."
-    elif "unsure" in r.flags:
+    elif "unsure" in r.flags and not any(w["kind"] == "check" for w in r.work):
         r.refusal = "Tilden could not be sure what the note says, so nothing was recorded. Type the plain facts, or record the unit by hand."
     elif all(v == "unknown" for v in r.fields.values()) and not r.work:
         r.refusal = ("The note does not say whether there was a lock, whose it was, whether the overlock tag was there or the state of the door, "
                      "so nothing was recorded.")
     if r.refusal:                   # a note that cannot be kept proposes no work either
         r.work = []
+    elif "unsure" in r.flags:       # an unsure note becomes a look for staff, never confirmed work and never a lost note
+        r.work = [w for w in r.work if w["kind"] == "check"]
     return r
 
 
