@@ -247,6 +247,7 @@ class Books:
         self.leads = None                                 # inquiries and their histories (core/leads.py)
         self.shop = None                                  # shop stock and counts
         self.protection = None                            # plan versions, offers, acceptances, enrolments and policy evidence (core/protection.py)
+        self.street_rate_stops = {}                       # proposals staff must review
         self.price_law = None                             # the facility's legal profile, lease terms, disclosed maximums, emergencies, notices and decisions (core/price_law.py)
         self.seq = 0
         self.last_at: datetime | None = None
@@ -393,6 +394,8 @@ class Books:
                 from .protection import State        # protection reads these books, so it cannot be imported at the top
                 self.protection = State()
             self.protection.apply(kind, at, p)
+        elif kind == "street_rate.stopped":
+            self.street_rate_stops[p["id"]] = {**p, "at": at}
         elif kind.split(".", 1)[0] == "price_law":
             if self.price_law is None:
                 from .price_law import State        # price_law reads these books, so it cannot be imported at the top

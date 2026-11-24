@@ -412,11 +412,19 @@ def _shop(b: Books) -> list[Cond]:
     return out
 
 
+
+def _street_rates(b: Books) -> list[Cond]:
+    return [Cond(f"street-rate:{stop['id']}", "street_rate", stop["id"], "rate proposal stopped",
+                 f"Review the {stop['size']} rate proposal", stop["reason"],
+                 "Staff review the reason and record what they checked.", OFFICE,
+                 local(stop["at"]).date(), "act", attest=True)
+            for stop in b.street_rate_stops.values()]
+
 def conditions(b: Books, rent: renting.Rent, now: datetime) -> dict[str, Cond]:
     """Everything staff have to do right now, by key, read off the books and the renting records."""
     today = local(now).date()
     return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)
-            + _protection(b, today) + _lien_evidence(b) + _legal_stops(b) + _leads(b, rent, now) + _shop(b)}
+            + _street_rates(b) + _protection(b, today) + _lien_evidence(b) + _legal_stops(b) + _leads(b, rent, now) + _shop(b)}
 
 
 # the folded record -----------------------------------------------------------------------------------------------------------
