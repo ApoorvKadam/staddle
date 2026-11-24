@@ -308,3 +308,19 @@ def test_a_fee_in_the_signed_schedule_is_not_removed_as_a_correction_and_no_disp
     run(store, "visitor:s3", action="open_dispute", tenant=m, charge=fee.id, quote="that is not fair")
     d = run(store, "visitor:s3", action="remove_disputed_fee", id="s3:remove", **staff)
     assert not d.allowed and "signed schedule" in d.check
+
+
+def test_a_fully_conceded_month_allows_correction_but_missing_rent_does_not():
+    from datetime import date
+    from core.books import at_local
+    from .test_core_books import facility
+
+    led, tenant, lease = facility()
+    (charge,) = led.post_rent("2026-10")
+    led.emit("promotion.concession_posted", at_local(date(2026, 10, 1)), {"redemption": "PR1", "promotion": "deal", "charge": charge,
+             "lease": lease, "tenant": tenant, "period": "2026-10", "cents": 10000, "gross_cents": 10000}, "concession", source="code")
+    fee = led.charge_by_hand(at_local(date(2026, 10, 6)), lease, LATE_FEE, 2000, f"late_fee:{lease}:2026-10")
+    decision = evaluate(led.books, Command("correct", "correct_fee_posted_in_error", tenant, "operator", fee), NOW)
+    assert decision.allowed
+    missing = led.charge_by_hand(at_local(date(2026, 11, 6)), lease, LATE_FEE, 2000, f"late_fee:{lease}:2026-11")
+    assert not evaluate(led.books, Command("missing", "correct_fee_posted_in_error", tenant, "operator", missing), NOW).allowed
