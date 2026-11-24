@@ -498,3 +498,18 @@ def test_nyc_first_year_maximum_requires_first_page_evidence():
     commit(led, covers_from=date(2026, 11, 2), covers_to=date(2027, 11, 1), disclosed_on=date(2026, 11, 2), first_page=True)
     assert verdict(led, change(effective_on=date(2027, 1, 22)), NYC, at=at)[:2] == ("allow", [])
     assert "DISCLOSURE_MISSING_OR_INVALID" in verdict(led, street(first_page=False), NYC, "quote_acceptance", NOW)[1]
+
+
+def test_nyc_disclosure_rule_starts_in_november_and_existing_agreements_follow_later_anniversaries():
+    rule = next(r for r in pl.RULE_SETS if r.id == "NYC-disclosure")
+    assert rule.effective_from == date(2026, 11, 1)
+    assert rule not in pl.rules_in_force("NYC", date(2026, 10, 31))
+    assert rule in pl.rules_in_force("NYC", date(2026, 11, 1))
+    led = book(NYC)
+    terms(led, signed_on=date(2025, 3, 2), designated_method="first_class_mail")
+    before_anniversary = verdict(led, change(effective_on=date(2026, 12, 23)), NYC, "proposal", NOW)
+    assert "ANNUAL_MAX_NOTICE_MISSING" not in before_anniversary[1]
+    at = at_local(date(2027, 3, 2), 10)
+    pl.record_emergency_check(led, at, place="NYC", checked_on=date(2027, 3, 2), valid_until=date(2027, 5, 1), by="staff:manager", source="city page", active=[])
+    after_anniversary = verdict(led, change(effective_on=date(2027, 4, 5)), NYC, "proposal", at)
+    assert "ANNUAL_MAX_NOTICE_MISSING" in after_anniversary[1]

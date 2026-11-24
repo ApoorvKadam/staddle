@@ -96,7 +96,7 @@ RULE_SETS: tuple[RuleSet, ...] = (
             "New York City Administrative Code 20-566.4", LONG_IN_FORCE, None, "demonstration", _PENDING, None, "advisor research, 2026-11-23",
             notice_days=60, methods=("hand", "first_class_mail", "email"), designated_method=True),
     RuleSet("NYC-disclosure", 1, "NYC", "disclosure", "New York City disclosed maximum occupancy fee",
-            "New York City Administrative Code 20-566.4 and the city's rules under it", LONG_IN_FORCE, None, "demonstration", _PENDING, None,
+            "New York City Administrative Code 20-566.4 and the city's rules under it", date(2026, 11, 1), None, "demonstration", _PENDING, None,
             "advisor research, 2026-11-23", first_year_max=True, first_page=True, annual_max_notice_days=60, recurring_fee=True),
     RuleSet("FL-notice", 1, "FL", "notice", "Florida ordinary rent increase: the signed agreement's own terms",
             "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "pending", _DESIGN_REVIEW, None,
@@ -899,6 +899,8 @@ def _disclosed(run: _Run, terms: Terms) -> None:
             if anniversary > c.effective_on:
                 years -= 1
                 anniversary = _add_months(terms.signed_on, years * 12)
+            if anniversary < rs.effective_from:
+                continue
             period_end = _add_months(terms.signed_on, (years + 1) * 12) - timedelta(days=1)
             yearly = [m for m in covering if m.kind == "anniversary" and m.covers_from <= anniversary and m.covers_to >= period_end]
             timely = [m for m in yearly if m.disclosed_on <= anniversary - timedelta(days=rs.annual_max_notice_days)]
