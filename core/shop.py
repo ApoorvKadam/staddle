@@ -94,7 +94,7 @@ class State:
         elif kind == 'shop.payment_retried':
             old = self.payments[p['quote']]
             self.attempts.setdefault(p['quote'], []).append(old)       # the attempt that did not come in stays on record
-            self.payments[p['quote']] = dict(quote=p['quote'], key=p['key'], cents=old['cents'], status='open', at=p['at'], attempt=len(self.attempts[p['quote']]) + 1, card=p.get('card'))
+            self.payments[p['quote']] = dict(quote=p['quote'], key=p['key'], cents=old['cents'], status='open', at=p['at'], attempt=len(self.attempts[p['quote']]) + 1, card=p.get('card'), intent=p.get('intent'))
         elif kind == 'shop.attempt_answered':           # the processor's later word on an attempt a newer one replaced
             for a in self.attempts.get(p['quote'], []):
                 if a['key'] == p['key']:

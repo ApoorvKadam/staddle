@@ -1347,7 +1347,8 @@ def add_shop_items(store: Store, stream: str, rental: str, items: list, source: 
     with store.write():
         books, rent = load(store, stream)
         r = rent.rentals.get(rental)
-        if not r or r.state not in WAITING or rent.holder(r.unit, now) != ('rental', rental) or r.pay_ops:
+        if (not r or r.state not in WAITING or rent.holder(r.unit, now) != ('rental', rental) or rent.uncertain(r)
+                or r.payments or delinquency.unsettled(books, r.tenant)):         # a payment that was answered (a declined card) does not stop a change; one that can still come in does
             raise Refused('the rental is not available for adding merchandise')
         if not isinstance(items, list) or not items:
             raise Refused('choose merchandise to add')
@@ -1428,18 +1429,22 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
             from . import shop
             shop_state = shop.state(books)
             cents, quotes, total = checkout_due(books, rent, r, now)
-            if quotes and any(q in shop_state.payments for q in quotes):
-                raise Refused('staff must review the earlier merchandise payment')
+            if any(q in shop_state.payments and not shop_state.can_close(q) for q in quotes):
+                raise Refused('staff must review the earlier merchandise payment')       # an earlier attempt that can still settle is never replaced
             if not total:               # the rental and its add-ons both need nothing: credit covering the rental alone does not stop an add-on's payment
                 raise Refused("the rental is already paid for")
             if expected_cents is not None and expected_cents != total:
                 raise TotalChanged(expected_cents, total)
             led = RentLedger(books, rent)
             iid = delinquency.open_intent(led, stream, processor, r.tenant, total, now, shop_quotes=quotes)
+            key = delinquency.state(books).intents[iid].key
             for quote in quotes:
                 q = shop_state.quotes[quote]
-                led.emit('shop.payment_requested', now, {'quote': quote, 'key': delinquency.state(books).intents[iid].key,
-                         'cents': q['price'] * q['quantity'], 'status': 'open', 'intent': iid},
+                if quote in shop_state.payments:        # an attempt that was declined or never reached the processor: the new one replaces it, the old stays on record under its own key
+                    led.emit('shop.payment_retried', now, {'quote': quote, 'key': key, 'previous': shop_state.payments[quote]['status'], 'intent': iid},
+                             f'shop:checkout-retry:{iid}:{quote}', source='processor')
+                    continue
+                led.emit('shop.payment_requested', now, {'quote': quote, 'key': key, 'cents': q['price'] * q['quantity'], 'status': 'open', 'intent': iid},
                          f'shop:checkout-payment:{iid}:{quote}', source='processor')
             if cents:                   # add-ons paid alone leave the rental's own payment operations untouched
                 op = f"{r.id}:pay:{len(r.pay_ops) + 1}"
