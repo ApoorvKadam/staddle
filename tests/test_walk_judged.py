@@ -81,7 +81,7 @@ def test_a_set_with_check_labels_scores_check_and_not_work_words(tmp_path):
     assert rows[("B1", "strong_rule")]["kinds"] == ["check"] and rows[("B1", "strong_rule")]["right"]
     assert not rows[("B1", "fixed")]["right"]                       # a word list never says check
     assert rows[("B2", "tilden")]["right"] and rows[("B2", "strong_rule")]["right"]
-    assert rows[("B3", "tilden_unchecked")]["critical"] == ["not-work words turned into work"]
+    assert rows[("B3", "tilden_unchecked")]["critical"] == ["not-work words turned into work"] and rows[("B3", "tilden_unchecked")]["not_work_in_words"]
     assert rows[("B3", "strong_rule")]["right"] and not rows[("B3", "strong_rule")]["critical"]
     same = {r["arm"]: r for r in report["rows"] if r["part"] == "same_fault" and r["item"] == "A1"}
     assert same["tilden"]["right"] and same["fixed_unit"]["right"]

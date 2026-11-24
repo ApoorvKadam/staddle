@@ -407,16 +407,17 @@ def walk_judged(client, runs: int, model: str, effort: str, outside_path: str = 
                 crit = ["belongings turned into cleaning work"] if ("cleaning" in kinds and not note["cleaning"] and note["belongings_words"]) or any(
                     b in said for b in note["belongings_words"]) else []
                 crit += ["a fee in the work"] if any(f.lower() in str(w.get("words") or "").lower() for w in (items or []) for f in note["fee_words"]) else []
-                # the author's NOT WORK words must never become cleaning or repair: a reading is judged by its own words, a rule (which has
-                # no words) by proposing cleaning or repair the label does not have on a note that carries such words
+                # the author's NOT WORK words must never become cleaning or repair. One condition for every arm, since a rule has no words:
+                # cleaning or repair the label does not have, on a note that carries such words. Whether a reading's own words hold
+                # the author's phrase is kept beside it as a column
                 done = [str(w.get("words") or "").lower() for w in (items or []) if w.get("kind") in ("cleaning", "repair")]
-                crit += ["not-work words turned into work"] if note["not_work"] and (
-                    any(p in d for d in done for p in note["not_work"]) if items is not None else bool((kinds - {"check"}) - want)) else []
+                crit += ["not-work words turned into work"] if note["not_work"] and (kinds - {"check"}) - want else []
+                in_words = bool(note["not_work"]) and any(p in d for d in done for p in note["not_work"])
                 extra = {"work": r.work, "refusal": r.refusal, "contents": r.fields.get("contents"), "cents": r.call.cents if r.call else 0.0} if arm == "tilden" else {"cents": 0.0}
                 # a refused note proposes no work, so on a note that needs none a refusal scores as right: kept apart so it can be counted
                 rows.append({"item": note["id"], "part": "move_out_note", "arm": arm, "run": run, "right": kinds == want and not crit,
                              "right_by_refusal": arm == "tilden" and kinds == want and not want and bool(r.refusal),
-                             "kinds": sorted(kinds), "set": note["set"], "dropped": None, "critical": crit, **extra})
+                             "kinds": sorted(kinds), "set": note["set"], "dropped": None, "critical": crit, "not_work_in_words": in_words, **extra})
         for pair in pairs:
             want, unit = pair["label"], pair["unit"] or spare
             # the two orders as staff would have filed them on the author's own unit, keeping the author's time between the reports
