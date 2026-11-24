@@ -842,7 +842,6 @@ def _disclosed(run: _Run, terms: Terms) -> None:
     in_first = terms.signed_on <= c.effective_on <= first_end
     covering = [m for m in st.commitments.get(c.lease or "", ()) if m.covers_from <= c.effective_on <= m.covers_to]
     run.records.extend(f"commitment:{m.id}" for m in covering)
-    untimely = set()
     for rs in (r for r in run.sets if r.topic == "disclosure"):
         name = PLACE_NAMES.get(rs.place, rs.place)
         if rs.first_year_max and terms.signed_on >= rs.effective_from and in_first and not any(m.kind == "first_year" for m in covering):
@@ -857,7 +856,6 @@ def _disclosed(run: _Run, terms: Terms) -> None:
             period_end = _add_months(terms.signed_on, (years + 1) * 12) - timedelta(days=1)
             yearly = [m for m in covering if m.kind == "anniversary" and m.covers_from <= anniversary and m.covers_to >= period_end]
             timely = [m for m in yearly if m.disclosed_on <= anniversary - timedelta(days=rs.annual_max_notice_days)]
-            untimely = {m.id for m in yearly} - {m.id for m in timely}
             if not yearly:
                 run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
                                                         f"none covers {day_words(c.effective_on)}.", rs)
@@ -866,9 +864,9 @@ def _disclosed(run: _Run, terms: Terms) -> None:
                 run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
                                                         f"the notice for the year starting {day_words(anniversary)} was given {day_words(last.disclosed_on)}.", rs)
     for kind, words in (("first_year", "first-year"), ("anniversary", "yearly")):
-        binding = [m for m in covering if m.kind == kind and m.id not in untimely]
+        binding = [m for m in covering if m.kind == kind]
         if binding:
-            m = max(binding, key=lambda m: m.id)
+            m = min(binding, key=lambda m: m.max_cents)
             if c.new_cents > m.max_cents:
                 run.refuse("DISCLOSED_MAX_EXCEEDED", f"The {words} maximum disclosed for this lease is {money(m.max_cents)} through {day_words(m.covers_to)}; this change would charge {money(c.new_cents)}.")
 

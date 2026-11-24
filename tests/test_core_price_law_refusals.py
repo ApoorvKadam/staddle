@@ -231,6 +231,15 @@ def test_a_disclosed_maximum_binds_in_any_place_where_it_was_stated():
     assert verdict(led, change(effective_on=date(2027, 3, 2), new_cents=11000), UT, "activation", at_local(date(2027, 3, 2), 10))[1] != ["DISCLOSED_MAX_EXCEEDED"]
 
 
+def test_later_disclosure_does_not_erase_a_lower_maximum():
+    led = book(UT)
+    terms(led)
+    notice(led)
+    commit(led, max_cents=10400)
+    commit(led, max_cents=12000)
+    assert verdict(led, change(), UT)[1] == ["DISCLOSED_MAX_EXCEEDED"]
+
+
 def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_each_anniversary():
     led = book(NYC)
     terms(led, designated_method="first_class_mail", last_known_address="5 Broad St, New York, NY 10004")
