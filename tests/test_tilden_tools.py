@@ -52,7 +52,9 @@ def test_registry_reads_and_actions():
     assert tools.act('release_unit', store, STREAM, case, AT).allowed
     events = [e for e in store.events(STREAM) if e.source == 'agent:tilden' and e.kind != 'gate.decided']
     assert events and all(e.payload['case_id'] == case.id for e in events)
-    assert tools.act('hand_to_staff', store, STREAM, case, AT, reason='Conflicting reports').state == 'needs staff'
+    handed = tools.act('hand_to_staff', store, STREAM, case, AT, question='Conflicting reports', record_ids=['O1'], role='front_desk', wake_evidence='staff note')
+    assert handed.state == 'needs staff'
+    assert handed.steps[-1]['handoff'] == {'question': 'Conflicting reports', 'record_ids': ['O1'], 'role': 'front_desk', 'wake_evidence': 'staff note'}
 
 
 def test_renting_agent_cannot_bypass_grants():
@@ -111,3 +113,28 @@ def test_agent_cannot_join_orders_staff_kept_apart():
     b = tools.act('open_work_order', store, STREAM, case, AT, text='Broken latch').made
     assert walk.run(store, STREAM, walk.Act('apart-only', 'keep_work_orders_apart', FRONT, about=a, into=b), AT).allowed
     assert not tools.act('link_reports', store, STREAM, case, AT, order=b, into=a).allowed
+
+
+def test_no_work_closure_requires_grant_and_case_unit():
+    store, case = setup_case()
+    a = walk.run(store, STREAM, walk.Act('a', 'report_work_order', FRONT, unit=case.unit, text='Water mark'), AT).made
+    b = walk.run(store, STREAM, walk.Act('b', 'report_work_order', FRONT, unit='A101', text='Water mark'), AT).made
+    def close(key, order):
+        return walk.run(store, STREAM, walk.Act(key, 'close_report_no_work', 'agent:tilden', about=order, text='Staff record I1: dry', case_id=case.id), AT)
+    assert not close('no-grant', a).allowed
+    allow(store, 'close_report_no_work')
+    assert not close('wrong-unit', b).allowed
+    assert close('yes-close', a).allowed
+
+
+def test_no_work_refuses_inspection_and_staff_separated_orders():
+    from core.tilden import tools
+    store, case = setup_case()
+    for action in ('open_work_order', 'request_inspection', 'close_report_no_work'):
+        allow(store, action)
+    a = tools.act('open_work_order', store, STREAM, case, AT, text='Wall mark').made
+    b = tools.act('open_work_order', store, STREAM, case, AT, text='Door stuck').made
+    inspection = tools.act('request_inspection', store, STREAM, case, AT).made
+    assert walk.run(store, STREAM, walk.Act('apart-no-work', 'keep_work_orders_apart', FRONT, about=a, into=b), AT).allowed
+    assert not tools.act('close_report_no_work', store, STREAM, case, AT, order=a, text='Staff record O1: dry').allowed
+    assert not tools.act('close_report_no_work', store, STREAM, case, AT, order=inspection, text='Staff record O1: dry').allowed

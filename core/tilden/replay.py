@@ -1,5 +1,5 @@
 """Replay authored unit-readiness cases against a supplied worker."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import re
 from uuid import uuid4
@@ -39,6 +39,32 @@ class Step:
     entry: str
     rentable: bool
     needs_staff: bool
+    paused: bool = False
+    actions: list[dict] = field(default_factory=list)
+
+
+def _actions(events):
+    actions = []
+    for event in events:
+        if event.source != 'agent:tilden':
+            continue
+        p = event.payload
+        if event.kind == 'work_order.reported':
+            actions.append({'action': 'request_inspection' if p.get('kind') == 'check' else 'open_work_order',
+                            'order': p['order'], 'text': p['problem'], 'answers_record': p.get('answers_record')})
+        elif event.kind == 'work_order.closed' and p.get('no_work'):
+            actions.append({'action': 'close_report_no_work', 'order': p['order'], 'text': p['text']})
+        elif event.kind == 'work_order.joined':
+            actions.append({'action': 'link_reports', 'order': p['order'], 'into': p['into']})
+        elif event.kind == 'unit.blocked':
+            actions.append({'action': 'hold_unit', 'block': p['block'], 'reason': p['reason']})
+        elif event.kind == 'unit.unblocked':
+            actions.append({'action': 'release_unit', 'block': p['block']})
+        elif event.kind == 'tilden.case.updated' and p.get('state') == 'needs staff':
+            steps = p.get('steps', [])
+            if steps and 'handoff' in steps[-1]:
+                actions.append({'action': 'hand_to_staff', **steps[-1]['handoff']})
+    return actions
 
 
 @dataclass
@@ -54,6 +80,10 @@ class Result:
     missed_handoff: bool
     needless_handoff: bool
     must_not: list[str]
+    paused: bool = False
+    released_on_due_entry: bool | None = None
+    kept_off_when_never_offered: bool | None = None
+    post_handoff_recovery: bool | None = None
 
 
 def _date(value):
@@ -160,7 +190,7 @@ def replay(case, arm, readers=None):
     if not priced.allowed:
         raise ValueError(f'cannot price unit: {priced.check}')
     expires = max(e.at for e in case.entries) + timedelta(days=1)
-    for action in ('open_work_order', 'link_reports', 'hold_unit', 'release_unit', 'request_inspection'):
+    for action in ('open_work_order', 'link_reports', 'close_report_no_work', 'hold_unit', 'release_unit', 'request_inspection'):
         authority.grant(store, stream, action, {'objective': 'make-unit-ready'}, expires, 'owner', before)
     orders, note_events, inspections, trace = {}, {}, {}, []
 
@@ -255,11 +285,13 @@ def replay(case, arm, readers=None):
                     order = decision.made
             finish(order, entry)
             inspections[entry.id] = (order, max(e.id for e in store.stream_events(stream)))
+        before_arm = len(store.stream_events(stream))
         arm(store, stream, entry.at)
+        actions = _actions(store.stream_events(stream)[before_arm:])
         books, rent = renting.load(store, stream)
         rentable = not reconcile.readiness(books, rent, case.unit, entry.at)
         needs = any(c.unit == case.unit and c.state == 'needs staff' for c in cases.load(store, stream).values())
-        trace.append(Step(entry.id, rentable, needs))
+        trace.append(Step(entry.id, rentable, needs, any(c.unit == case.unit and c.state == 'paused' for c in cases.load(store, stream).values()), actions))
     return trace
 
 
@@ -273,11 +305,20 @@ def score(case, trace):
     premature = case.staff_decide is not None and handed is not None and order[handed] < order[case.staff_decide]
     missed = case.staff_decide is not None and (handed is None or order[handed] > order[case.staff_decide])
     return Result(case.id, released, handed, released == case.rentable_after, early, late, hand_right, premature,
-                  missed, case.staff_decide is None and handed is not None, list(case.must_not))
+                  missed, case.staff_decide is None and handed is not None, list(case.must_not), any(s.paused for s in trace),
+                  released == case.rentable_after if case.rentable_after else None,
+                  released is None if case.rentable_after is None else None,
+                  # recovery needs a handoff seen by the deciding entry, then the release on the due entry
+                  (released == case.rentable_after and handed is not None and order[handed] <= order[case.staff_decide])
+                  if case.staff_decide and case.rentable_after and order[case.staff_decide] < order[case.rentable_after] else None)
 
 
 def totals(results):
     """Count each scoring outcome across one arm's cases."""
     names = ('release_right', 'released_early', 'released_late_or_missed', 'handoff_right', 'premature_handoff', 'missed_handoff',
-             'needless_handoff')
-    return {name: sum(bool(getattr(result, name)) for result in results) for name in names}
+             'needless_handoff', 'paused')
+    counts = {name: sum(bool(getattr(result, name)) for result in results) for name in names}
+    for name in ('released_on_due_entry', 'kept_off_when_never_offered', 'post_handoff_recovery'):
+        values = [getattr(result, name) for result in results if getattr(result, name) is not None]
+        counts[name] = {'right': sum(values), 'of': len(values)}
+    return counts

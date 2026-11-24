@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from core.store import Event, Store
 
-STATES = {'open', 'working', 'waiting', 'needs staff', 'done', 'blocked'}
+STATES = {'open', 'working', 'waiting', 'needs staff', 'paused', 'done', 'blocked'}
 
 
 @dataclass

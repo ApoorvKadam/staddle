@@ -1,6 +1,6 @@
 """One graded run of the unit-ready job: every worker on the same frozen cases, scored by core/tilden/replay.py.
 
-python -m core.tilden.replay_run --set <cases file> --arms fms,rival,planner,picker,fixed --out <result json>
+python -m core.tilden.replay_run --set <cases file> --arms fms,rival,fixed,planner,hybrid --out <result json>
 Prints only the totals; the cases' words stay in the files."""
 import argparse
 import hashlib
@@ -19,7 +19,7 @@ def arm_for(name, client=None):
     if name == 'rival':
         from core.tilden import rival
         return rival.arm
-    if name in ('planner', 'picker', 'fixed'):
+    if name in ('planner', 'fixed', 'hybrid'):
         return lambda store, stream, now: runtime.sweep(store, stream, now, chooser=name, client=client)
     raise ValueError(f'unknown worker {name}')
 
@@ -48,7 +48,7 @@ def run_arm(name, parsed, client=None):
                 error = error or 'CaseError'
         row = {'case': case.id, 'error': error} if error else asdict(replay.score(case, trace))
         if not error:
-            row['trace'] = [[s.entry, s.rentable, s.needs_staff] for s in trace]
+            row['trace'] = [[s.entry, s.rentable, s.needs_staff, s.paused, s.actions] for s in trace]
         row.update({
             'cents': round(sum(e.payload.get('cost_cents', 0) for e in events if e.kind in ('tilden.planner.call', 'tilden.decision'))
                            + sum(s.get('reader_cents', 0) for s in steps), 4),
@@ -62,14 +62,14 @@ def run_arm(name, parsed, client=None):
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--set', required=True)
-    p.add_argument('--arms', default='fms,rival,planner,picker,fixed')
+    p.add_argument('--arms', default='fms,rival,fixed,planner,hybrid')
     p.add_argument('--out', required=True)
     a = p.parse_args(argv)
     raw = open(a.set, 'rb').read()
     parsed = replay.parse(raw.decode())
     client = None
     names = a.arms.split(',')
-    if any(n in ('planner', 'picker', 'fixed') for n in names):
+    if any(n in ('planner', 'fixed', 'hybrid') for n in names):
         import anthropic
         client = anthropic.Anthropic()
     try:

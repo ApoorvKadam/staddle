@@ -13,7 +13,7 @@ class Tool:
 
 
 TOOLS = {name: Tool(None) for name in ('lease', 'walk_notes', 'work_orders', 'readiness', 'availability')}
-TOOLS.update({name: Tool(name) for name in ('open_work_order', 'link_reports', 'hold_unit', 'release_unit',
+TOOLS.update({name: Tool(name) for name in ('open_work_order', 'link_reports', 'close_report_no_work', 'hold_unit', 'release_unit',
                                              'request_inspection', 'hand_to_staff')})
 
 
@@ -58,14 +58,16 @@ def act(name, store, stream, case, now, **args):
         with store.write():
             authority.use_approval(store, stream, args.get('approval_id'), now)
             store.append(stream, [Event('tilden.case.updated', now, {'id': case.id, 'state': 'needs staff',
-                'steps': case.steps + [{'reason': args['reason'], 'evidence': args.get('evidence', [])}], 'wake': []},
+                'steps': case.steps + [{'reason': args['question'], 'evidence': args['record_ids'], 'handoff': {'question': args['question'], 'record_ids': args['record_ids'], 'role': args['role'], 'wake_evidence': args['wake_evidence']}}], 'wake': [args['wake_evidence']]},
                 f'tilden:case:{uuid4().hex}', source='agent:tilden')])
         return cases.load(store, stream)[case.id]
     if name in ('hold_unit', 'release_unit'):
         command = renting.Act(ident, 'block_unit' if name == 'hold_unit' else 'unblock_unit', 'agent:tilden', case.unit,
                               args={'reason': args['reason']} if name == 'hold_unit' else {}, case_id=case.id, approval_id=args.get('approval_id'))
         return renting.run(store, stream, command, now)
-    if name == 'link_reports':
+    if name == 'close_report_no_work':
+        command = walk.Act(ident, name, 'agent:tilden', about=args['order'], text=args['text'], case_id=case.id, approval_id=args.get('approval_id'))
+    elif name == 'link_reports':
         command = walk.Act(ident, 'join_work_order', 'agent:tilden', about=args['order'], into=args['into'], case_id=case.id, approval_id=args.get('approval_id'))
     else:
         text = f'Inspect unit {case.unit} after repair' if name == 'request_inspection' else args['text']

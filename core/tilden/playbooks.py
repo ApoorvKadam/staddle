@@ -12,7 +12,7 @@ PLAYBOOKS = {
             'Check readiness and release the unit when the records prove it is ready.',
             'Hand conflicting records or work outside authority to staff with evidence.',
         ],
-        'tools': ['open_work_order', 'link_reports', 'hold_unit', 'release_unit',
+        'tools': ['open_work_order', 'link_reports', 'close_report_no_work', 'hold_unit', 'release_unit',
                   'request_inspection', 'hand_to_staff'],
         'done': 'readiness',
     },

@@ -207,7 +207,7 @@ def load(store: Store, stream: str):
 ACTIONS = {"start_walk": "start a walk", "observe_unit": "record what was seen on a unit", "correct_observation": "correct an observation",
            "finish_walk": "finish a walk", "report_work_order": "report a work order", "triage_work_order": "triage a work order",
            "assign_work_order": "assign a work order", "record_order_work": "record the work on an order",
-           "check_order_work": "check the work on an order", "close_work_order": "close a work order",
+           "check_order_work": "check the work on an order", "close_work_order": "close a work order", "close_report_no_work": "close a report needing no work",
            "join_work_order": "join a work order into another one for the same fault",
            "keep_work_orders_apart": "keep two work orders apart as different faults"}
 # the move each work order command makes, and the state the order must be in first
@@ -322,6 +322,18 @@ def evaluate(books, wk: State, act: Act, now: datetime, agent_allowed: bool = Fa
             return False, why
         if len(text) < 3:
             return False, "say in a few words what is wrong"
+    elif a == "close_report_no_work":
+        o = wk.orders.get(act.about or "")
+        if act.source != "agent:tilden" or o is None:
+            return False, "only the agent may close an existing report this way"
+        if o.kind == "check":
+            return False, "an open repair report is required"
+        if o.state not in ("reported", "triaged", "assigned"):      # work recorded, staff checked or closed: staff finish or leave it
+            return False, "only a report nobody has worked on can be closed as needing no work"
+        if any(o.id in pair for pair in wk.apart):
+            return False, "staff kept this report apart from another"
+        if not text:
+            return False, "cite the staff record"
     elif a in ("join_work_order", "keep_work_orders_apart"):
         o, keep = wk.orders.get(act.about or ""), wk.orders.get(act.into or "")
         if o is None or keep is None:
@@ -390,6 +402,9 @@ def record(led: Ledger, wk: State, act: Act, now: datetime) -> str:
         oid = f"WO{len(wk.orders) + 1:04d}"
         put("work_order.reported", {"order": oid, "unit": act.unit, "problem": text, "by": who, **({"answers_record": act.answers_record} if act.answers_record else {}), **({"kind": "check"} if act.authority_action == "request_inspection" and who == "agent:tilden" else {})}, "order")
         return oid
+    if a == "close_report_no_work":
+        put("work_order.closed", {"order": act.about, "by": who, "text": text, "no_work": True}, "order")
+        return act.about
     put(MOVES[a][0], {"order": act.about, "by": who, "text": text, **({"to": act.to} if a == "assign_work_order" else {})}, "order")
     return act.about
 
@@ -418,7 +433,7 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
             from core.tilden.authority import live_grant
             unit = wk.orders[act.about].unit if act.about in wk.orders else act.unit
             action = {"report_work_order": "link_reports" if act.about else "open_work_order",
-                      "join_work_order": "link_reports"}.get(act.action)
+                      "join_work_order": "link_reports", "close_report_no_work": "close_report_no_work"}.get(act.action)
             if act.authority_action == "request_inspection" and act.action == "report_work_order" and not act.about:
                 action = "request_inspection"
             agent_allowed = bool(action and live_grant(store, stream, act.case_id, action, unit, now, act.approval_id))
