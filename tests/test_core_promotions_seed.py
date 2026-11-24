@@ -10,8 +10,6 @@ from core.books import at_local, lines, local
 from core.seed import TODAY, build
 
 
-pytestmark = pytest.mark.promoted_seed
-
 
 def year(today=TODAY, **kw):
     return build(today=today, cutoff=at_local(today), standing=True, **kw)
