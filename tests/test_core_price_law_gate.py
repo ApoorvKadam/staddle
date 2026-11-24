@@ -88,7 +88,14 @@ def test_california_walks_an_increase_to_a_posted_invoice_and_stops_at_its_discl
                 disclosed_on="2026-03-02", evidence_sha256=SHA, first_page=True).allowed
     walk = d.walk()
     assert all(allowed(walk).values()), {k: v.check for k, v in walk.items() if not v.allowed}
+    with d.store.write():
+        led = Ledger(d.books())
+        charge = pl.post_invoice(led, at_local(date(2026, 12, 23), 10), decision=walk["invoice"].made, profile=d.profile)
+        d.store.append(STREAM, led.pending)
     books = d.books()
+    assert books.charges[charge].cents == 10500
+    basis = pl.posted_basis(books, "L0001:2026-12")
+    assert basis is not None and basis.change == "PC1" and basis.outcome == "allow"
     assert books.price_law.approvals["PC1"].versions["CA-notice"] == 1
     assert books.price_law.decisions[-1].invoice == "L0001:2026-12"
     over = d.change("check_price_change", "proposal", NOW, about="PC2", new_cents=11100)
