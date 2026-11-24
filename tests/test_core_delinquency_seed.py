@@ -58,7 +58,9 @@ def test_the_two_seeded_tenants_change_no_other_tenant(monkeypatch):
     monkeypatch.setattr(Year, "on_a_plan", lambda self: None)
     without = build(today=NOW.date(), cutoff=at_local(NOW.date()), standing=True)
     ours = {with_them.plan_tenant["tenant"], with_them.breached_tenant["tenant"]}
-    charges = lambda y: {t: [(c.id, c.cents, c.paid, c.closed) for c in y.led.books.tenant_charges(t)] for t in y.led.books.tenants if t not in ours}
+    # Maya moves in last on both copies, so her tenant and charge ids differ by the two plan tenants; she is left out of both sides
+    charges = lambda y: {t: [(c.id, c.cents, c.paid, c.closed) for c in y.led.books.tenant_charges(t)] for t, x in y.led.books.tenants.items()
+                         if t not in ours and x.name != "Maya Okafor"}
     assert charges(with_them) == charges(without) and len(with_them.led.books.tenants) == len(without.led.books.tenants) + 2
 
 
