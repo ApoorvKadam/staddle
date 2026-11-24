@@ -332,7 +332,7 @@ def evaluate_rent(rent, books: Books, act, now: datetime) -> Decision:
     # 2. safety, fixed in code
     why = rent.refusal(act, now)
     if why:
-        return d(False, why)
+        return Decision(False, act.action, str(why), command=act.id, why=getattr(why, "code", None))      # a promotion refusal carries its machine name
     # 3. the owner's rules: none apply to renting yet
     # 4. holds: a charge under a dispute hold is not changed until staff decide the dispute
     if any(books.held(c.id) for c in rent.touches(act, now)):

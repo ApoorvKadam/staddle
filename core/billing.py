@@ -102,13 +102,19 @@ class Ledger:
         self.emit("tenant.added", at, {"tenant": t, "name": name, "phone": phone, **({"email": email} if email else {})}, f"tenant:{t}", source="staff:front_desk")
         return t
 
-    def sign_lease(self, at: datetime, tenant: str, unit: str, rent_cents: int, schedule: list[str], start: date | None = None) -> str:
+    def sign_lease(self, at: datetime, tenant: str, unit: str, rent_cents: int, schedule: list[str], start: date | None = None,
+                   redeem: dict | None = None) -> str:
         """A move-in: the lease with the fees the tenant signed for, the prorated first month, and the admin fee if signed for.
-        `start` is the day the lease begins when it is not the day it is signed (a rental quoted earlier)."""
+        `start` is the day the lease begins when it is not the day it is signed (a rental quoted earlier). `redeem` is the promotion part of
+        the quote the tenant accepted: its redemptions are recorded before the first charge, so the concession posts with it. The lease
+        keeps the contract rent either way."""
         lease = self.books.next_id("L")
         start = start or local(at).date()
         self.emit("lease.signed", at, {"lease": lease, "tenant": tenant, "unit": unit, "rent_cents": rent_cents, "start": start.isoformat(),
                                        "schedule": schedule}, f"lease:{lease}", source="staff:front_desk")
+        if redeem:
+            from .promotions import redeem as record_redemption      # promotions reads this module, so it cannot be imported at the top
+            record_redemption(self, lease, tenant, unit, redeem, start, at)
         self._charge(at, lease, RENT, first_month(rent_cents, start), f"rent:{lease}:{month_key(start)}", start)
         if ADMIN_FEE in schedule:
             self._charge(at, lease, ADMIN_FEE, ADMIN_FEE_CENTS, f"admin_fee:{lease}", start)
@@ -125,6 +131,9 @@ class Ledger:
         if note:
             payload["note"] = note
         self.emit("charge.posted", at, payload, key or (obligation if source == "billing" and obligation else f"charge:{c}"), source=source)
+        if kind == RENT and self.books.promotions is not None:      # a covered month's rent carries its concession as its own line
+            from .promotions import apply_to_charge
+            apply_to_charge(self, c, at)
         if credit:          # a caller that records the charge's authority first passes credit=False and applies the credit itself
             self.apply_credit(at, self.books.leases[lease].tenant)
         return c
