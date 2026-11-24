@@ -1386,6 +1386,17 @@ def checkout_due(books: Books, rent: "Rent", r, now: datetime) -> tuple[int, lis
     return cents, quotes, cents + sum(st.quotes[q]['price'] * st.quotes[q]['quantity'] for q in quotes)
 
 
+def _add_on_intent(books: Books, rent: "Rent", r) -> "delinquency.Intent | None":
+    """The unsettled intent that asked only for this rental's add-ons. No operation of the rental names it, so it is found from the
+    add-ons it carries (each is attached to this rental), never from another tenant's or another rental's payment."""
+    from . import shop
+    attached = shop.state(books).attachments
+    named = {rent.ops[o].intent for o in r.pay_ops}
+    return next((i for i in delinquency.state(books).intents.values()
+                 if i.state in delinquency.UNSETTLED and i.shop_quotes and i.id not in named
+                 and i.tenant == r.tenant and all(attached.get(q) == r.id for q in i.shop_quotes)), None)
+
+
 def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rental: str, card: str, now: datetime,
                expected_cents: int | None = None) -> delinquency.Intent:
     """A renter's move-in payment through the processor, the path every payment takes. The rental's payment record and the
@@ -1400,7 +1411,14 @@ def pay_rental(store: Store, stream: str, processor: delinquency.Processor, rent
         if r is None:
             raise Refused("no such rental")
         op = next((o for o in r.pay_ops if rent.ops[o].how is None), None)
-        if op is None:
+        unsent = _add_on_intent(books, rent, r) if op is None else None
+        if unsent is not None:
+            if r.state not in WAITING:
+                raise Refused(f"the rental is {r.state}")       # an intent that may still settle is checked with the processor, not asked again
+            if expected_cents is not None and expected_cents != unsent.cents:
+                raise TotalChanged(expected_cents, unsent.cents)
+            iid = unsent.id                 # an add-on-only intent written before its request went out: resumed with its own key, the rental untouched
+        elif op is None:
             if r.state not in WAITING:
                 raise Refused(f"the rental is {r.state}")
             if rent.holder(r.unit, now) != ("rental", r.id):
