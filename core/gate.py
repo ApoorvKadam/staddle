@@ -210,7 +210,7 @@ def evaluate(books: Books, cmd: Command, now: datetime) -> Decision:
         month = _month_of(ch)
         if ch.kind != LATE_FEE or month is None:
             return d(False, "only a late fee for a named month can be corrected this way")
-        due = sum(c.cents for c in books.live(f"rent:{ch.lease}:{month}"))
+        due = sum(c.net_cents for c in books.live(f"rent:{ch.lease}:{month}"))
         if due == 0 or books.rent_paid_before(ch.lease, month, cutoff(month)) < due:
             return d(False, "the month's rent was not fully paid before the cutoff, so the fee was not posted in error")
     # 4 (before 3 for money on held charges): a held charge belongs to staff

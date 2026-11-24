@@ -273,14 +273,14 @@ class Ledger:
     def reverse(self, at: datetime, charge: str, reason: str, source: str, command: str | None = None) -> None:
         ch = self.books.charges[charge]
         self.emit("charge.reversed", at, {"charge": charge, "lease": ch.lease, "tenant": ch.tenant, "kind": ch.kind, "cents": ch.cents,
-                                          "reason": reason, "released": self._release(charge)},
+                                          "reason": reason, "released": self._release(charge), **({"conceded": ch.conceded} if ch.conceded else {})},
                   f"reverse:{charge}", source=source, effects=(f"reverse:{charge}",), command=command)
         self.apply_credit(at, ch.tenant)
 
     def waive(self, at: datetime, charge: str, rule: str, source: str, command: str | None = None) -> None:
         ch = self.books.charges[charge]
         self.emit("charge.waived", at, {"charge": charge, "lease": ch.lease, "tenant": ch.tenant, "kind": ch.kind, "cents": ch.cents,
-                                        "rule": rule, "released": self._release(charge)},
+                                        "rule": rule, "released": self._release(charge), **({"conceded": ch.conceded} if ch.conceded else {})},
                   f"waive:{charge}", source=source, effects=(f"waive:{charge}",), command=command)
         self.apply_credit(at, ch.tenant)
 
