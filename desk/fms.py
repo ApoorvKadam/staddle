@@ -1127,7 +1127,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         size = request.query_params.get("size")
         size = size if size in sizes else None        # an unknown size shows every unit
         shown = [u for u in units if u.size == size] if size else units
-        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size)
+        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size, token=secrets.token_hex(6))
 
     @app.post("/rent/inquiry", include_in_schema=False)
     async def website_inquiry(request: Request):
@@ -1138,8 +1138,13 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         if any(len(data.get(k, "")) > n for k, n in limits.items()):
             raise HTTPException(422, "One of the answers is too long. Shorten it and try again.")
         channels = (["phone", "text"] if data.get("phone") else []) + (["email"] if data.get("email") else []) if data.get("consent") == "yes" else []
+        token = data.get("token", "")
+        if token and not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
         def save_inquiry():
             with fd.lock:
+                if token and (ident, "inquiry:" + token) in fd.site_forms:     # the same page sent again (back and resend): the first press stands, no second inquiry
+                    return
                 store, stream = fd.ready(), fd.stream(ident)
                 with store.write():
                     led = Ledger(store.books(stream))
@@ -1148,6 +1153,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     except Refused as exc:
                         raise HTTPException(422, str(exc)) from exc
                     store.append(stream, led.pending)
+                if token:
+                    fd.site_forms.add((ident, "inquiry:" + token))              # only after it was saved: a refused form can be corrected and sent again
         await run_in_threadpool(save_inquiry)
         return RedirectResponse("/rent?inquiry=received", status_code=303)
 
