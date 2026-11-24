@@ -271,6 +271,8 @@ class Authorization:
     document_sha256: str
     by: str
     at: datetime
+    restriction: str | None = None
+    terms: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -369,7 +371,7 @@ class State:
                                  acknowledged_on=day("acknowledged_on") or notices[i].acknowledged_on)
         elif kind == "price_law.exception_authorized":
             self.authorizations.setdefault(p["change"], []).append(Authorization(
-                p["id"], p["change"], p["basis"], p["covers_cents"], p["document_sha256"], p["by"], at))
+                p["id"], p["change"], p["basis"], p["covers_cents"], p["document_sha256"], p["by"], at, p.get("restriction"), p.get("terms")))
             return "PLX", p["id"]
         elif kind == "price_law.approved":
             self.approvals[p["change"]] = Approval(p["change"], dict(p["versions"]), dict(p.get("snapshot", {})), p["by"], at)
@@ -544,15 +546,22 @@ def update_notice(led: Ledger, at: datetime, *, change: str, notice: str, confir
              f"price_law:{notice}:update:{state(led.books).counts.get(notice, 0) + 1}")
 
 
-def record_exception(led: Ledger, at: datetime, *, change: str, basis: str, covers_cents: int, document_sha256: str, by: str) -> str:
+def record_exception(led: Ledger, at: datetime, *, change: str, basis: str, covers_cents: int, document_sha256: str, by: str,
+                     restriction: str = "", terms: dict | None = None) -> str:
     if by != "owner":
         raise Refused("only the owner records a legal exception")
     if not _clean(basis) or not isinstance(covers_cents, int) or isinstance(covers_cents, bool) or covers_cents <= 0:
         raise Refused("an exception names its basis and the price it covers")
+    if restriction not in state(led.books).emergencies or not isinstance(terms, dict):
+        raise Refused("an exception names its declaration and change terms")
+    target = _change_from(change, terms)
+    if target.new_cents > covers_cents:
+        raise Refused("the exception does not cover the stated price")
     sha = _sha(document_sha256, "exception")
     ident = led.books.next_id("PLX")
     led.emit("price_law.exception_authorized", at, {"id": ident, "change": change, "basis": _clean(basis), "covers_cents": covers_cents,
-                                                    "document_sha256": sha, "by": by}, f"price_law:{ident}", source=by)
+                                                    "document_sha256": sha, "by": by, "restriction": restriction,
+                                                    "terms": _exception_terms(target)}, f"price_law:{ident}", source=by)
     return ident
 
 
@@ -720,7 +729,7 @@ def _emergency(run: _Run) -> None:
     rule = next((rs for rs in run.sets if rs.topic == "emergency"), None)
     for r in (st.emergencies[i] for i in chk.active if _covers(st.emergencies[i], change.effective_on)):
         run.records.append(f"emergency:{r.id}")
-        if auth := _authorized(run):
+        if auth := _authorized(run, r.id):
             run.add("note", "EMERGENCY_EXCEPTION_RECORDED", f"The owner recorded a documented legal exception for this price ({auth.basis}); it lifts the emergency "
                                                           "restriction for this change only.")
             continue
@@ -821,9 +830,16 @@ def _plain(text: str) -> str:
     return " ".join(str(text).lower().replace(",", " ").replace(".", " ").split())
 
 
-def _authorized(run: _Run) -> Authorization | None:
+def _exception_terms(change: PriceChange) -> dict:
+    return {key: value for key, value in _snapshot(change).items()
+            if key in ("kind", "lease", "unit_class", "current_cents", "new_cents", "effective_on")}
+
+
+def _authorized(run: _Run, restriction: str | None = None) -> Authorization | None:
     """The owner's recorded exception for this change, covering at least this price. Nothing else lifts an emergency restriction."""
-    return next((a for a in state(run.books).authorizations.get(run.change.id, ()) if a.by == "owner" and a.covers_cents >= run.change.new_cents), None)
+    return next((a for a in state(run.books).authorizations.get(run.change.id, ())
+                 if a.by == "owner" and a.covers_cents >= run.change.new_cents and a.terms == _exception_terms(run.change)
+                 and a.restriction in state(run.books).emergencies and (restriction is None or a.restriction == restriction)), None)
 
 
 def _checks(run: _Run, terms: Terms | None) -> None:
@@ -1240,7 +1256,7 @@ def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | Non
             check = "Pre-declaration price recorded."
         elif act.action == "record_exception":
             made = record_exception(led, now, change=f.get("change", ""), basis=f.get("basis", ""), covers_cents=f.get("covers_cents"),
-                                    document_sha256=f.get("document_sha256"), by=who)
+                                    document_sha256=f.get("document_sha256"), by=who, restriction=f.get("restriction", ""), terms=f.get("terms"))
             check = "Legal exception recorded for the price it covers."
         else:
             point = "approval" if act.action == "approve_price_change" else f.get("point", "proposal")

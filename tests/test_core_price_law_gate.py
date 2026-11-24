@@ -131,7 +131,7 @@ def test_florida_northstar_follows_its_agreement_and_holds_any_increase_under_a_
     approved = d.change("approve_price_change", "approval", NOW, about="PC2", kind="street_rate", lease=None, unit_class="10x10", effective_on="2026-12-01")
     assert not approved.allowed and "PC2" not in d.books().price_law.approvals
     assert d.go("record_exception", who="staff:manager", change="PC2", basis="documented legal review", covers_cents=10500, document_sha256=SHA).allowed is False
-    assert d.go("record_exception", who="owner", change="PC2", basis="documented legal review", covers_cents=10500, document_sha256=SHA).allowed
+    assert d.go("record_exception", who="owner", change="PC2", basis="documented legal review", covers_cents=10500, document_sha256=SHA, restriction=rid, terms={"kind": "street_rate", "current_cents": 10000, "new_cents": 10500, "effective_on": "2026-12-01", "unit_class": "10x10"}).allowed
     assert d.change("approve_price_change", "approval", NOW, about="PC2", kind="street_rate", lease=None, unit_class="10x10", effective_on="2026-12-01").allowed
 
 

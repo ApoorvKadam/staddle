@@ -352,18 +352,18 @@ def _ca_emergency(led, new=11500):
 
 def test_a_claimed_exception_counts_only_once_the_owner_has_recorded_it_with_its_document():
     led = book(CA)
-    _ca_emergency(led)
+    rid = _ca_emergency(led)
     claimed = pl.PriceChange(**{**street().__dict__, "new_cents": 11500, "claimed_exception": "costs rose after the storm"})
     res = verdict(led, claimed, CA, "publication", NOW)
     assert set(res[1]) == {"EMERGENCY_PRICE_RESTRICTED", "LEGAL_EXCEPTION_UNVERIFIED"}
     for who in ("staff:manager", "staff:front_desk"):
         with pytest.raises(Refused):
-            pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256=SHA, by=who)
+            pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256=SHA, by=who, restriction=rid, terms=pl._snapshot(claimed))
     with pytest.raises(Refused):
-        pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256="", by="owner")
-    pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11400, document_sha256=SHA, by="owner")
+        pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256="", by="owner", restriction=rid, terms=pl._snapshot(claimed))
+    pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11400, document_sha256=SHA, by="owner", restriction=rid, terms=pl._snapshot(replace(claimed, new_cents=11400)))
     assert "LEGAL_EXCEPTION_UNVERIFIED" in verdict(led, claimed, CA, "publication", NOW)[1]
-    pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256=SHA, by="owner")
+    pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256=SHA, by="owner", restriction=rid, terms=pl._snapshot(claimed))
     ok = verdict(led, claimed, CA, "publication", NOW)
     assert ok[:2] == ("allow", []) and any(r.code == "EMERGENCY_EXCEPTION_RECORDED" and r.kind == "note" for r in ok[2].reasons)
 
@@ -376,11 +376,10 @@ def test_a_recorded_exception_lifts_the_florida_hold_but_never_a_notice_refusal(
     fl = pl.profile_of(led.books)
     c = pl.PriceChange(id="PC1", kind="street_rate", current_cents=10000, new_cents=10500, effective_on=date(2026, 12, 1), unit_class="10x10")
     assert pl.evaluate(led.books, c, NOW, point="publication").outcome == "hold"
-    pl.record_exception(led, NOW, change="PC1", basis="documented legal review of this price", covers_cents=10500, document_sha256=SHA, by="owner")
+    pl.record_exception(led, NOW, change="PC1", basis="documented legal review of this price", covers_cents=10500, document_sha256=SHA, by="owner", restriction=rid, terms=pl._snapshot(c))
     assert pl.evaluate(led.books, c, NOW, point="publication").outcome == "allow"
     led2 = book(UT)
     terms(led2)
-    pl.record_exception(led2, NOW, change="PC1", basis="documented legal review of this price", covers_cents=10500, document_sha256=SHA, by="owner")
     assert verdict(led2, change(), UT)[1] == ["NOTICE_SERVICE_UNPROVEN"]
 
 
@@ -468,3 +467,17 @@ def test_backdated_lookup_cannot_precede_a_known_declaration():
     pl.record_emergency_check(led, entered, place='UT', checked_on=TODAY, valid_until=date(2027, 1, 1), by='staff:manager', source='state page', active=[])
     outcome, codes, _ = verdict(led, change(), UT)
     assert outcome == 'hold' and 'EMERGENCY_STATUS_UNKNOWN' in codes
+
+
+def test_exception_for_one_declaration_does_not_clear_another():
+    led = book(CA)
+    first = _ca_emergency(led)
+    c = pl.PriceChange(**{**street().__dict__, 'new_cents': 11500})
+    pl.record_exception(led, NOW, change=c.id, basis='documented review', covers_cents=11500, document_sha256=SHA, by='owner', restriction=first, terms=pl._snapshot(c))
+    assert verdict(led, c, CA, 'publication', NOW)[0] == 'allow'
+    assert verdict(led, replace(c, unit_class='other'), CA, 'publication', NOW)[0] == 'hold'
+    second = pl.record_emergency(led, NOW, place='CA', name='Second emergency', source='state order', starts=TODAY, ends=date(2027, 1, 10))
+    pl.record_emergency_check(led, NOW, place='CA', checked_on=TODAY, valid_until=date(2027, 3, 31), by='staff:manager', source='state page', active=[first, second])
+    outcome, codes, result = verdict(led, c, CA, 'publication', NOW)
+    assert outcome == 'hold' and 'PRICE_BASELINE_UNPROVEN' in codes
+    assert any(r.code == 'EMERGENCY_EXCEPTION_RECORDED' for r in result.reasons)
