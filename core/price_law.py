@@ -1002,8 +1002,9 @@ def _owner(run: _Run) -> None:
     t, sentence, c = rule["typed"], rule["sentence"], run.change
     run.records.append(f"owner rule v{rule['version']}")
     if (p := t.get("max_increase_percent")) and c.new_cents * 100 > c.current_cents * (100 + p):
-        run.add("owner", "OWNER_RULE", f"The owner's rule (“{sentence}”) allows at most {p} percent in one step; this change is "
-                                       f"{(c.new_cents - c.current_cents) * 100 / c.current_cents:.1f} percent.")
+        increase = (f"{(c.new_cents - c.current_cents) * 100 / c.current_cents:.1f} percent"
+                    if c.current_cents else "a new fee from zero")
+        run.add("owner", "OWNER_RULE", f"The owner's rule (“{sentence}”) allows at most {p} percent in one step; this change is {increase}.")
     if (m := t.get("max_increase_cents")) and c.new_cents - c.current_cents > m:
         run.add("owner", "OWNER_RULE", f"The owner's rule (“{sentence}”) allows at most {money(m)} in one step; this change is {money(c.new_cents - c.current_cents)}.")
     if (n := t.get("months_between")) and c.last_increase_on and c.effective_on < _add_months(c.last_increase_on, n):
@@ -1108,7 +1109,9 @@ def _maybe(value, label: str) -> date | None:
 def _change_from(about: str | None, f: dict) -> PriceChange:
     """A price change from a command's form. Every field is checked here, before anything is evaluated or written."""
     cents = [f.get("current_cents"), f.get("new_cents")]
-    if not about or f.get("kind") not in KINDS or any(not isinstance(v, int) or isinstance(v, bool) or v <= 0 for v in cents):
+    if (not about or f.get("kind") not in KINDS
+            or any(not isinstance(v, int) or isinstance(v, bool) for v in cents)
+            or cents[1] <= 0 or cents[0] < 0 or (cents[0] == 0 and f.get("kind") != "fee_change")):
         raise Refused("name the change, its kind and its current and new amounts")
     return PriceChange(about, f["kind"], cents[0], cents[1], _when(f.get("effective_on"), "effective date"), f.get("lease") or None,
                        str(f.get("unit_class", "")), f.get("invoice") or None, f.get("disclosure"), str(f.get("claimed_exception", "")),

@@ -263,3 +263,16 @@ def test_posted_basis_is_not_reused_for_different_changes_or_bad_invoices():
         assert not result.allowed and result.made != first.made
     for invoice in ('L0002:2026-12', 'L0001:2026-13', 'L0001:December', 'L0001:2026-12:extra'):
         assert not d.change('check_price_change', 'invoice', on, invoice=invoice).allowed
+
+
+def test_new_fee_with_zero_previous_amount_reaches_the_gate():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    result = d.change('check_price_change', 'notice_authorization', NOW, kind='fee_change', current_cents=0, new_cents=500)
+    assert result.allowed
+    with d.store.write():
+        led = Ledger(d.books())
+        pl.adopt_owner_rule(led, NOW, version=1, sentence='At most ten percent.', typed={'max_increase_percent': 10})
+        d.store.append(STREAM, led.pending)
+    result = d.change('check_price_change', 'notice_authorization', NOW, kind='fee_change', current_cents=0, new_cents=500)
+    assert not result.allowed and result.why == 'OWNER_RULE'
