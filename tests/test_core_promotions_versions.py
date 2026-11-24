@@ -45,7 +45,7 @@ def test_terms_with_a_part_missing_are_refused_as_incomplete_and_nothing_is_writ
     del bad[missing]
     with pytest.raises(PromotionRefused) as r:
         promotions.publish_version(led, "first-month", bad, date(2026, 10, 1), BY, WHEN)
-    assert r.value.code == "PROMOTION_TERMS_INCOMPLETE" and missing.replace("_", " ") in str(r.value)
+    assert r.value.code == "PROMOTION_TERMS_INCOMPLETE" and promotions.LABEL.get(missing, missing) in str(r.value)
     assert led.pending == [] and led.books.promotions is None
 
 

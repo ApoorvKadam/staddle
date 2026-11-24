@@ -33,6 +33,8 @@ COVERS = {"rest_of_first_month": "by_days", "first_full_month": "none"}     # wh
 CUSTOMERS = ("new", "any")                                                   # new: nobody who held a lease here before
 TRANSFERS = ("carry", "end")
 REQUIRED = ("name", "unit_types", "customers", "covers", "proration", "expires", "stacks_with", "transfer", "max_redemptions", "max_concession_cents")
+LABEL = {"expires": "expiry date", "max_redemptions": "redemption limit", "max_concession_cents": "budget", "stacks_with": "stacking rule",
+         "unit_types": "eligible unit types", "covers": "covered period", "proration": "proration rule", "transfer": "transfer behaviour"}
 PUBLISHERS = ("owner", "staff:front_desk", "staff:office_manager", "staff:manager")
 RENT_MONTH = re.compile(r"rent:[^:]+:(\d{4}-\d{2})")
 
@@ -126,7 +128,7 @@ def terms_problem(t: dict) -> str | None:
         return "the terms are missing"
     for key in REQUIRED:
         if t.get(key) in (None, "", []) and not (key == "stacks_with" and t.get(key) == []):
-            return f"the {key.replace('_', ' ')} is missing"
+            return f"the {LABEL.get(key, key)} is missing"
     if not (isinstance(t["name"], str) and t["name"].strip()):
         return "the name is missing"
     if not (isinstance(t["unit_types"], list) and t["unit_types"] and all(isinstance(x, str) and x for x in t["unit_types"])):
