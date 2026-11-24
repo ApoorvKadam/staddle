@@ -363,3 +363,14 @@ def test_invoice_rejects_non_ascii_month_digits():
     assert d.checked('UT').allowed and d.terms().allowed and d.notice().allowed
     on = at_local(date(2026, 12, 23), 10)
     assert not d.change('check_price_change', 'invoice', on, invoice='L0001:٢٠٢٦-١٢').allowed
+
+
+def test_reapproval_counts_qualifying_service_for_unchanged_increase(monkeypatch):
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    assert d.change('approve_price_change', 'approval', NOW).allowed and d.notice().allowed
+    monkeypatch.setattr(pl, 'RULE_SETS', tuple(replace(r, version=2) if r.id == 'UT-notice' else r for r in pl.RULE_SETS))
+    later = at_local(date(2026, 12, 1), 10)
+    assert d.change('approve_price_change', 'approval', later).allowed
+    assert not d.change('approve_price_change', 'approval', later, about='PC2').allowed
+    assert not d.change('approve_price_change', 'approval', later, new_cents=11000).allowed

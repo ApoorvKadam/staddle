@@ -932,7 +932,11 @@ def _notice(run: _Run, terms: Terms) -> None:
         run.hold("LEASE_TERMS_MISSING", f"{rule.citation} leaves the notice period to the agreement, and the agreement states none, so the increase waits for review.", rule)
         return
     owner = ((owner_rule(run.books) or {}).get("typed") or {}).get("notice_days")
-    if run.point in PRE_SERVICE:
+    notices = [n for n in st.notices.get(c.id, ()) if n.lease == c.lease and n.new_cents == c.new_cents and n.effective_on == c.effective_on]
+    served_for_reapproval = run.point == "approval" and any(
+        when is not None and when <= run.today
+        for when, _ in (_served(rule, terms, n, law) for n in notices))
+    if run.point in PRE_SERVICE and not served_for_reapproval:
         for days, who in ((law, None), (owner or 0, "owner")):
             earliest = run.today + timedelta(days=days)
             if c.effective_on < earliest:
@@ -943,7 +947,6 @@ def _notice(run: _Run, terms: Terms) -> None:
                     run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; if notice is given today the earliest is {day_words(earliest)}.")
                 break
         return
-    notices = [n for n in st.notices.get(c.id, ()) if n.lease == c.lease and n.new_cents == c.new_cents and n.effective_on == c.effective_on]
     if not notices:
         if c.kind == "fee_change":
             run.refuse("FEE_CHANGE_NOTICE_MISSING", "A new or higher fee needs its own notice, and none is on file for it.", rule)
