@@ -319,7 +319,7 @@ WORK_SCOPE = {"assign_work": ("staff",), "acknowledge_work": ("staff",), "start_
               "finish_work": ("staff",)}
 
 
-def evaluate_rent(rent, books: Books, act, now: datetime) -> Decision:
+def evaluate_rent(rent, books: Books, act, now: datetime, agent_allowed: bool = False) -> Decision:
     """A renting command's checks, in the gate's order, against the folded books and renting state. Writes nothing. `rent` gives
     the records' own safety check (refusal) and the charges the command would change (touches)."""
     d = lambda ok, check: Decision(ok, act.action, check, command=act.id)
@@ -327,7 +327,9 @@ def evaluate_rent(rent, books: Books, act, now: datetime) -> Decision:
     # 1. exists and in scope
     if act.action not in RENT_SCOPE:
         return d(False, "not an action the system knows")
-    if who not in RENT_SCOPE[act.action]:
+    if who == "agent:tilden" and not agent_allowed:
+        return d(False, "Tilden needs a live grant for this action and case")
+    if who not in RENT_SCOPE[act.action] and not (who == "agent:tilden" and agent_allowed):
         return d(False, f"{WHO.get(who, who)} may not {act.action.replace('_', ' ')}; only "
                         f"{' or '.join(WHO[w] for w in RENT_SCOPE[act.action])} may")
     # 2. safety, fixed in code

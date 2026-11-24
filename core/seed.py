@@ -186,6 +186,11 @@ class Year:
                 fn()
             day += timedelta(days=1)
         if self.standing:
+            for action in ('open_work_order', 'link_reports', 'hold_unit', 'release_unit', 'request_inspection'):
+                led.emit('tilden.authority.granted', self.now,
+                         {'action': action, 'limits': {'objective': 'make-unit-ready'},
+                          'expires': (self.now + timedelta(days=365)).isoformat(), 'level': 'alone', 'by': 'owner'},
+                         f'tilden:demo-grant:{action}', source='owner')
             self.plan_breached()
             self.on_a_plan()
             self.cards_on_file()

@@ -148,6 +148,8 @@ class Act:
     about: str
     tenant: str | None = None
     args: dict = field(default_factory=dict)
+    case_id: str | None = None
+    approval_id: str | None = None
 
 
 @dataclass
@@ -1105,12 +1107,12 @@ def _price(rent, led, act, now):
 
 def _block(rent, led, act, now):
     bid = rent.new_id("BK", rent.blocks)
-    led.emit("unit.blocked", now, {"block": bid, "unit": act.about, "reason": act.args["reason"]}, rent.claim_key(act.about), source=act.source)
+    led.emit("unit.blocked", now, {"block": bid, "unit": act.about, "reason": act.args["reason"], **({"case_id": act.case_id} if act.source == "agent:tilden" else {})}, rent.claim_key(act.about), source=act.source)
     return bid
 
 
 def _unblock(rent, led, act, now):
-    led.emit("unit.unblocked", now, {"block": rent.holder(act.about, now)[1]}, f"unblocked:{act.id}", source=act.source)
+    led.emit("unit.unblocked", now, {"block": rent.holder(act.about, now)[1], **({"case_id": act.case_id} if act.source == "agent:tilden" else {})}, f"unblocked:{act.id}", source=act.source)
 
 
 def _reserve(rent, led, act, now):
@@ -1320,7 +1322,11 @@ DO = {"price_unit": _price, "block_unit": _block, "unblock_unit": _unblock, "res
 
 
 def _record(led: Ledger, act: Act, dec: Decision, now: datetime) -> None:
-    led.emit("gate.decided", now, {**asdict(act), "command": act.id, "allowed": dec.allowed, "check": dec.check, "made": dec.made,
+    fields = asdict(act)
+    if act.source != "agent:tilden":
+        fields.pop("case_id")
+        fields.pop("approval_id")
+    led.emit("gate.decided", now, {**fields, "command": act.id, "allowed": dec.allowed, "check": dec.check, "made": dec.made,
                                    **({"why": dec.why} if dec.why else {})},
              f"gate:{act.id}", source=act.source, command=act.id)
 
@@ -1358,8 +1364,16 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
             return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
         led = RentLedger(books, rent)
         rent.sweep(led, now)
-        dec = evaluate_rent(rent, books, act, now)
+        agent_allowed = False
+        if act.source == "agent:tilden":
+            from core.tilden.authority import live_grant
+            action = {"block_unit": "hold_unit", "unblock_unit": "release_unit"}.get(act.action)
+            agent_allowed = bool(action and live_grant(store, stream, act.case_id, action, act.about, now, act.approval_id))
+        dec = evaluate_rent(rent, books, act, now, agent_allowed)
         if dec.allowed:
+            if act.source == 'agent:tilden' and act.approval_id:
+                from core.tilden.authority import use_approval
+                use_approval(store, stream, act.approval_id, now)
             dec.made = DO[act.action](rent, led, act, now)
         elif act.action == "complete_transfer" and (dec.check.startswith("the amount to pay changed from ")
                                                     or dec.check == "the transfer amount needs the tenant's acceptance"):

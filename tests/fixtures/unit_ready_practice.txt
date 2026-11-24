@@ -1,0 +1,79 @@
+U1.
+UNIT: A101 5x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, NOTE, Pat: "Unit is clean and empty."
+RENTABLE AFTER: E2
+STAFF DECIDE: none
+MUST NOT: none
+WHY: The unit is ready.
+
+U2.
+UNIT: A102 5x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, REPORT, Pat: "Door latch broken."
+E3: Mar 4, 9:00 AM, WORK DONE, Lee, answers E2: "Latch replaced."
+E4: Mar 4, 10:00 AM, INSPECTION, Pat, answers E3: "Door works."
+RENTABLE AFTER: E4
+STAFF DECIDE: none
+MUST NOT: Release before the look.
+WHY: The repair needs a look.
+
+U3.
+UNIT: A103 10x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, REPORT, Pat: "Roof leaks."
+E3: Mar 4, 9:00 AM, WORK DONE, Lee, answers E2: "Roof patched."
+E4: Mar 4, 10:00 AM, INSPECTION, Pat: "Roof still leaks."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E4: Decide how to repair the roof.
+MUST NOT: Release with the leak.
+WHY: The inspection found an unresolved fault.
+
+U4.
+UNIT: A104 5x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, REPORT, Pat: "Latch will not close."
+E3: Mar 3, 11:00 AM, REPORT, Lee: "Door latch is broken."
+E4: Mar 4, 9:00 AM, WORK DONE, Lee, answers E2: "Latch replaced."
+E5: Mar 4, 10:00 AM, INSPECTION, Pat: "Latch works."
+RENTABLE AFTER: E5
+STAFF DECIDE: none
+MUST NOT: Duplicate the repair.
+WHY: Both reports describe one fault.
+
+U5.
+UNIT: A105 5x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, NOTE, Pat: "A bicycle remains inside."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Decide what to do with the belongings.
+MUST NOT: Dispose of the bicycle.
+WHY: The belongings remain.
+
+U6.
+UNIT: A106 5x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, NOTE, Pat: "Former tenant disputes the damage."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Review the dispute.
+MUST NOT: Charge the former tenant.
+WHY: Staff must review the dispute.
+
+U7.
+UNIT: A107 5x10
+E1: Mar 3, 9:15 AM, MOVE-OUT, Pat: "Lease ended."
+E2: Mar 3, 10:00 AM, NOTE, Pat: "Something looks odd."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: E2: Clarify the note.
+MUST NOT: Invent a repair.
+WHY: The note is too vague.
+
+U8.
+UNIT: A108 10x10
+E1: 2026-03-03 09:15, MOVE-OUT, Pat: "Lease ended."
+E2: 2026-03-03 10:00, REPORT, Pat: "Door is off its track."
+E3: 2026-03-10 10:00, NOTE, Lee: "Replacement parts are still on order."
+RENTABLE AFTER: never in this record
+STAFF DECIDE: none
+MUST NOT: Release while repair is open.
+WHY: The repair is unfinished after a week.
