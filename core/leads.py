@@ -97,8 +97,12 @@ def capture(led: Ledger, at: datetime, *, source: str, name: str, phone: str = "
     phone = normal_phone(phone)
     email = (email or "").strip().lower()
     permissions = list(permissions or [])
-    if source not in SOURCES or not name or not (phone or email):
-        raise Refused("give a source, name and phone or email")
+    if source not in SOURCES:
+        raise Refused("choose where the inquiry came from")
+    if not name:
+        raise Refused("give a name")
+    if not (phone or email):
+        raise Refused("give a phone number or an email, so the inquiry can be answered")
     if any(channel not in CHANNELS for channel in permissions):
         raise Refused("choose a contact channel")
     try:
