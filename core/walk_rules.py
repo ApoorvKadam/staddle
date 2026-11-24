@@ -9,9 +9,10 @@ same_fault(first, second) -> "same" | "different" | "unsure"
     Each report is a dict with "text", "by", "at" (ISO date and time) and "unit". "by" is accepted and not used:
     no rule here depends on who wrote a report.
 
-note_work(note, unit) -> set of {"cleaning", "repair"}
+note_work(note, unit) -> set of {"cleaning", "repair", "check"}
     Work counts only in a clause that is not a hedge, not negated, not already done, not about belongings or access,
-    and not a directive. A note that names a different unit gives no work.
+    and not a directive. A hedged clause that names cleaning or repair is "check": staff look before deciding.
+    A note that names a different unit gives no work.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ import re
 from datetime import datetime, timedelta
 
 SAME, DIFFERENT, UNSURE = "same", "different", "unsure"
-CLEANING, REPAIR = "cleaning", "repair"
+CLEANING, REPAIR, CHECK = "cleaning", "repair", "check"
 
 # two reports further apart than this may be a new failure after a repair, so "same" is not claimed
 GAP_LIMIT = timedelta(hours=48)
@@ -272,14 +273,19 @@ def _confirmed(clause: str, cue: re.Pattern, stoppers: tuple[re.Pattern, ...]) -
 
 
 def note_work(note: str, unit: str) -> set[str]:
-    """The cleaning and repair work a move-out note confirms for this unit, read clause by clause."""
+    """The cleaning and repair work a move-out note confirms for this unit, read clause by clause, plus "check" where a clause names
+    such work but hedges it (staff should look before deciding)."""
     named = {f"{letter.upper()}{int(number)}" for letter, number in _UNIT.findall(str(note or ""))}
     if named and named != {_unit_key(unit)}:
         return set()  # the note is about another unit
     work: set[str] = set()
     for sentence in _sentences(note):
         for clause in _clauses(sentence):
-            if DIRECTIVE.search(clause) or BELONG.search(clause) or HEDGE.search(clause):
+            if DIRECTIVE.search(clause) or BELONG.search(clause):
+                continue
+            if HEDGE.search(clause):
+                if _confirmed(clause, CLEAN_CUE, (NEG, DONE_CLEAN)) or _confirmed(clause, REPAIR_CUE, (NEG, DONE_REPAIR)):
+                    work.add(CHECK)
                 continue
             if _confirmed(clause, CLEAN_CUE, (NEG, DONE_CLEAN)):
                 work.add(CLEANING)

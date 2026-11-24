@@ -262,6 +262,43 @@ def test_a_note_that_cannot_be_kept_proposes_no_work():
     assert r.refusal and r.work == []
 
 
+def test_an_unsure_note_with_a_check_keeps_the_check_instead_of_losing_the_note():
+    note = "C335: maybe a few cobwebs, the light could be loose."
+    r = keep(note_answer(work=[("check", "maybe a few cobwebs"), ("repair", "the light could be loose")], flags=["unsure"]), note=note)
+    assert r.refusal is None and r.work == [{"kind": "check", "words": "maybe a few cobwebs"}]
+
+
+def test_seen_work_beside_a_guess_in_the_same_sentence_stays_when_the_guess_is_another_part():
+    note = "C335: water on the floor, the ceiling could be leaking."
+    r = keep(note_answer(work=[("cleaning", "water on the floor"), ("check", "the ceiling could be leaking"),
+                               ("repair", "the ceiling could be leaking")]), note=note)
+    assert r.work == [{"kind": "cleaning", "words": "water on the floor"}, {"kind": "check", "words": "the ceiling could be leaking"}]
+
+
+def test_a_leading_hedge_still_covers_the_part_after_it():
+    note = "C335: Not sure, but the latch is bent."
+    r = keep(note_answer(work=[("repair", "the latch is bent"), ("check", "the latch is bent")]), note=note)
+    assert r.work == [{"kind": "check", "words": "the latch is bent"}]
+
+
+def test_a_trailing_hedge_and_a_contraction_still_cover_their_part():
+    for note in ("C335: the latch is bent, I think.", "C335: I'm not sure, but the latch is bent."):
+        r = keep(note_answer(work=[("repair", "the latch is bent")]), note=note)
+        assert r.work == [], note
+
+
+def test_a_guess_with_its_own_content_does_not_cover_the_next_part():
+    note = "C335: Probably just dust, but the door track is cracked."
+    r = keep(note_answer(work=[("check", "Probably just dust"), ("repair", "the door track is cracked")]), note=note)
+    assert r.work == [{"kind": "check", "words": "Probably just dust"}, {"kind": "repair", "words": "the door track is cracked"}]
+
+
+def test_an_unsure_note_records_no_field_beside_its_check():
+    note = "C335: door closed, maybe a few cobwebs."
+    r = keep(note_answer(door=("closed", "door closed"), work=[("check", "maybe a few cobwebs")], flags=["unsure"]), note=note)
+    assert r.refusal is None and r.fields["door"] == "unknown" and "door" not in r.quotes
+
+
 def test_a_guess_is_read_in_its_own_sentence_so_a_plain_fact_beside_it_stays():
     note = "C335: Door closed. Staff think it is our lock."
     r = keep(note_answer(whose=("facility overlock", "our lock"), door=("closed", "Door closed")), note=note)

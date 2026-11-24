@@ -1,5 +1,6 @@
 """The walkthrough grading runner on a stand-in client: every fixture builds on the generated year, Tilden's answers are scored against
 core/graded/operations_judged.json, and the fixed-rule arms score as their rules say. No network."""
+import json
 import re
 
 from core import evaluate
@@ -49,3 +50,42 @@ def test_the_outside_unsure_pairs_count_a_confident_fixed_verdict_as_serious():
     t = report["table"]
     for item in ("A15", "A16", "A17", "A20"):                       # the author says the words cannot settle these
         assert t[f"{item} same_fault"]["fixed_unit"] == {"right": 0, "dropped": 0, "critical": 1, "runs": 1}
+
+
+def test_a_set_with_check_labels_scores_check_and_not_work_words(tmp_path):
+    # a stand-in in the third set's layout, written for this test (the real third set is never read by a test)
+    pair = {"id": "A1", "unit": "B12", "first": "Door spring snapped, door will not lift.", "first_at": "2026-11-20T09:00:00", "first_by": "Ana",
+            "second": "Spring on the door is broken, cannot open it.", "second_at": "2026-11-20T11:00:00", "second_by": "Raj", "label": "same", "why": "one spring"}
+    def note(nid, text, cleaning, repair, check, not_work=None):
+        return {"id": nid, "unit": "B12", "note": text, "note_at": "2026-11-20", "note_by": "Ana", "cleaning": cleaning, "repair": repair,
+                "check": check, "not_work": not_work, "other": None, "why": "stand-in"}
+    path = tmp_path / "set3.json"
+    path.write_text(json.dumps({"about": "stand-in", "mix": {}, "pairs": [pair], "notes": [
+        note("B1", "The door might be bent near the bottom, hard to tell.", False, False, True),
+        note("B2", "Lots of trash all over the floor.", True, False, False, "none"),
+        note("B3", "Couch to remove at the back.", False, False, False, '"Couch to remove"'),
+        note("B4", "Old stain by the door, sweep the floor.", True, False, False, '"Old stain"')]}))
+
+    def answer3(content):
+        if "<note>" in content:
+            text = content.split("<note>")[1].split("</note>")[0]
+            if "might be bent" in text:
+                return note_answer(unit=None, work=[("check", "might be bent")])
+            if "Couch" in text:
+                return note_answer(unit=None, work=[("cleaning", "Couch to remove")])
+            if "Old stain" in text:
+                return note_answer(unit=None, work=[("cleaning", "Old stain by the door")])
+        return answer(content)
+
+    report = evaluate.walk_judged(StandIn(*[answer3] * 200), 1, "claude-haiku-5-5", "low", str(path))
+    assert report["outside_file"] == "set3.json" and report["outside"] == evaluate.outside_hash(str(path))
+    rows = {(r["item"], r["arm"]): r for r in report["rows"] if r["part"] == "move_out_note" and r["set"] == "outside"}
+    assert rows[("B1", "tilden")]["kinds"] == ["check"] and rows[("B1", "tilden")]["right"]
+    assert rows[("B1", "strong_rule")]["kinds"] == ["check"] and rows[("B1", "strong_rule")]["right"]
+    assert not rows[("B1", "fixed")]["right"]                       # a word list never says check
+    assert rows[("B2", "tilden")]["right"] and rows[("B2", "strong_rule")]["right"]
+    assert rows[("B3", "tilden_unchecked")]["critical"] == ["not-work words turned into work"] and rows[("B3", "tilden_unchecked")]["not_work_in_words"]
+    assert rows[("B3", "strong_rule")]["right"] and not rows[("B3", "strong_rule")]["critical"]
+    assert not rows[("B4", "tilden_unchecked")]["right"] and rows[("B4", "tilden_unchecked")]["critical"]   # right kind, forbidden words
+    same = {r["arm"]: r for r in report["rows"] if r["part"] == "same_fault" and r["item"] == "A1"}
+    assert same["tilden"]["right"] and same["fixed_unit"]["right"]

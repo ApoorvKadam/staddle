@@ -70,9 +70,9 @@ def test_a_negated_clause_does_not_cancel_a_later_confirmed_one():
     assert note_work("Floor is not dirty, but the door hinge is loose.", UNIT) == {"repair"}
 
 
-def test_a_hedge_gives_no_work():
-    assert note_work("Might be water damage on the ceiling, could just be old paint.", UNIT) == set()
-    assert note_work("Door made a weird clunk one time, maybe roller issue?", UNIT) == set()
+def test_a_hedge_asks_staff_to_check_instead_of_confirming_work():
+    assert note_work("Might be water damage on the ceiling, could just be old paint.", UNIT) == {"check"}
+    assert note_work("Door made a weird clunk one time, maybe roller issue?", UNIT) == {"check"}
 
 
 def test_a_hedge_sets_aside_its_own_clause_and_not_the_confirmed_fault_beside_it():
@@ -128,3 +128,9 @@ def test_two_affirmative_reports_of_one_part_still_read_as_the_same_fault():
 
 def test_a_clause_can_carry_both_kinds_of_work():
     assert note_work("Sticky soda across the floor. Door hinge is loose, door hangs funny.", UNIT) == {"cleaning", "repair"}
+
+
+def test_a_hedged_clause_that_names_work_asks_staff_to_check():
+    assert note_work("The door might be bent near the bottom, hard to tell.", UNIT) == {"check"}
+    assert note_work("Floor is dirty. The light maybe flickers, not sure.", UNIT) == {"cleaning", "check"}
+    assert note_work("Might be a couch left in the back.", UNIT) == set()      # belongings are never work, hedged or not
