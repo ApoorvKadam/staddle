@@ -287,10 +287,10 @@ def test_nyc_compares_complete_recurring_total_to_maximum(kind, current, new, ot
 def test_nyc_annual_notice_deadline_uses_anniversary_not_record_start():
     led = book(NYC)
     terms(led, designated_method="first_class_mail")
-    commit(led, kind="anniversary", covers_from=date(2027, 4, 1), covers_to=date(2028, 3, 1), disclosed_on=date(2027, 1, 20))
+    commit(led, kind="anniversary", covers_from=date(2027, 2, 1), covers_to=date(2028, 3, 1), disclosed_on=date(2026, 12, 20))
     notice(led, at=at_local(date(2027, 1, 5), 10), attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5))
     pl.record_emergency_check(led, at_local(date(2027, 4, 1), 10), place="NYC", checked_on=date(2027, 4, 1), valid_until=date(2027, 4, 30), by="staff:manager", source="city page", active=[])
-    assert "ANNUAL_MAX_NOTICE_MISSING" in verdict(led, change(effective_on=date(2027, 4, 5)), NYC, at=at_local(date(2027, 4, 5), 10))[1]
+    assert verdict(led, change(effective_on=date(2027, 4, 5)), NYC, at=at_local(date(2027, 4, 5), 10))[:2] == ("allow", [])
 
 
 def street(**disclosure):
