@@ -333,3 +333,11 @@ def test_emergency_lookup_cannot_be_recorded_before_it_happens():
     assert not d.books().price_law or not d.books().price_law.checks
     assert any(e.kind == 'gate.decided' and not e.payload['allowed'] for e in d.store._rows(STREAM))
     assert d.checked('UT').allowed
+
+
+def test_an_open_ended_emergency_cannot_be_shortened_by_extension():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    restriction = d.go('record_emergency', place='UT', name='Emergency', source='order', starts='2026-11-20').made
+    for end in ('2026-11-19', '2026-12-20'):
+        assert not d.go('extend_emergency', restriction=restriction, ends=end, source='order').allowed
+    assert d.books().price_law.emergencies[restriction].ends is None

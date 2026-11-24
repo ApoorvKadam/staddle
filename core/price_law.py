@@ -470,7 +470,7 @@ def record_emergency(led: Ledger, at: datetime, *, place: str, name: str, source
 def record_emergency_extension(led: Ledger, at: datetime, *, restriction: str, ends, source: str) -> None:
     held = state(led.books).emergencies.get(restriction)
     end = _date(ends, "end date")
-    if held is None or not _clean(source) or (held.ends and end <= held.ends):
+    if held is None or not _clean(source) or held.ends is None or end <= held.ends:
         raise Refused("an extension names a declaration on file, its source, and a date later than its current end")
     led.emit("price_law.emergency_extended", at, {"id": restriction, "ends": end.isoformat(), "source": _clean(source)},
              f"price_law:{restriction}:extended:{end.isoformat()}")
