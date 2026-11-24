@@ -221,3 +221,12 @@ def test_notice_requires_the_served_amount_date_and_lease():
     assert d.change('check_price_change', 'notice_completion', NOW).allowed
     for terms in ({'new_cents': 12000}, {'effective_on': '2026-12-24'}):
         assert not d.change('check_price_change', 'notice_completion', NOW, **terms).allowed
+
+
+def test_notice_for_another_lease_does_not_prove_service():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    assert d.checked('UT').allowed and d.terms().allowed
+    assert d.terms(lease='L0002').allowed
+    assert d.notice(lease='L0002').allowed
+    result = d.change('check_price_change', 'notice_completion', NOW)
+    assert not result.allowed and result.why == 'NOTICE_SERVICE_UNPROVEN'

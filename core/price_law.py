@@ -904,7 +904,7 @@ def _notice(run: _Run, terms: Terms) -> None:
                     run.add("owner", "OWNER_RULE", f"The owner's rule asks for {owner} days' notice; if notice is given today the earliest is {day_words(earliest)}.")
                 break
         return
-    notices = [n for n in st.notices.get(c.id, ()) if n.new_cents == c.new_cents and n.effective_on == c.effective_on]
+    notices = [n for n in st.notices.get(c.id, ()) if n.lease == c.lease and n.new_cents == c.new_cents and n.effective_on == c.effective_on]
     if not notices:
         if c.kind == "fee_change":
             run.refuse("FEE_CHANGE_NOTICE_MISSING", "A new or higher fee needs its own notice, and none is on file for it.", rule)
