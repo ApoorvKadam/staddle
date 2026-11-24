@@ -76,3 +76,11 @@ def test_only_staff_or_the_owner_publish_a_promotion():
         with pytest.raises(Refused, match="only staff or the owner"):
             promotions.publish_version(led, "first-month", terms(), date(2026, 10, 1), who, WHEN)
     assert led.pending == []
+
+
+def test_non_string_covered_period_is_refused():
+    led = Ledger()
+    with pytest.raises(PromotionRefused, match="covered period") as refusal:
+        promotions.publish_version(led, "first-month", terms(covers=["first_full_month"]), date(2026, 10, 1), BY, WHEN)
+    assert refusal.value.code == promotions.TERMS_INCOMPLETE
+    assert led.pending == []

@@ -142,7 +142,7 @@ def terms_problem(t: dict) -> str | None:
         return "the deal price must be whole cents, zero or more"
     if percent is not None and not (_is_int(percent) and 1 <= percent <= 100):
         return "the percent off must be a whole number from 1 to 100"
-    if t["covers"] not in COVERS:
+    if not isinstance(t["covers"], str) or t["covers"] not in COVERS:
         return f"the covered period must be one of: {', '.join(COVERS)}"
     if t["proration"] != COVERS[t["covers"]]:
         return f"{t['covers'].replace('_', ' ')} is prorated '{COVERS[t['covers']]}', not '{t['proration']}'"
