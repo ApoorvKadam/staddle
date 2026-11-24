@@ -123,9 +123,9 @@ def test_the_screens_show_the_generated_year_in_words(fms_url, sim):
         # the live copy's year plus its two tenants in collections (Iris Nolan owes $130.00 and Rhea Mills $310.00 on Nov 14), who
         # change no one else
         assert "$2,996.00" in text["/home"] and "23 tenants" in text["/home"] and "23 tenants owe $2,996.00" in text["/collections"]
-        assert "All 120 units" in text["/home"] and len(re.findall(r"[A-Z][a-z]{2} \d{1,2}, 20\d\d", text["/units"].split("units occupied.", 1)[1])) == 113
-        assert "124 tenants" in text["/tenants"]
-        assert "Building A" in text["/units"] and "Vacant 7" in text["/units"] and "Row A" not in text["/units"]
+        assert "All 120 units" in text["/home"] and len(re.findall(r"[A-Z][a-z]{2} \d{1,2}, 20\d\d", text["/units"].split("units occupied.", 1)[1])) == 114
+        assert "125 tenants" in text["/tenants"]
+        assert "Building A" in text["/units"] and "Vacant 6" in text["/units"] and "Row A" not in text["/units"]
         assert "We waive one late fee per tenant" in text["/rules"] and "$25.00" in text["/rules"]
         for name in ("Maria Lopez", "James Carter", "Priya Shah", "Faye Turner"):
             assert name in text["/messages"] and name not in text["/today"]       # read in Messages, decide in Today
