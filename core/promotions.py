@@ -225,7 +225,7 @@ def _gross(period: str, rent_cents: int, start: date) -> int:
     return first_month(rent_cents, start) if period == month_key(start) else rent_cents
 
 
-def _price(versions: list[Version], rent_cents: int, start: date, periods: dict[str, list[str]]) -> dict:
+def _price(versions: list[Version], rent_cents: int, start: date, periods: dict[str, list[str]], caps: dict[str, int] | None = None) -> dict:
     """The quote's promotion part. `periods` maps each version to the months it covers. Several deals on one month apply in the order named,
     each to what the one before left owing, so the total can never pass the gross rent."""
     every = sorted({p for ps in periods.values() for p in ps})
@@ -236,7 +236,11 @@ def _price(versions: list[Version], rent_cents: int, start: date, periods: dict[
         left = gross
         for v, item in zip(versions, items):
             if period in periods[v.promotion]:
-                item["concessions"][period] = c = deal(v.terms, left)
+                c = deal(v.terms, left)
+                if caps is not None:
+                    c = min(c, caps[v.promotion])
+                    caps[v.promotion] -= c
+                item["concessions"][period] = c
                 left -= c
         label = (f"the rest of {_month_name(period)}, from {_day(start)}" if period == month_key(start) and start.day != 1 else _month_name(period))
         rows.append({"period": period, "label": label, "gross_cents": gross, "concession_cents": gross - left, "net_cents": left})
@@ -374,6 +378,9 @@ def apply_to_charge(led: Ledger, charge: str, at: datetime) -> None:
         if r.lease != ch.lease or r.state != "active" or m[1] not in r.periods or m[1] in consumed(books, r):
             continue
         cents = deal(st.versions[r.promotion][r.version - 1].terms, left)
+        if r.carried_from is not None:
+            given = sum(c["cents"] for c in r.concessions if not books.charges[c["charge"]].closed)
+            cents = min(cents, max(0, r.planned_cents - given))
         if cents:
             led.emit("promotion.concession_posted", at, {"redemption": r.id, "promotion": r.promotion, "charge": charge, "lease": ch.lease, "tenant": ch.tenant,
                                                         "period": m[1], "cents": cents, "gross_cents": ch.cents}, f"promotion:concession:{charge}:{r.id}", source="code")
@@ -390,9 +397,9 @@ def ending_disclosed(books: Books, lease: str, on: date) -> Redemption | None:
 def carry(books: Books, rent, old_lease: str, unit: str, start: date, now: datetime) -> tuple[dict | None, list[dict]]:
     """What a transfer does to the deals on the lease being left: (the promotion part of the new quote, the deals that end). Only a deal whose
     terms say 'carry', whose months are not all given yet and whose unit sizes include the new unit moves; the rest end with the old unit.
-    Nothing is checked against budget again: a carried deal is the same use."""
+    A carried deal is the same use, and its remaining benefit is limited to the amount already reserved."""
     st, size = state(books), rent.unit(unit).size
-    versions, periods, ended, ids = [], {}, [], {}
+    versions, periods, ended, ids, caps = [], {}, [], {}, {}
     for r in st.redemptions.values():
         left = [p for p in r.periods if p not in consumed(books, r)]
         if r.lease != old_lease or r.state != "active" or not left:
@@ -406,9 +413,11 @@ def carry(books: Books, rent, old_lease: str, unit: str, start: date, now: datet
         versions.append(v)
         periods[v.promotion] = left
         ids[v.promotion] = r.id
+        given = sum(c["cents"] for c in r.concessions if not books.charges[c["charge"]].closed)
+        caps[v.promotion] = max(0, r.planned_cents - given)
     if not versions:
         return None, ended
-    quote = _price(versions, rent.units[unit].rent_cents, start, periods)
+    quote = _price(versions, rent.units[unit].rent_cents, start, periods, caps)
     for item in quote["items"]:
         item["carried_from"] = ids[item["promotion"]]
     quote["carried_from"] = sorted(ids.values())

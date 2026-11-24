@@ -180,3 +180,17 @@ def test_recheck_uses_frozen_rent_after_asking_rent_changes():
     ok(store, act("price_unit", "staff:manager", "B201", rent_cents=20000, size="10x10"), NOW)
     decision = accept(store, t["ana"], rental)
     assert decision.allowed, decision.check
+
+
+def test_carried_concession_stays_within_original_reservation():
+    store, t = facility(terms(price_cents=None, percent=100, transfer="carry", max_concession_cents=12000, **FIRST_FULL))
+    rn = rent_with(store, t["ana"], "B201", "first-month")
+    ok(store, act("price_unit", "staff:manager", "B202", rent_cents=20000, size="10x10"), NOV12)
+    tr = transfer(store, t["ana"], rn, "B202", NOV12)
+    target = rent(store).transfers[tr].target
+    quote = rent(store).rentals[target].quote["promotion"]
+    assert quote["concession_cents"] == 12000
+    new_lease = lease_of(store, target)
+    billing(store, lambda led: led.post_rent("2026-12"))
+    assert [c[2:5] for c in charges(store, new_lease) if c[1] == f"rent:{new_lease}:2026-12"] == [(20000, 12000, 8000)]
+    refused(store, t["ben"], "B203", "first-month", code="PROMOTION_BUDGET_EXCEEDED", words="$0.00", now=NOV12)
