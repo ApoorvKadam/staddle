@@ -1,0 +1,9 @@
+{% extends "fms.html" %}
+{% block page %}Pricing{% endblock %}
+{% block body %}
+<header class="head"><h1>Pricing</h1></header>
+{% if note %}<p class="fms-status" role="status">{{ note|plain }}</p>{% endif %}
+{% if "demonstration" in reviews %}<p>Some price rules are modeled for demonstration only.</p>{% endif %}
+{% if "pending" in reviews %}<p>Some price rules are not reviewed yet.</p>{% endif %}
+{% include "fms_pricing_rows.html" %}
+{% endblock %}

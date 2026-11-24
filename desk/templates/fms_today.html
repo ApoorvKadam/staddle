@@ -40,7 +40,7 @@
   {% for x in items %}{% set i = x.i %}
   <article class="fms-line"{% if x.anchor %} id="{{ x.anchor }}"{% endif %}><span id="item-{{ i.key }}"></span>
     <p>{% if x.lead %}<a href="/leads/{{ x.lead.id }}">{{ x.lead.name|plain }}</a>{% endif %}{% if x.who %}<a href="/tenants/{{ x.who.slug }}#{{ x.section }}">{{ x.who.name }}</a>{% endif %}{% if x.unit %}{% if x.who %} <span class="muted" aria-hidden="true">&middot;</span> {% endif %}<a href="/units#u-{{ x.unit }}">unit {{ x.unit }}</a>{% endif %} <span class="chip {{ 'act' if i.state == 'reopened' else i.tone }}">{{ i.what }}</span> <span class="muted">{{ 'due' if x.upcoming else 'since' }} {{ x.since }}</span> <span class="chip {{ x.tone }}">{{ x.state }}</span>{% if i.overdue %} <span class="chip act">Overdue</span>{% endif %}</p>
-    <p class="muted">{{ x.why }}{{ '' if x.why.endswith('.') else '.' }}{% if x.link %} <a href="{{ x.link }}">Open it in Shop</a>{% endif %}</p>
+    <p class="muted">{{ x.why }}{{ '' if x.why.endswith('.') else '.' }}{% if x.link %} <a href="{{ x.link }}">{{ x.link_label }}</a>{% endif %}</p>
     {% if x.evidence %}<p class="muted">{{ x.evidence }}</p>
     {% else %}
     <p class="muted">What closes it: {{ x.closes }}{% if x.owner %} With: {{ x.owner }}.{% endif %}{% if x.seen %} Seen by {{ x.seen }}.{% endif %}</p>

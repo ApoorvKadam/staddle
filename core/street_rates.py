@@ -53,6 +53,13 @@ def _valid_limits(limits):
 
 
 
+def limit_event(led: Ledger, now: datetime, *, size: str, limits: Limits, by: str, number: int) -> None:
+    """The owner's limits for a size, written onto a ledger. set_limits and the live copy's seed both write them this way."""
+    if by != "owner" or not _valid_limits(limits):
+        raise ValueError("the owner must set valid limits for a size")
+    led.emit("street_rate.limits", now, {"size": size, "limits": asdict(limits)}, f"street-rate:limits:{size}:{number}", source=by)
+
+
 def set_limits(store: Store, stream: str, now: datetime, *, size: str, limits: Limits, by: str) -> Result:
     with store.write():
         books, rent = renting.load(store, stream)
@@ -62,8 +69,7 @@ def set_limits(store: Store, stream: str, now: datetime, *, size: str, limits: L
             return Result(False, "There is no unit of that size.")
         events = [e for e in store.events(stream) if e.kind == "street_rate.limits" and e.payload["size"] == size]
         led = Ledger(books)
-        led.emit("street_rate.limits", now, {"size": size, "limits": asdict(limits)},
-                 f"street-rate:limits:{size}:{len(events) + 1}", source=by)
+        limit_event(led, now, size=size, limits=limits, by=by, number=len(events) + 1)
         store.append(stream, led.pending)
         return Result(True, "Owner limits saved.")
 

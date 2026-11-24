@@ -1074,6 +1074,10 @@ body.fms > main { min-width: 0; }
 .fms-card > q, .fms-quote { display: block; font-family: var(--display); font-size: var(--t-lg); margin: var(--s2) 0 var(--s3); }
 .fms-card-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .fms-card-head a { font-weight: 600; }
+.fms-rate-form { display: grid; gap: var(--s2); min-width: 16rem; text-align: left; }
+.fms-rate-form label { display: grid; gap: 4px; font-size: var(--t-sm); color: var(--ink-2); }
+.fms-rate-form input { width: 100%; }
+.fms-rate-form .button { justify-self: start; }
 .fms-decide { display: flex; align-items: end; gap: var(--s3); flex-wrap: wrap; margin-top: var(--s4); }
 .fms-decide label { flex: 1 0 100%; font-size: var(--t-sm); color: var(--ink-2); }
 .fms-decide input { flex: 1 1 24rem; }

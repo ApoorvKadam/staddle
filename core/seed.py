@@ -15,7 +15,7 @@ from . import delinquency as col
 from . import leads
 from . import renting
 from . import liens
-from . import promotions, protection, shop
+from . import price_law, promotions, protection, shop, street_rates
 from . import walk
 from .gate import Command, evaluate
 from .billing import Ledger
@@ -34,6 +34,7 @@ A_LATE_FEE = re.compile(r"\ba (\$\d+ )?late fee\b(?! for)", re.I)
 UNITS = [f"{row}{n}" for row, first in (("A", 101), ("B", 201), ("C", 301)) for n in range(first, first + 40)]
 RENTS = {"A": (8500, 12000), "B": (14000, 19000), "C": (21000, 26000)}
 SIZES = {"A": "5x10", "B": "10x10", "C": "10x20"}            # the live copy's unit sizes, by row
+SIZE_RATES = {row: (lo + hi) // 2 // 500 * 500 for row, (lo, hi) in RENTS.items()}   # the live copy's asking rate for every unit of a size
 FIRST = ["Ana", "Ben", "Carla", "Dev", "Elena", "Femi", "Grace", "Hugo", "Ines", "Jon", "Kemi", "Luis", "Mona", "Nate", "Olga", "Pablo",
          "Rosa", "Sam", "Tara", "Uma", "Vic", "Wes", "Yara", "Zane", "Abby", "Cole", "Dina", "Eli", "Faye", "Gus"]
 LAST = ["Alvarez", "Brooks", "Chen", "Diaz", "Evans", "Foster", "Garcia", "Hayes", "Ito", "Jensen", "Khan", "Lopez", "Moreno", "Nguyen",
@@ -159,6 +160,8 @@ class Year:
             col.adopt_policy(led, at_local(opened - timedelta(days=10), 9, 5), 1, PLAN_POLICY)
             col.adopt_schedule(led, at_local(opened - timedelta(days=10), 9, 5), 1, OVERLOCK_DAYS, LIEN_DAYS)
             self.price_units(at_local(opened - timedelta(days=10), 9, 10))
+            self.owner_limits(at_local(opened - timedelta(days=10), 9, 11))
+            self.emergency_check(at_local(opened - timedelta(days=10), 9, 12))
         if self.protected:
             protection.publish_version(led, protection.PRODUCT, 1200, PLAN_TERMS, opened - timedelta(days=10), "staff:office_manager",
                                        at_local(opened - timedelta(days=10), 9, 15))
@@ -270,12 +273,27 @@ class Year:
         led.pending.extend(rl.pending)
 
     def price_units(self, at: datetime) -> None:
-        """The live copy gives every unit a size and an asking price, as renting's price_unit records them, so a vacant unit can be
-        rented on a fresh copy. Worked out from the unit's name and never drawn, so no other draw of the year moves."""
+        """The live copy gives every unit a size and its size's asking rate, as renting's price_unit records them, so a vacant unit can
+        be rented on a fresh copy and a rate can be proposed for the whole size. Never drawn, so no other draw of the year moves.
+        (Until 2026-11-24 each unit got a different rent worked out from its number, so no size-wide rate could be proposed.)"""
         for u in UNITS:
-            lo, hi = RENTS[u[0]]
-            rent = lo + 500 * (int(u[1:]) * 3 % ((hi - lo) // 500 + 1))
-            self.led.emit("unit.priced", at, {"unit": u, "rent_cents": rent, "size": SIZES[u[0]]}, f"priced:{u}", source="staff:front_desk")
+            self.led.emit("unit.priced", at, {"unit": u, "rent_cents": SIZE_RATES[u[0]], "size": SIZES[u[0]]}, f"priced:{u}", source="staff:front_desk")
+
+    def owner_limits(self, at: datetime) -> None:
+        """The owner has set limits for every size, as the owner (street_rates.limit_event, the same record set_limits writes): the
+        lowest 80 percent and the highest 125 percent of the size's rate, and a step of 10 percent either way, in whole dollars.
+        Without them every proposal stops with "Use the owner's current limits for this size."."""
+        for row, size in SIZES.items():
+            rate = SIZE_RATES[row]
+            step = rate // 10 // 100 * 100
+            limits = street_rates.Limits(step, step, rate * 8 // 10 // 100 * 100, rate * 125 // 100 // 100 * 100)
+            street_rates.limit_event(self.led, at, size=size, limits=limits, by="owner", number=1)
+
+    def emergency_check(self, at: datetime) -> None:
+        """The live copy's check that no declared emergency covers Florida. An increase waits until someone has checked, so the demo
+        records one; it says so in its source, because it is modeled, not read from the state's page. Expires a year out."""
+        price_law.record_emergency_check(self.led, at, place="FL", checked_on=at.date(), valid_until=self.today + timedelta(days=365),
+                                         by="staff:office_manager", source="Demonstration copy: modeled, not read from the state's page", active=[])
 
     def plan_month(self, month: str, rnd: random.Random) -> None:
         first = _d(month, 1)
