@@ -314,6 +314,7 @@ class State:
         self.approvals: dict[str, Approval] = {}
         self.decisions: list[Recorded] = []
         self.order: dict[str, int] = {}                 # declaration and check ids -> their place in the log, so "after" never reads a clock
+        self.counts: dict[str, int] = {}                # profiles set, approvals given and notice updates made, so a repeat in the same instant has its own key
         self._n = 0
 
     def apply(self, kind: str, at: datetime, p: dict) -> tuple[str, str] | None:
@@ -322,6 +323,9 @@ class State:
         self._n += 1
         if kind in ("price_law.emergency_declared", "price_law.emergency_checked"):
             self.order[p["id"]] = self._n
+        for counted, key in (("price_law.profile_set", "profile"), ("price_law.approved", p.get("change")), ("price_law.notice_updated", p.get("notice"))):
+            if kind == counted:
+                self.counts[key] = self.counts.get(key, 0) + 1
         if kind == "price_law.profile_set":
             self.profile = FacilityProfile(p["facility"], p["city"], p["place"], False, p["reviewed_by"])
         elif kind == "price_law.terms_snapshotted":
@@ -391,7 +395,7 @@ def set_profile(led: Ledger, at: datetime, *, place: str, reviewed_by: str) -> N
         raise Refused("give the place and who reviewed it")
     city = led.books.facility.get("city", "")
     led.emit("price_law.profile_set", at, {"facility": led.books.facility.get("name", ""), "city": city, "place": _clean(place),
-                                           "reviewed_by": _clean(reviewed_by)}, f"price_law:profile:{_clean(place)}:{at.isoformat()}")
+                                           "reviewed_by": _clean(reviewed_by)}, f"price_law:profile:{state(led.books).counts.get('profile', 0) + 1}")
 
 
 # the agreement ----------------------------------------------------------------------------------------------------------------
@@ -509,7 +513,7 @@ def update_notice(led: Ledger, at: datetime, *, change: str, notice: str, confir
         raise Refused("that notice is not on file for this change")
     out = [(_date(d, "date").isoformat() if d else None) for d in (delivered_on, acknowledged_on)]
     led.emit("price_law.notice_updated", at, {"change": change, "notice": notice, "confirmation": confirmation, "delivered_on": out[0], "acknowledged_on": out[1]},
-             f"price_law:{notice}:update:{at.isoformat()}")
+             f"price_law:{notice}:update:{state(led.books).counts.get(notice, 0) + 1}")
 
 
 def record_exception(led: Ledger, at: datetime, *, change: str, basis: str, covers_cents: int, document_sha256: str, by: str) -> str:
@@ -526,7 +530,7 @@ def record_exception(led: Ledger, at: datetime, *, change: str, basis: str, cove
 
 # decisions --------------------------------------------------------------------------------------------------------------------
 def record_approval(led: Ledger, at: datetime, *, change: str, versions: dict, by: str) -> None:
-    led.emit("price_law.approved", at, {"change": change, "versions": dict(versions), "by": by}, f"price_law:approved:{change}:{at.isoformat()}", source=by)
+    led.emit("price_law.approved", at, {"change": change, "versions": dict(versions), "by": by}, f"price_law:approved:{change}:{state(led.books).counts.get(change, 0) + 1}", source=by)
 
 
 def record_decision(led: Ledger, at: datetime, *, change: str, point: str, outcome: str, reasons, records, versions: dict, lease: str | None,
@@ -817,7 +821,6 @@ def _disclosed(run: _Run, terms: Terms) -> None:
     in_first = terms.signed_on <= c.effective_on <= first_end
     covering = [m for m in st.commitments.get(c.lease or "", ()) if m.covers_from <= c.effective_on <= m.covers_to]
     run.records.extend(f"commitment:{m.id}" for m in covering)
-    annual = next((rs for rs in run.sets if rs.annual_max_notice_days), None)
     untimely = set()
     for rs in (r for r in run.sets if r.topic == "disclosure"):
         name = PLACE_NAMES.get(rs.place, rs.place)
@@ -835,8 +838,6 @@ def _disclosed(run: _Run, terms: Terms) -> None:
                 last = max(yearly, key=lambda m: m.id)
                 run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
                                                         f"the notice for the year starting {day_words(last.covers_from)} was given {day_words(last.disclosed_on)}.", rs)
-    if annual is None:
-        untimely = set()
     for kind, words in (("first_year", "first-year"), ("anniversary", "yearly")):
         binding = [m for m in covering if m.kind == kind and m.id not in untimely]
         if binding:
@@ -1000,6 +1001,12 @@ def _owner(run: _Run) -> None:
         run.add("note", "OWNER_RULE_LOOSER", f"The owner's rule asks for {d} days' notice; the law's {max(law)} days applies instead, because an owner rule can only add to the law.")
 
 
+def posted_basis(books: Books, invoice: str) -> Recorded | None:
+    """What a posted invoice was decided on: the allowed decision recorded for it at invoice time, with the rule versions and records it read.
+    It is kept as it was; a later rule update never rewrites it."""
+    return next((r for r in reversed(state(books).decisions) if r.invoice == invoice and r.point == "invoice" and r.outcome == "allow"), None)
+
+
 def _snapshot(change: PriceChange) -> dict:
     return json.loads(json.dumps(asdict(change), default=str))
 
@@ -1007,6 +1014,8 @@ def _snapshot(change: PriceChange) -> dict:
 def decide(led: Ledger, at: datetime, change: PriceChange, *, point: str, profile: FacilityProfile | None = None,
            rules: tuple[RuleSet, ...] | None = None) -> Result:
     """Evaluate, then record the decision with its reasons, the records it read and the rule versions: one write, after the answer."""
+    if point == "invoice" and change.invoice and (basis := posted_basis(led.books, change.invoice)):
+        return Result(basis.outcome, basis.reasons, basis.records, basis.versions, basis.id)       # already posted: its decision stands
     res = evaluate(led.books, change, at, point=point, profile=profile, rules=rules)
     ident = record_decision(led, at, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
                             lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
@@ -1124,9 +1133,13 @@ def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | Non
             if point not in POINTS:
                 raise Refused("choose where in the change's life it is being checked")
             change = _change_from(act.about, f)
-            res = evaluate(books, change, now, point=point, profile=profile)
-            made = record_decision(led, now, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
-                                   lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
+            if act.action == "check_price_change":
+                res = decide(led, now, change, point=point, profile=profile)
+                made = res.id
+            else:
+                res = evaluate(books, change, now, point=point, profile=profile)
+                made = record_decision(led, now, change=change.id, point=point, outcome=res.outcome, reasons=res.reasons, records=res.records, versions=res.versions,
+                                       lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
             if res.allowed and act.action == "approve_price_change":
                 record_approval(led, now, change=change.id, versions=res.versions, by=who)
             check, code = _stated(res)
