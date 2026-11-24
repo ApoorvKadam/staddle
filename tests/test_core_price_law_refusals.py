@@ -429,3 +429,14 @@ def test_a_hold_is_never_cleared_by_approving_it():
     assert "PC1" not in led.books.price_law.approvals
     again = pl.command(led, act("h2", "approve_price_change", form, about="PC1", source="owner"), NOW, profile=UT)
     assert not again.allowed and "PC1" not in led.books.price_law.approvals
+
+
+def test_first_year_disclosure_must_cover_the_whole_first_year():
+    led = book(CA)
+    terms(led)
+    notice(led)
+    commit(led, covers_from=date(2026, 12, 23), covers_to=date(2026, 12, 23))
+    outcome, codes, _ = verdict(led, change(), CA)
+    assert outcome == 'refuse' and 'DISCLOSURE_MISSING_OR_INVALID' in codes
+    commit(led)
+    assert verdict(led, change(), CA)[:2] == ('allow', [])

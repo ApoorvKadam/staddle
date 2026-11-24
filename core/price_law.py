@@ -851,7 +851,9 @@ def _disclosed(run: _Run, terms: Terms) -> None:
     run.records.extend(f"commitment:{m.id}" for m in covering)
     for rs in (r for r in run.sets if r.topic == "disclosure"):
         name = PLACE_NAMES.get(rs.place, rs.place)
-        if rs.first_year_max and terms.signed_on >= rs.effective_from and in_first and not any(m.kind == "first_year" and (not rs.first_page or m.first_page) for m in covering):
+        if rs.first_year_max and terms.signed_on >= rs.effective_from and in_first and not any(
+                m.kind == "first_year" and m.covers_from <= terms.signed_on and m.covers_to >= first_end
+                and (not rs.first_page or m.first_page) for m in covering):
             run.refuse("DISCLOSURE_MISSING_OR_INVALID", f"The agreement was signed {day_words(terms.signed_on)}, after {rs.citation} began, so it had to state a "
                                                         "first-year maximum" + (" on the first page" if rs.first_page else "") + " and none is on file.", rs)
         if rs.annual_max_notice_days and c.effective_on > first_end:
