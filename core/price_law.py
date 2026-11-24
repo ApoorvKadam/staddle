@@ -478,8 +478,8 @@ def record_emergency_extension(led: Ledger, at: datetime, *, restriction: str, e
 
 def record_emergency_check(led: Ledger, at: datetime, *, place: str, checked_on, valid_until, by: str, source: str, active) -> str:
     seen, until = _date(checked_on, "check date"), _date(valid_until, "expiry date")
-    if until < seen or not _clean(source) or not by.startswith("staff:") and by != "owner":
-        raise Refused("a check names who looked, where, and a date it stays good until that is not before the day it was made")
+    if seen > local(at).date() or until < seen or not _clean(source) or not by.startswith("staff:") and by != "owner":
+        raise Refused("a check names who looked, where, a past or current check date, and an expiry no earlier than that date")
     if any(rid not in state(led.books).emergencies for rid in active):
         raise Refused("a check can only name declarations on file")
     ident = led.books.next_id("PLK")

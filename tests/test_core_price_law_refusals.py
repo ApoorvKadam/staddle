@@ -237,7 +237,7 @@ def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_eac
     notice(led, at=at_local(date(2027, 1, 5), 10), sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5))
     c = change(effective_on=date(2027, 4, 5))
     at = at_local(date(2027, 4, 5), 10)
-    pl.record_emergency_check(led, NOW, place="NYC", checked_on=date(2027, 4, 1), valid_until=date(2027, 4, 30), by="staff:manager", source="city page", active=[])
+    pl.record_emergency_check(led, at_local(date(2027, 4, 1), 10), place="NYC", checked_on=date(2027, 4, 1), valid_until=date(2027, 4, 30), by="staff:manager", source="city page", active=[])
     out, codes, res = verdict(led, c, NYC, "activation", at)
     assert (out, codes) == ("refuse", ["ANNUAL_MAX_NOTICE_MISSING"]) and "60 days" in res.reasons[0].words
     commit(led, kind="anniversary", max_cents=12500, covers_from=date(2027, 3, 2), covers_to=date(2028, 3, 1), disclosed_on=date(2027, 1, 20))

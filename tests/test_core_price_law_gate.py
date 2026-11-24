@@ -324,3 +324,12 @@ def test_service_after_the_check_does_not_count():
     assert d.notice(at=later, attempted_on='2026-12-01', effective_on='2027-01-01').allowed
     result = d.change('check_price_change', 'notice_completion', NOW, effective_on='2027-01-01')
     assert not result.allowed
+
+
+def test_emergency_lookup_cannot_be_recorded_before_it_happens():
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    result = d.go('record_emergency_check', place='UT', checked_on='2026-12-01', valid_until='2026-12-31', source='state page', active=[])
+    assert not result.allowed
+    assert not d.books().price_law or not d.books().price_law.checks
+    assert any(e.kind == 'gate.decided' and not e.payload['allowed'] for e in d.store._rows(STREAM))
+    assert d.checked('UT').allowed
