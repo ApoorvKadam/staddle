@@ -13,7 +13,7 @@ from core.billing import Ledger
 from core.books import at_local
 from desk.front_desk import FrontDesk
 
-from .test_core_renting_pay import desk_rental
+from .test_core_renting_pay import desk_rental, own_rentals
 
 DAY = date(2026, 12, 3)
 
@@ -269,7 +269,7 @@ def lost_rental(monkeypatch):
         desk_rental("card_ok", True, desk=desk)
     monkeypatch.setattr(delinquency, "send", real)
     r = renting.load(store, stream)[1]
-    rn = next(k for k, x in r.rentals.items() if not x.provenance)          # the copy's own rental, not one the year starts with
+    rn = own_rentals(store.books(stream), r)[0].id                          # the copy's own rental, not one the year starts with
     return desk, store, stream, now, rn, delinquency.state(store.books(stream)).intents[r.ops[r.rentals[rn].pay_ops[0]].intent]
 
 
