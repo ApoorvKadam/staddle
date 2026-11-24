@@ -216,9 +216,10 @@ def test_a_first_year_maximum_must_have_been_disclosed_on_a_new_california_agree
 
 def test_an_agreement_signed_before_the_california_disclosure_rule_began_needs_no_first_year_maximum():
     led = book(CA)
-    terms(led, signed_on=date(2025, 6, 1))
-    notice(led)
-    assert verdict(led, change(), CA)[:2] == ("allow", [])
+    terms(led, signed_on=date(2025, 12, 1))
+    effective = date(2026, 11, 30)
+    notice(led, attempted_on=date(2026, 10, 25), effective_on=effective)
+    assert verdict(led, change(effective_on=effective), CA, at=at_local(effective, 10))[:2] == ("allow", [])
 
 
 def test_a_disclosed_maximum_binds_in_any_place_where_it_was_stated():
