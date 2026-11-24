@@ -236,7 +236,7 @@ def test_a_disclosed_maximum_binds_in_any_place_where_it_was_stated():
     notice(led)
     commit(led, max_cents=10200)
     assert verdict(led, change(), UT)[:2] == ("refuse", ["DISCLOSED_MAX_EXCEEDED"])
-    assert verdict(led, change(effective_on=date(2027, 3, 2), new_cents=11000), UT, "activation", at_local(date(2027, 3, 2), 10))[1] != ["DISCLOSED_MAX_EXCEEDED"]
+    assert "DISCLOSED_MAX_EXCEEDED" not in verdict(led, change(effective_on=date(2027, 3, 2), new_cents=11000), UT, "activation", at_local(date(2027, 3, 2), 10))[1]
 
 
 def test_later_disclosure_does_not_erase_a_lower_maximum():
