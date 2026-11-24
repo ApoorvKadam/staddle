@@ -106,7 +106,7 @@ The claim rule was written down before the run. Tilden beats the rule on a part 
 
 ### Whole cases: getting a vacated unit rentable again
 
-Tilden's first job ran once on Nov 24 on 30 whole cases written by an outside author (`core/graded/unit_ready_1.txt`). Each case is the record of one unit, from the move-out until it was settled or a week had passed. The workers were frozen first (pull request 143). Four of them ran inside Tilden's runtime with the same tools and code checks. The fifth is a fixed-rule worker written separately, which keeps its own rules.
+Tilden's first job ran once on Nov 24 on 30 whole cases written by an outside author (`core/graded/unit_ready_1.txt`). Each case is the record of one unit, from the move-out until it was settled or a week had passed. The workers were frozen first (pull request 143). Three of them ran inside Tilden's runtime with the same tools and code checks. The facility system alone ran with no worker, and a fixed-rule worker written separately kept its own rules.
 
 | Worker | Offered again at the right entry (of 21) | Kept off when it never should be offered (of 9) | Offered too early | Handed to staff at the right entry (of 11) | Handed to staff with no need |
 |---|---|---|---|---|---|
@@ -121,7 +121,7 @@ The last three ran three times each; the table shows the mean, and the full rows
 - The playbook in fixed order offered units again on time far more often than Tilden's planner: 17.7 against 9.7 of 21.
 - No worker inside the runtime offered a unit too early. The rule worker without its checks did so 6 times.
 - Tilden's planner handed work to staff at the right entry most often: 8 of 11, against 4 for the rules. This is one set with 11 such cases.
-- One extra planner pass after the run looked at why. In 13 of 30 cases it stopped at the case's limit on tool calls and decisions. Those stops caused 10 of its 11 needless handoffs and 9 of its missed releases. That pass is not counted above.
+- One extra planner pass after the run looked at why. In 13 of 30 cases it reached the case's limit on tool calls and decisions, often after being handed to staff and picked up again several times. Of its 11 needless handoffs, 7 began with that limit and 4 were its own early choice. That pass is not counted above.
 - A run of 30 cases cost about 36 cents for the planner and about 1.3 cents for the fixed order.
 - This set is now spent. Changes it suggests, such as the case limits, are measured on a new outside set.
 
