@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
-from core import auction, delinquency, protection, reconcile, renting, walk_reading, work
+from core import auction, delinquency, protection, reconcile, renting, shop, walk_reading, work
 from core import walk as walks          # not `walk`: read_walk_note takes a walk by that name
 from core.books import ZONE, at_local, local
 from core.billing import Ledger, Refused
@@ -113,6 +113,7 @@ class FrontDesk:
         self._proposals: OrderedDict[str, tuple] = OrderedDict()     # visitor -> (id, proposal, sentence, rule versions, day)
         self._resets: dict[str, int] = {}                            # visitor -> how many times their copy was reset
         self._notes: dict[str, str] = {}                             # visitor -> why a going back was refused, shown once on the Rules page
+        self._step_saved: set[str] = set()                          # visitors whose kept note follows a record that was saved
         self._step_notes: dict[str, str] = {}                        # visitor -> why a staff step on a tenant was refused, shown once there
         self._reset_notes: dict[str, str] = {}                       # visitor -> why Start over was refused, shown once on Home
         self._hold_until = 0.0                                       # monotonic time before which a held day does not ask the processor again
@@ -275,7 +276,7 @@ class FrontDesk:
 
     def view(self, visitor: str, everything: bool = False) -> tuple:
         """What the pages read for one copy: its books, its own events, whether every entry balances and the debits, and with
-        everything=True all its events. Folded once per change and kept for the last few copies; a page never changes them."""
+        everything=True all its events, and the copy's merchandise totals up to the same last event. Folded once per change and kept for the last few copies; a page never changes them."""
         with self.lock:
             store = self.ready()
             stream = self.stream(visitor)
@@ -284,13 +285,15 @@ class FrontDesk:
             if hit is None or hit[0] != last:
                 total, debits = store.db.execute("SELECT COALESCE(SUM(cents), 0), COALESCE(SUM(CASE WHEN cents > 0 THEN cents END), 0) "
                                                  "FROM journal_lines WHERE stream IN (?, ?)", (BASE, stream)).fetchone()
-                hit = (last, store.books(stream), store.stream_events(stream), total == 0, debits)
+                merchandise = dict(store.db.execute("SELECT account, SUM(cents) FROM journal_lines WHERE stream = ? AND event_id <= ? "
+                                                    "AND account IN ('income:merchandise', 'cost:merchandise') GROUP BY account", (stream, last)).fetchall())
+                hit = (last, store.books(stream), store.stream_events(stream), total == 0, debits, merchandise)
                 self._views[stream] = hit
                 # ponytail: eight copies held in memory; a shared cache keyed by event id if many visitors read at once
                 while len(self._views) > 8:
                     self._views.popitem(last=False)
             self._views.move_to_end(stream)
-            return hit[1], hit[2], hit[3], hit[4], (store.events(stream) if everything else [])
+            return hit[1], hit[2], hit[3], hit[4], (store.events(stream) if everything else []), hit[5]
 
     def rent_view(self, visitor: str) -> renting.Rent:
         """One copy's renting state, folded once per change and kept for the last few copies like view(). It reads the same folded books
@@ -336,7 +339,8 @@ class FrontDesk:
             self._finish_cleanups()
             for event in self.processor.take_events():
                 try:
-                    delinquency.webhook(store, self.processor, event, self.clock())
+                    handler = shop.webhook if (event.get('metadata') or {}).get('shop_quote') else delinquency.webhook
+                    handler(store, self.processor, event, self.clock())
                 except Exception:       # one bad event never stops the others; reconciliation settles it later
                     log.exception("processor event %s failed", event.get("id"))
             streams = [s for (s,) in store.db.execute("SELECT DISTINCT stream FROM events WHERE stream LIKE 'visitor:%' ORDER BY stream")]
@@ -355,7 +359,8 @@ class FrontDesk:
                 # renting reads what the pass above settled: a rental waiting on its payment moves with the answer, holds that ran out
                 # are written down and each gate code is carried forward, then each code is checked against its rental. Each step is
                 # tried alone, so a fault stops neither the steps after it, the collections pass, nor another copy.
-                for step in (renting.settle_payments, lambda st, c, n: renting.advance(st, c, self.access, n), renting.check_codes, protection.sweep, work.sweep):
+                for step in (renting.settle_payments, lambda st, c, n: renting.advance(st, c, self.access, n), renting.check_codes, protection.sweep,
+                             lambda st, c, n: shop.reconcile(st, c, self.processor, n), shop.complete_confirmed, shop.sweep, work.sweep):
                     try:
                         step(store, s, now)
                     except Exception:
@@ -368,13 +373,16 @@ class FrontDesk:
         with self.lock:
             store, now = self.ready(), self.clock()
             try:
-                result = delinquency.webhook(store, self.processor, event, now)
+                handler = shop.webhook if (event.get('metadata') or {}).get('shop_quote') else delinquency.webhook
+                result = handler(store, self.processor, event, now)
             except delinquency.ProcessorRefused:
                 return "unknown"
-            if result == "applied":         # the payment is recorded now: a rental waiting on it moves at once
+            if result == "applied" and handler is delinquency.webhook:  # a rental waiting on its payment moves at once
                 stream = event["metadata"]["copy"]
                 self._settle_rentals(store, stream, now)
                 self._advance(store, stream, now)
+            elif result == "applied":                                   # a counter payment that was confirmed late: its sale posts through the same step
+                shop.complete_confirmed(store, event["metadata"]["copy"], now)
             return result
 
     def serve(self) -> None:
@@ -816,11 +824,98 @@ class FrontDesk:
                 self._keep(notes, visitor, d.check)
             return d.allowed
 
-    def pay_rental(self, visitor: str, rental: str, card: str):
-        """A renter's card payment for a rental in checkout, through the processor; a rental it starts gets its code at once."""
+    def staff_shop(self, visitor: str, act: shop.Act, then=None, saved: str = "") -> bool:
+        """A staff shop step on this copy, through the shop's one command gate: whether it was done. `then` makes the step that follows
+        (a receipt is posted to stock, a return goes back on the shelf) from the first decision; both ids come from the page's token, so a
+        second press repeats the first decisions and posts nothing twice. A refusal is kept to be shown once on the Shop page. When the
+        follow-up is refused after the first record was saved, `saved` says which record that is, and the note never says nothing changed."""
         with self.lock:
             store, stream, now = self.ready(), self.stream(visitor), self.clock()
-            intent = renting.pay_rental(store, stream, self.processor, rental, card, now)
+            d = shop.run(store, stream, act, now)
+            kept = False
+            if d.allowed and then is not None:
+                d = shop.run(store, stream, then(d), now)
+                kept = not d.allowed
+            self._shop_done(store, stream, now, d, visitor, saved if kept else "")
+            return d.allowed
+
+    def shop_counter_sale(self, visitor: str, act: shop.Act, card: str) -> bool:
+        """A sale at the counter: the quote freezes price and cost and holds the stock, the test card is asked once, and the sale posts
+        only when the processor confirms the payment. A payment still waiting, or one the processor declined, posts nothing."""
+        with self.lock:
+            store, stream, now = self.ready(), self.stream(visitor), self.clock()
+            d = shop.run(store, stream, act, now)
+            kept = d.allowed
+            if d.allowed:
+                d = self._shop_collect(store, stream, now, act, d.made, card, "first")      # a replayed form resumes the attempt it created
+            self._shop_done(store, stream, now, d, visitor, "The sale was started and its stock is held, but it is not posted:" if kept else "")
+            return d.allowed
+
+    def shop_retry_payment(self, visitor: str, act: shop.Act, card: str) -> bool:
+        """A new card payment on a sale whose payment was declined or returned: the retry is recorded through the gate first, then the
+        card is asked once. A sale not yet posted posts when it is confirmed; one already posted only has its money back."""
+        with self.lock:
+            store, stream, now = self.ready(), self.stream(visitor), self.clock()
+            d = shop.run(store, stream, shop.Act(act.id, act.action, act.source, act.about, dict(act.form or {}, card=card)), now)
+            kept = d.allowed
+            if d.allowed:
+                d = self._shop_collect(store, stream, now, act, d.made, card, f"shop:retry:{act.id}")     # only the attempt this form made
+            self._shop_done(store, stream, now, d, visitor, "The new payment attempt was recorded, but the payment did not come in:" if kept else "")
+            return d.allowed
+
+    def shop_resume_payment(self, visitor: str, act: shop.Act) -> bool:
+        """Ask the card processor again about a payment whose answer never came back: the same attempt, with its own key and card, so
+        the processor hands back the payment it holds, never a second one. A replayed form asks only the attempt it was made for."""
+        with self.lock:
+            store, stream, now = self.ready(), self.stream(visitor), self.clock()
+            d = shop.run(store, stream, act, now)
+            if d.allowed:
+                d = self._shop_collect(store, stream, now, act, act.about, "", d.made)
+            self._shop_done(store, stream, now, d, visitor)
+            return d.allowed
+
+    def _shop_collect(self, store: Store, stream: str, now: datetime, act: shop.Act, quote: str, card: str, which: str | None = None):
+        """Ask the processor for the frozen quote's payment and post the sale on a confirmed one. `which` binds the step to one attempt."""
+        try:
+            payment = shop.pay(store, stream, self.processor, quote, card, now, which)
+        except Refused as exc:
+            return shop.Decision(False, act.action, str(exc))
+        st = shop.state(store.books(stream))
+        status = (payment or {}).get("status")
+        if payment is not None and quote in st.payments and payment["key"] != st.payments[quote]["key"]:
+            return shop.Decision(False, act.action, "a newer payment replaced this one; what the processor said about this one is on record")
+        if status == "succeeded":
+            if quote in st.sales:
+                return shop.Decision(True, act.action, "The payment was taken.")
+            if quote in st.cancelled:
+                return shop.Decision(False, act.action, "the sale was cancelled before the payment came in; the money is owed back and is on Today")
+            return shop.run(store, stream, shop.Act(act.id + ":sale", "complete_sale", act.source, quote), now)
+        return shop.Decision(False, act.action, "the card was declined; the payment is on Today for staff to look at" if status == "failed"
+                             else "the card payment is not confirmed yet; the sale posts when it is")
+
+    def _shop_done(self, store: Store, stream: str, now: datetime, d, visitor: str, saved: str = "") -> None:
+        """After a shop step: keep why it was refused, and run the daily check so Today shows what the step settled. `saved` leads the
+        note when an earlier part of the same step was recorded, so the page does not say nothing changed."""
+        self._step_saved.discard(visitor)
+        if d.allowed:
+            self._step_notes.pop(visitor, None)
+        elif saved:
+            why = d.check.rstrip(". ")
+            self._keep(self._step_notes, visitor, f"{saved} {why[:1].lower() + why[1:] if why[1:2].islower() else why}")
+            self._step_saved.add(visitor)
+        else:
+            self._keep(self._step_notes, visitor, d.check)
+        try:
+            shop.sweep(store, stream, now)
+        except Exception:
+            log.exception("shop check failed for %s", stream)
+
+    def pay_rental(self, visitor: str, rental: str, card: str, expected_cents: int | None = None):
+        """A renter's card payment for a rental in checkout, through the processor; a rental it starts gets its code at once.
+        `expected_cents` is the combined total the page showed: the core charges nothing if it is different now."""
+        with self.lock:
+            store, stream, now = self.ready(), self.stream(visitor), self.clock()
+            intent = renting.pay_rental(store, stream, self.processor, rental, card, now, expected_cents)
             from core import leads
             with store.write():
                 books, rent = renting.load(store, stream)
@@ -829,6 +924,13 @@ class FrontDesk:
                 store.append(stream, led.pending)
             self._advance(store, stream, now)
             return intent
+
+    def checkout_total(self, visitor: str, rental: str) -> int | None:
+        """What a rental in checkout would be charged now, add-ons included: the number the page shows and the payment checks."""
+        with self.lock:
+            books, rent = renting.load(self.ready(), self.stream(visitor))
+            r = rent.rentals.get(rental)
+            return renting.checkout_due(books, rent, r, self.clock())[2] if r else None
 
     def _settle_rentals(self, store: Store, stream: str, now: datetime) -> None:
         """Carry the copy's rentals forward from what its payments say. Run after every way a payment's state can change, so the wait of
@@ -849,6 +951,8 @@ class FrontDesk:
 
     # collections ------------------------------------------------------------------------------------------------------------
     def _keep(self, notes: dict[str, str], visitor: str, text: str) -> None:
+        if notes is self._step_notes:
+            self._step_saved.discard(visitor)           # a new note is a plain refusal unless the caller says part of its step was saved
         notes[visitor] = f"{text[:1].upper()}{text[1:]}" + ("" if text.endswith(".") else ".")
         while len(notes) > 64:
             notes.pop(next(iter(notes)))
@@ -911,7 +1015,15 @@ class FrontDesk:
     def take_step_note(self, visitor: str) -> str:
         """Why the last staff step on a tenant was refused, once; empty when nothing was."""
         with self.lock:
+            self._step_saved.discard(visitor)
             return self._step_notes.pop(visitor, "")
+
+    def take_shop_note(self, visitor: str) -> tuple[str, bool]:
+        """The last shop step's note, once, and whether part of that step was saved before it was refused."""
+        with self.lock:
+            partial = visitor in self._step_saved
+            self._step_saved.discard(visitor)
+            return self._step_notes.pop(visitor, ""), partial
 
     def acknowledge(self, visitor: str, task: str, who: str) -> None:
         """Staff saw a collections task on this copy; a task already acknowledged, or not here, changes nothing."""

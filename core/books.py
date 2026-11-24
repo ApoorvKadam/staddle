@@ -62,6 +62,27 @@ def _moves(payload: dict) -> list[Line]:
 
 def lines(kind: str, p: dict) -> list[Line]:
     """The journal lines an event posts: (account, signed cents, charge id or None)."""
+    if kind == "shop.sale":
+        revenue, cost = p["price"] * p["quantity"], p["cost"] * p["quantity"]
+        return [(f"receivable:shop:{p['quote']}", revenue, None), ("income:merchandise", -revenue, None),
+                ("cost:merchandise", cost, None), ("inventory:merchandise", -cost, None)]
+    if kind == "shop.sale_reversed":
+        revenue, cost = p["price"] * p["quantity"], p["cost"] * p["quantity"]
+        return [(f"receivable:shop:{p['quote']}", -revenue, None), ("income:merchandise", revenue, None),
+                ("cost:merchandise", -cost, None), ("inventory:merchandise", cost, None)]
+    if kind in ("shop.payment_answered", "shop.attempt_answered") and p["status"] == "succeeded":
+        return [("clearing:card", p["cents"], None), (f"receivable:shop:{p['quote']}", -p["cents"], None)]
+    if kind in ("shop.payment_answered", "shop.attempt_answered") and p["status"] == "returned" and p.get("previous") == "succeeded":
+        return [(f"receivable:shop:{p['quote']}", p["cents"], None), ("clearing:card", -p["cents"], None)]
+    if kind == "shop.return_posted":
+        cost = p["quantity"] * p["cost"]
+        return [("inventory:merchandise", cost, None), ("cost:merchandise", -cost, None)]
+    if kind == "shop.write_off":      # money a buyer never paid and staff gave up on: its own entry, never an assumed payment
+        return [(f"receivable:shop:{p['quote']}", -p["cents"], None), ("loss:merchandise-write-off", p["cents"], None)]
+    if kind == "shop.refund":       # a refund for returned goods gives back revenue; one for money no sale holds clears what the payment left over
+        return [(f"receivable:shop:{p['quote']}" if p.get("unmatched") else "income:merchandise", p["cents"], None), (f"refund:shop:{p['id']}", -p["cents"], None)]
+    if kind == "shop.refund_cancelled":       # the original charge came back, so the refund set aside is no longer owed
+        return [(f"refund:shop:{p['refund']}", p["cents"], None), (f"receivable:shop:{p['quote']}" if p.get("unmatched") else "income:merchandise", -p["cents"], None)]
     if kind == "charge.posted":
         return [(f"receivable:{p['lease']}", p["cents"], p["charge"]), (_income(p["kind"]), -p["cents"], p["charge"])]
     if kind == "payment.received":
@@ -224,6 +245,7 @@ class Books:
         self.liens = None                                 # lien cases, their evidence, copies, approvals and stops (core/liens.py)
         self.floor = None                                 # what staff saw on walks, and work orders (core/walk.py); read, never written, by the checks
         self.leads = None                                 # inquiries and their histories (core/leads.py)
+        self.shop = None                                  # shop stock and counts
         self.protection = None                            # plan versions, offers, acceptances, enrolments and policy evidence (core/protection.py)
         self.seq = 0
         self.last_at: datetime | None = None
@@ -360,6 +382,11 @@ class Books:
             self.leads.apply(kind, at, p)
             if kind == "lead.captured":
                 self._seen("LEAD", p["lead"])
+        elif kind.split(".", 1)[0] == "shop":
+            if self.shop is None:
+                from .shop import State
+                self.shop = State()
+            self.shop.apply(kind, at, p)
         elif kind.split(".", 1)[0] == "protection":
             if self.protection is None:
                 from .protection import State        # protection reads these books, so it cannot be imported at the top

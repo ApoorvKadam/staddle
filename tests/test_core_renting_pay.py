@@ -427,3 +427,101 @@ def test_a_payment_paid_for_and_waiting_may_still_be_topped_up_after_its_hold_ti
     assert rent(store).holder("A101", late) == ("rental", rn)
     topped = pay_rental(store, BASE, SimulatedProcessor(), rn, "card_ok", late)
     assert topped.cents == 4000 and rent(store).rentals[rn].state == "active"
+
+
+def test_move_in_merchandise_uses_the_same_confirmed_payment():
+    from core import renting, shop
+
+    store, dana, _ = facility()
+    def step(ident, action, about=None, **form):
+        return shop.run(store, BASE, shop.Act(ident, action, 'staff:office_manager', about, form), NOW)
+    assert step('product', 'publish_product', 'lock', price=1500, cost=500, tax_class='standard', active=True).allowed
+    delivery = step('delivery', 'record_delivery', product='lock', quantity=2, reason='Ordered')
+    receipt = step('receipt', 'record_receipt', product='lock', quantity=2, delivery=delivery.made, reason='Counted')
+    assert step('stock', 'receive_stock', receipt.made).allowed
+    rn = ready(store, dana)
+    rental_total = rent(store).rentals[rn].quote['total_cents']
+    quotes = renting.add_shop_items(store, BASE, rn, [('lock', 1)], 'staff:office_manager', NOW)
+    processor = SimulatedProcessor()
+    intent = pay_rental(store, BASE, processor, rn, 'card_ok', NOW)
+    assert intent.state == 'succeeded'
+    assert len(processor.payments) == 1
+    assert next(iter(processor.payments.values()))['cents'] == rental_total + 1500
+    assert shop.state(books(store)).quantity('lock') == 1
+    assert quotes[0] in shop.state(books(store)).sales
+    assert rent(store).rentals[rn].state == 'active'
+    assert books(store).payments[intent.payment].cents == rental_total
+    assert books(store).credit.get(dana, 0) == 0
+
+
+def test_move_in_shop_stock_waits_for_the_same_processor_confirmation():
+    from core import renting, shop
+
+    store, dana, _ = facility()
+    def step(ident, action, about=None, **form):
+        return shop.run(store, BASE, shop.Act(ident, action, 'staff:office_manager', about, form), NOW)
+    step('product', 'publish_product', 'lock', price=1500, cost=500, tax_class='standard', active=True)
+    delivery = step('delivery', 'record_delivery', product='lock', quantity=2, reason='Order')
+    receipt = step('receipt', 'record_receipt', product='lock', quantity=2, delivery=delivery.made, reason='Counted')
+    step('stock', 'receive_stock', receipt.made)
+    rn = ready(store, dana)
+    quote, = renting.add_shop_items(store, BASE, rn, [('lock', 1)], 'staff:office_manager', NOW)
+    processor = SimulatedProcessor()
+    pending = pay_rental(store, BASE, processor, rn, 'card_pending', NOW)
+    assert shop.state(books(store)).quantity('lock') == 2
+    assert not step('premature', 'complete_sale', quote, note='paid').allowed
+    with pytest.raises(Refused, match='move-in payment'):
+        shop.pay(store, BASE, processor, quote, 'card_ok', NOW)
+    processor.settle(pending.outside, 'succeeded', NOW)
+    deliver(store, processor)
+    assert len(processor.payments) == 1
+    assert shop.state(books(store)).quantity('lock') == 1
+    assert quote in shop.state(books(store)).sales
+    processor.settle(pending.outside, 'returned', NOW)
+    deliver(store, processor)
+    assert shop.state(books(store)).payments[quote]['status'] == 'returned'
+    assert shop.state(books(store)).quantity('lock') == 1
+    assert books(store).payments[delinquency.state(books(store)).intents[pending.id].payment].returned
+
+
+def test_move_in_items_are_atomic_and_require_staff():
+    from core import renting, shop
+
+    store, dana, _ = facility()
+    def step(ident, action, about=None, **form):
+        return shop.run(store, BASE, shop.Act(ident, action, 'staff:office_manager', about, form), NOW)
+    step('product', 'publish_product', 'lock', price=1500, cost=500, tax_class='standard', active=True)
+    delivery = step('delivery', 'record_delivery', product='lock', quantity=1, reason='Order')
+    receipt = step('receipt', 'record_receipt', product='lock', quantity=1, delivery=delivery.made, reason='Counted')
+    step('stock', 'receive_stock', receipt.made)
+    rn = ready(store, dana)
+    before = len(store.events())
+    with pytest.raises(Refused):
+        renting.add_shop_items(store, BASE, rn, [('lock', 1), ('missing', 1)], 'staff:office_manager', NOW)
+    assert len(store.events()) == before and shop.state(books(store)).available('lock') == 1
+    with pytest.raises(Refused):
+        renting.add_shop_items(store, BASE, rn, [('lock', 1)], 'renter:guest', NOW)
+    assert len(store.events()) == before and shop.state(books(store)).available('lock') == 1
+
+
+def test_refused_move_in_payment_opens_shop_review_without_a_sale():
+    from core import renting, shop, work
+    from core.delinquency import ProcessorRefused
+
+    class RefusingProcessor(SimulatedProcessor):
+        def create(self, key, cents, card, metadata, now):
+            raise ProcessorRefused('request refused')
+
+    store, dana, _ = facility()
+    def step(ident, action, about=None, **form):
+        return shop.run(store, BASE, shop.Act(ident, action, 'staff:office_manager', about, form), NOW)
+    step('product', 'publish_product', 'lock', price=1500, cost=500, tax_class='standard', active=True)
+    delivery = step('delivery', 'record_delivery', product='lock', quantity=1, reason='Order')
+    receipt = step('receipt', 'record_receipt', product='lock', quantity=1, delivery=delivery.made, reason='Counted')
+    step('stock', 'receive_stock', receipt.made)
+    rn = ready(store, dana)
+    quote, = renting.add_shop_items(store, BASE, rn, [('lock', 1)], 'staff:office_manager', NOW)
+    assert pay_rental(store, BASE, RefusingProcessor(), rn, 'card_ok', NOW).state == 'closed'
+    b, r, wk = work.load(store, BASE)
+    assert any(i.source == 'shop' and i.ref == quote for i in work.queue(b, r, wk, NOW))
+    assert not shop.state(b).sales and shop.state(b).quantity('lock') == 1

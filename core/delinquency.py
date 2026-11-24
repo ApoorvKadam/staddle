@@ -108,6 +108,7 @@ class Intent:
     outside: str | None = None          # the processor's payment id
     payment: str | None = None          # the payment posted in the books
     created: datetime | None = None
+    shop_quotes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -186,7 +187,8 @@ def fold_event(b: Books, kind: str, at: datetime, p: dict) -> None:
     elif kind == "lien.flagged":
         st.liens[p["lease"]] = {**p, "at": at}
     elif kind == "intent.created":
-        st.intents[p["intent"]] = Intent(p["intent"], p["tenant"], p["cents"], p["key"], p["copy"], p["simulated"], created=at)
+        st.intents[p["intent"]] = Intent(p["intent"], p["tenant"], p["cents"], p["key"], p["copy"], p["simulated"], created=at,
+                                          shop_quotes=list(p.get("shop_quotes", [])))
         st.nonce = st.nonce or p["nonce"]
         b._seen("PI", p["intent"])
     elif kind == "intent.updated":
@@ -924,19 +926,37 @@ class SimulatedProcessor:
         return dict(self.payments[outside])
 
 
+def _shop_payment_problem(led: Ledger, intent: Intent, now: datetime) -> None:
+    if intent.shop_quotes:
+        from . import shop
+        for quote in intent.shop_quotes:
+            payment = shop.state(led.books).payments.get(quote)
+            if payment and not payment.get('problem'):
+                led.emit('shop.payment_problem', now, {'quote': quote}, 'shop:payment-problem:' + quote, source='processor')
+
+
 def _settle(led: Ledger, intent: Intent, p: dict, now: datetime) -> None:
     """Apply the processor's own record of the payment to the intent, once, and only forwards: a late failure never undoes a
     success, a repeat changes nothing, a return undoes what the payment paid."""
+    if intent.shop_quotes and (p.get('key') != intent.key or p.get('cents') != intent.cents
+                               or (p.get('metadata') or {}).get('copy') != intent.copy
+                               or (p.get('metadata') or {}).get('intent') != intent.id):
+        return
     to = PROCESSOR_STATES.get(p["status"])
     if to is None or to == intent.state or to not in INTENT_MOVES[intent.state]:
         return
     payload = {"intent": intent.id, "state": to, "outside": p["id"], "simulated": bool(p.get("simulated"))}
+    from . import shop
+    merchandise = sum(shop.state(led.books).payments[q]['cents'] for q in intent.shop_quotes)       # what the add-ons cost: the rental's own part is the rest
+    rental_part = intent.cents - merchandise            # nothing when only add-ons were paid: no payment is received or declined for the rental then
     if to == "succeeded":
-        payload["payment"] = led.receive_payment(intent.tenant, intent.cents, datetime.fromisoformat(p["at"]), now,
-                                                 ref={"processor_payment": p["id"], "copy": intent.copy, "intent": intent.id,
-                                                      "simulated": bool(p.get("simulated"))})
+        if rental_part > 0:
+            payload["payment"] = led.receive_payment(intent.tenant, rental_part, datetime.fromisoformat(p["at"]), now,
+                                                     ref={"processor_payment": p["id"], "copy": intent.copy, "intent": intent.id,
+                                                          "simulated": bool(p.get("simulated"))})
     elif to == "failed":
-        led.decline(now, intent.tenant, intent.cents)
+        if rental_part > 0:
+            led.decline(now, intent.tenant, rental_part)
     elif to == "returned" and intent.payment:
         try:
             led.return_payment(now, intent.payment)
@@ -945,7 +965,33 @@ def _settle(led: Ledger, intent: Intent, p: dict, now: datetime) -> None:
             if intent.payment not in led.books.pending_returns:
                 led.emit("payment.return_pending", now, {"payment": intent.payment}, f"return-pending:{intent.payment}", source="processor")
             _task(led, "returned payment needs staff", intent.tenant, f"return:{intent.id}", str(e), local(now).date(), now)
+            if intent.shop_quotes:
+                from . import shop
+                for quote in intent.shop_quotes:
+                    payment = shop.state(led.books).payments[quote]
+                    if payment['status'] == 'succeeded':
+                        led.emit('shop.payment_answered', now, {'quote': quote, 'status': 'returned', 'previous': 'succeeded',
+                                 'outside': p['id'], 'cents': payment['cents']}, f'shop:checkout-answer:{intent.id}:{quote}:returned',
+                                 source='processor')
+                        shop.cancel_refunds(led, quote, payment['key'], now)
             return
+    if intent.shop_quotes:
+        from . import shop
+        for quote in intent.shop_quotes:
+            st = shop.state(led.books)
+            payment = st.payments[quote]
+            old = payment['status']
+            status = {'pending': 'processing', 'closed': 'failed'}.get(to, to)
+            if old == status:
+                continue
+            led.emit('shop.payment_answered', now, {'quote': quote, 'status': status, 'previous': old, 'outside': p['id'], 'cents': payment['cents']},
+                     f'shop:checkout-answer:{intent.id}:{quote}:{to}', source='processor')
+            if status == 'returned' and old == 'succeeded':
+                shop.cancel_refunds(led, quote, payment['key'], now)
+            if to == 'succeeded' and not any(quote in held for held in (st.cancelled, st.write_offs, st.sales)):
+                # a quote staff cancelled (its stock may be sold to someone else by now) or wrote off is never posted by a late success: its
+                # money stays on record as paid and is owed back (shop.State.refunds_owed)
+                shop.post_sale(led, quote, st.quotes[quote], now, 'processor')
     # keyed by the move, not just where it ends: a payment that turns up after its intent was closed and is then cancelled closes it twice
     led.emit("intent.updated", now, payload, f"intent:{intent.id}:{intent.state}:{to}", source="processor")
     recheck(led, intent.tenant, now)
@@ -975,7 +1021,7 @@ def pay(store: Store, stream: str, processor: Processor, tenant: str, cents: int
     return send(store, stream, processor, iid, card, now)
 
 
-def open_intent(led: Ledger, stream: str, processor: Processor, tenant: str, cents: int, now: datetime) -> str:
+def open_intent(led: Ledger, stream: str, processor: Processor, tenant: str, cents: int, now: datetime, shop_quotes: list[str] | None = None) -> str:
     """Write a payment's intent, before any request goes out; its key is fixed here. Call it inside a write transaction (renting
     writes it together with the rental's own payment record). Returns the intent's id."""
     books = led.books
@@ -983,7 +1029,7 @@ def open_intent(led: Ledger, stream: str, processor: Processor, tenant: str, cen
     # the copy's mark keeps keys apart when a reset copy, under the same name, starts its counts again
     nonce = state(books).nonce or uuid.uuid4().hex[:12]
     led.emit("intent.created", now, {"intent": iid, "tenant": tenant, "cents": cents, "key": f"{stream}:{iid}:{nonce}", "nonce": nonce,
-                                     "copy": stream, "simulated": processor.simulated}, f"intent:{iid}", source="processor")
+                                     "copy": stream, "simulated": processor.simulated, "shop_quotes": shop_quotes or []}, f"intent:{iid}", source="processor")
     return iid
 
 
@@ -1002,6 +1048,7 @@ def send(store: Store, stream: str, processor: Processor, intent_id: str, card: 
             led = Ledger(books)
             led.emit("intent.updated", now, {"intent": intent_id, "state": "closed", "why": f"the processor refused the request: {e}"},
                      f"intent:{intent_id}:closed", source="processor")
+            _shop_payment_problem(led, state(books).intents[intent_id], now)
             store.append(stream, led.pending)
             return state(books).intents[intent_id]
     with store.write():
@@ -1054,6 +1101,7 @@ def reconcile(store: Store, stream: str, processor: Processor, now: datetime) ->
                 if i.state in UNSETTLED and now - i.created >= IN_FLIGHT:
                     led.emit("intent.updated", now, {"intent": iid, "state": "closed", "why": "the processor has no payment for it"},
                              f"intent:{iid}:closed", source="processor")
+                    _shop_payment_problem(led, i, now)
             else:
                 _settle(led, i, p, now)
             if i.state != before:

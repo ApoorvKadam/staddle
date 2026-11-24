@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from core import delinquency as col
-from core import leads, protection, reconcile, renting, liens as lien_core, auction, work, walk, walk_reading
+from core import leads, protection, reconcile, renting, liens as lien_core, auction, shop, work, walk, walk_reading
 from core.case import OFF
 from core.books import ADMIN_FEE_CENTS, LATE_FEE_CENTS, PROTECTION, RENT, REVIEW_DAYS, at_local, lines, local, month_key
 from core.billing import Ledger, Refused
@@ -99,7 +99,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))
@@ -152,7 +152,7 @@ WORK_STATES = {"open": ("Open", "plain"), "assigned": ("Assigned", "plain"), "in
                "reopened": ("Reopened: the problem came back", "act"), "done": ("Done", "done"), "cancelled": ("Cancelled", "plain")}
 WORK_ANCHORS = {"collections": "collections", "overlock": "overlocks", "reservation": "rentals", "rental": "rentals", "refund": "rentals",
                 "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance",
-                "protection": "protection", "lien": "lien", "lien stop": "lien", "lead": "leads"}       # where Home's links land: the first item of each kind
+                "protection": "protection", "lien": "lien", "lien stop": "lien", "lead": "leads", "shop": "shop"}       # where Home's links land: the first item of each kind
 WORK_FORMS = {"acknowledge": "acknowledge_work", "start": "start_work", "assign": "assign_work", "note": "note_work", "finish": "finish_work"}
 SCOPE_WORDS = {"overlock": "overlock", "lien": "lien eligibility"}
 # the tenant's own policy and the facility's plan on the tenant's page: each state in words with its chip colour
@@ -190,6 +190,27 @@ POLICY_FORM = (("min_tenure_days", "Rented at least", "days"), ("max_debt_cents"
                ("min_upfront_cents", "Smallest first payment", "dollars"), ("min_instalment_cents", "Smallest later payment", "dollars"),
                ("grace_days", "Grace after each due date", "days"))
 SCHEDULE_FORM = (("overlock_days", "Overlock", "days"), ("lien_days", "Lien eligibility", "days"))
+
+
+# the shop: each stock move kind in words, and each payment state; a Today item of the shop lands on the part of the Shop page that closes it
+SHOP_MOVES = {"received": "Received", "sold": "Sold at the counter", "return": "Put back after a return", "damage": "Damaged",
+              "give-away": "Given away", "count variance": "Count difference accepted"}
+SHOP_PAYMENTS = {"open": ("Not paid yet", "wait"), "processing": ("Waiting for the card processor", "wait"), "succeeded": ("Paid", "done"),
+                 "failed": ("Card declined", "act"), "returned": ("Returned by the bank", "act")}
+SHOP_LINKS = {"stock count variance": "/shop#counts", "shop payment needs review": "/shop#sales", "shop reconciliation": "/shop#records",
+              "shop refund owed": "/shop#sales"}
+SHOP_CARDS = (("card_ok", "Test card that is accepted"), ("card_declined", "Test card that declines"))
+SHOP_FORMS = {"change_price": "products", "add_product": "products", "expect_delivery": "deliveries", "receive_delivery": "deliveries",
+              "post_receipt": "deliveries", "give_away": "giveaways", "post_give_away": "giveaways", "record_count": "counts",
+              "review_count": "counts", "ask_recount": "counts", "post_difference": "counts", "sell": "counter", "post_sale": "sales",
+              "record_return": "returns", "post_return": "returns", "retry_payment": "sales", "cancel_sale": "sales",
+              "write_off_payment": "sales", "resume_payment": "sales", "refund_payment": "sales"}
+# a reconciliation sentence names records by their id; a person reads the kind of record only
+_SHOP_ID = re.compile(r"^(Receipt|Handover|Return|Sale|Count|Stock movement) \S+|^Payment for \S+")
+
+
+def shop_words(text: str) -> str:
+    return "; ".join(_SHOP_ID.sub(lambda m: m.group(1) or "A payment", part) for part in text.split("; "))
 
 
 def upfirst(text: str) -> str:
@@ -253,7 +274,7 @@ class Facility:
     """One session's view of the books: the folded state, the session's own events, and every tenant with their units and money."""
 
     def __init__(self, fd: FrontDesk, ident: str, everything: bool = False):
-        self.b, self.own, self.balanced, self.debits, self.events = fd.view(ident, everything)
+        self.b, self.own, self.balanced, self.debits, self.events, self.merchandise = fd.view(ident, everything)
         self.fd, self.today, self.now, self.ident = fd, fd.day, fd.clock(), ident
         b = self.b
         self.leases_of: dict[str, list] = {}
@@ -402,6 +423,8 @@ class Facility:
         for e in self.own:
             if e.kind == "gate.decided" and e.source.startswith("staff:") and e.payload["action"] not in WORK_SCOPE:    # work steps live in the queue
                 p = e.payload
+                if p["action"] in shop.ACTIONS:       # shop steps are listed on the Shop page with their records
+                    continue
                 if p["action"] in RENT_SCOPE:       # a renting step: no fee, no note, and often no tenant (pricing a unit); what was done is said from what was recorded
                     out.append({"who": self.people.get(p.get("tenant") or ""), "words": RENT_WORDS[p["action"]][0 if p["allowed"] else 1], "allowed": p["allowed"],
                                 "removed": False, "check": p["check"], "reason": None, "fee": "", "renting": True, "text": self.rent_sentence(p)})
@@ -589,16 +612,106 @@ class Facility:
         for i in views[view]:
             text, tone = WORK_STATES[i.state]
             anchor = WORK_ANCHORS[i.source]
-            rows.append({"i": i, "anchor": anchor if anchor not in seen else None, "who": self.people.get(i.tenant or ""), "since": dated(i.due, self.today.year),
+            rows.append({"i": i, "anchor": anchor if anchor not in seen else None, "who": self.people.get(i.tenant or ""), "since": dated(i.due, self.today.year), "upcoming": bool(i.due and i.due > self.today),
                          "unit": i.unit if i.source != "collections" else None, "state": f"{text} to {who(i.assignee)}" if i.state == "assigned" else text,
-                         "tone": tone, "why": plain(i.why), "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
+                         "tone": tone, "why": shop_words(plain(i.why)) if i.source == "shop" else plain(i.why), "link": SHOP_LINKS.get(i.kind) if i.source == "shop" else None, "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
                          "seen": who(i.acknowledged[0]) if i.acknowledged else None,
                          "notes": [(clock(at), who(by), t) for at, by, t in i.notes],
                          "lead": leads.state(self.b).records.get(i.ref) if i.source == "lead" else None,
-                         "section": "lien" if i.source in ("lien", "lien stop") else {"lead": "leads", "collections": "collections", "overlock": "collections", "protection": "protection"}.get(i.source, "renting"),
+                         "section": "lien" if i.source in ("lien", "lien stop") else {"lead": "leads", "collections": "collections", "overlock": "collections", "protection": "protection", "shop": "shop"}.get(i.source, "renting"),
                          "lift": i.kind == "lift overlock"})
             seen.add(anchor)
         return rows, {k: len(v) for k, v in views.items()}
+
+    def shop_page(self) -> dict:
+        """What the Shop page reads: each product with its stock and moves, deliveries, what waits to be posted, counts, sales and the
+        merchandise books, all from this copy's shop records."""
+        st = shop.state(self.b)
+        moves_of: dict[str, list] = {}
+        for m in sorted(st.moves, key=lambda m: m["at"], reverse=True):
+            moves_of.setdefault(m["product"], []).append({"at": clock(m["at"]), "kind": SHOP_MOVES.get(m["kind"], m["kind"]), "quantity": m["quantity"], "reason": plain(m["reason"])})
+        products = []
+        for name, versions in st.versions.items():
+            v = versions[-1]
+            products.append({"name": name, "price": v["price"], "cost": v["cost"], "tax_class": v["tax_class"], "active": v["active"], "on_hand": st.quantity(name),
+                             "held": st.quantity(name) - st.available(name), "moves": moves_of.get(name, []),
+                             "versions": [{"at": clock(x["at"]), "price": x["price"], "cost": x["cost"], "active": x["active"]} for x in reversed(versions)]})
+        received = {}
+        for r in st.receipts.values():
+            received[r["delivery"]] = received.get(r["delivery"], 0) + r["quantity"]
+        deliveries = [{"id": d["id"], "product": d["product"], "quantity": d["quantity"], "got": received.get(d["id"], 0), "left": d["quantity"] - received.get(d["id"], 0),
+                       "reason": plain(d["reason"]), "at": clock(d["at"])} for d in st.deliveries.values()]
+        posted = lambda kind: {m.get("reference") for m in st.moves if m["kind"] == kind}
+        unposted_receipts = [{"id": r["id"], "product": r["product"], "quantity": r["quantity"], "reason": plain(r["reason"])}
+                             for r in st.receipts.values() if r["id"] not in posted("received")]
+        handovers = [{"id": h["id"], "product": h["product"], "quantity": h["quantity"], "reason": plain(h["reason"]), "approval": plain(h["approval"]), "what": plain(h["handover"]),
+                      "posted": h["id"] in posted("give-away")} for h in st.handovers.values()]
+        counts = []
+        for c in sorted(st.counts.values(), key=lambda c: c["at"], reverse=True):
+            moved = any(m["kind"] == "count variance" and m.get("reference") == c["id"] for m in st.moves)
+            review = c.get("review")
+            recount = bool(review and review.get("recount"))
+            if moved:
+                state = ("Reviewed, difference posted to stock", "done")
+            elif recount and st.superseded(c["id"]):
+                state = ("Recount asked for; a newer count stands in for this one", "plain")
+            elif recount:
+                state = ("Recount asked for. Waiting for the new count", "wait")
+            elif not c["variance"]:
+                state = ("The count matches the books", "done")
+            elif review:
+                state = ("Reviewed, difference not posted yet", "act")
+            else:
+                state = ("Waiting for review", "act")
+            # a button is offered only when the core would take the step: the same check the gate runs
+            refusal = st.count_variance_refusal(c["product"], c["variance"], c, reviewed=True) if c["variance"] else None
+            clash = st.in_conflict(c)           # another live count of the product disagrees, whether or not this one matches the books
+            if not c["variance"] and clash and not review:
+                refusal = ("counts_conflict", "Another count of this product, with no stock movement between them, disagrees with this one; a recount is needed.")
+            # a recount is offered for a count that cannot stand: it disagrees with another live count, or it was reviewed and the shop would no longer post it
+            stuck = bool(refusal) and not moved and not recount and bool((not c["variance"] and not review) or (c["variance"] and review))
+            counts.append({"id": c["id"], "product": c["product"], "book": c["book"], "counted": c["counted"], "variance": c["variance"], "at": clock(c["at"]),
+                           "state": state, "open": bool(c["variance"] and not review), "accept": refusal is None,
+                           "post": bool(c["variance"] and review and not moved and not recount and refusal is None),
+                           "recount": stuck,
+                           "why_not": plain(refusal[1]) if refusal and not moved and not recount else "",
+                           "reason": plain(review["reason"]) if review else ""})
+        returned = {}
+        for r in st.returns.values():
+            returned[r["quote"]] = returned.get(r["quote"], 0) + r["quantity"]
+        live = {i.key for i in work.open_items(self.queue)}
+        sales, owed_all = [], st.refunds_owed()
+        for quote, q in sorted(st.quotes.items(), key=lambda kv: kv[1]["at"], reverse=True):
+            problem = f"shop:payment:{quote}" in live
+            owed = [a for q2, a in owed_all if q2 == quote]
+            if quote in st.attachments and not problem and not owed:
+                continue                    # a move-in add-on belongs to the rental's checkout; only a problem with its payment is settled here
+            pay = st.payments.get(quote)
+            sale, status = st.sales.get(quote), (pay or {}).get("status", "open")
+            gone, written = quote in st.cancelled, quote in st.write_offs
+            why = st.cancelled.get(quote) or st.write_offs.get(quote) or {}
+            sales.append({"quote": quote, "product": q["product"], "quantity": q["quantity"], "total": q["price"] * q["quantity"], "at": clock(q["at"]),
+                          "pay": SHOP_PAYMENTS.get(status, (status.replace("_", " "), "plain")), "posted": bool(sale), "reversed": quote in st.reversed_sales,
+                          "paid_unposted": status == "succeeded" and not sale and not gone, "returned": returned.get(quote, 0), "cancelled": gone,
+                          "written_off": written, "problem": problem, "addon": quote in st.attachments, "reason": plain(why.get("reason", "")),
+                          "can_return": bool(sale) and quote not in st.reversed_sales and returned.get(quote, 0) < q["quantity"],
+                          "can_retry": bool(pay) and not gone and not written and quote not in st.attachments and status != "succeeded" and st.can_close(quote),
+                          "can_cancel": not sale and not gone and status != "succeeded" and (pay is None or st.can_close(quote)),
+                          "can_resume": bool(pay) and not gone and quote not in st.attachments and status in ("open", "processing") and not pay.get("problem"),
+                          "owed": [{"key": a["key"], "total": money(a["cents"]), "replaced": not (gone or written)} for a in owed],
+                          "attempt": (pay or {}).get("key", ""),
+                          "can_write_off": bool(sale) and not written and quote not in st.reversed_sales and status in ("returned", "failed"),
+                          "left": q["quantity"] - returned.get(quote, 0)})
+        sales.sort(key=lambda x: not (x["problem"] or x["owed"]))          # what needs a look comes first
+        returns = [{"id": r["id"], "product": r["product"], "quantity": r["quantity"], "reason": plain(r["reason"]), "at": clock(r["at"]),
+                    "posted": r["id"] in posted("return")} for r in sorted(st.returns.values(), key=lambda r: r["at"], reverse=True)]
+        totals = self.merchandise           # read in the same step as the folded books above, so revenue, sales and stock describe the same records
+        books = {"revenue": -totals.get("income:merchandise", 0), "cost": totals.get("cost:merchandise", 0)}
+        differences = [shop_words(d) for d in (st.checks[-1]["differences"] if st.checks else [])]
+        return {"products": products, "deliveries": deliveries, "unposted_receipts": unposted_receipts, "handovers": handovers, "counts": counts,
+                "sales": sales, "returns": returns, "books": books, "differences": differences,
+                "sellable": [p for p in products if p["active"]],
+                "shown": json.dumps({p["name"]: p["price"] for p in products if p["active"]})}      # the prices the counter form shows, sent back with the sale
 
     def units(self) -> list[tuple[str, list[dict]]]:
         b, rent = self.b, self.rent
@@ -1169,13 +1282,16 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             raise HTTPException(404, "No checkout for this rental.")
         token = secrets.token_hex(6)
         account = 0
+        cents, quotes, due = renting.checkout_due(f.b, f.rent, r, f.now)       # the same figures the payment checks, so the page and the charge agree
         if r.transfer:
-            old = f.rent.rentals[f.rent.transfers[r.transfer].rental]
-            amount = f.rent.short(r, f.now, old)
-            checkout_amounts[(f.ident, token, r.id)] = amount
-            account = r.quote["total_cents"] - amount         # the account's credit (unused rent of the old unit among it) less older open charges
-            r = replace(r, quote={**r.quote, "total_cents": amount})
-        return site_show(request, "site_checkout.html", f, rental=r, agreement=agreement, token=token, account=account)
+            checkout_amounts[(f.ident, token, r.id)] = cents
+            account = r.quote["total_cents"] - cents         # the account's credit (unused rent of the old unit among it) less older open charges
+            r = replace(r, quote={**r.quote, "total_cents": cents})
+        shop_state = shop.state(f.b)
+        addons = [{"product": shop_state.quotes[q]["product"], "quantity": shop_state.quotes[q]["quantity"],
+                   "cents": shop_state.quotes[q]["price"] * shop_state.quotes[q]["quantity"]} for q in quotes]
+        return site_show(request, "site_checkout.html", f, rental=r, agreement=agreement, token=token, account=account, addons=addons, due=due,
+                         changed=request.query_params.get("changed") == "1")
 
     @app.post("/rent/checkout/{rental}", include_in_schema=False)
     async def website_pay(request: Request, rental: str):
@@ -1195,6 +1311,9 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     raise HTTPException(422, "Accept the agreement and choose a card.")
                 if (ident, token) in fd.site_forms:     # a second press of the same page returns the first answer
                     return
+                shown = int(data["total"]) if data.get("total", "").isdecimal() else None
+                if shown is not None and fd.checkout_total(ident, rental) != shown:
+                    return "changed"        # the total moved since the page was shown: nothing is accepted or charged until the renter sees the new one
                 fd.site_forms.add((ident, token))
                 if not r.accepted:      # once accepted, a declined card can be tried again without accepting twice
                     args = {"sha256": data.get("sha256", "")}
@@ -1204,11 +1323,14 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     if not decision.allowed or decision.repeated:
                         return
                 try:
-                    fd.pay_rental(ident, rental, card)      # the core refuses a payment that is not due, so a second press pays nothing
+                    fd.pay_rental(ident, rental, card, shown)      # the core refuses a payment that is not due, so a second press pays nothing
+                except renting.TotalChanged:
+                    return "changed"
                 except Refused:
                     pass
 
-        await run_in_threadpool(pay)
+        if await run_in_threadpool(pay) == "changed":
+            return RedirectResponse(f"/rent/checkout/{rental}?changed=1", status_code=303)
         return RedirectResponse(f"/rent/result/{rental}", status_code=303)
 
     @app.get("/rent/result/{rental}", include_in_schema=False)
@@ -1521,6 +1643,123 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     fd._keep(fd._step_notes, ident, reason)
         await run_in_threadpool(take_step)
         return RedirectResponse(f"/walkthrough?at={section}#{section}", status_code=303)
+
+    @app.get("/shop", include_in_schema=False)
+    def shop_page(request: Request):
+        ident = need(request)
+        fd.sync_work(ident)         # the items the shop records open are kept before the page reads them
+        f = Facility(fd, ident)
+        note, partial = fd.take_shop_note(ident)
+        return show(request, "fms_shop.html", "shop", f, shop=f.shop_page(), cards=SHOP_CARDS, token=secrets.token_hex(6),
+                    step_note=plain(note), step_partial=partial, note_at=request.query_params.get("at", ""), note_max=work.NOTE_MAX)
+
+    @app.post("/shop", include_in_schema=False)
+    async def shop_step(request: Request):
+        """A staff shop step, through the shop's one staff command gate on this session's copy. The page's token makes a second press
+        return the first decisions, and a refusal is said once at the part of the page that asked."""
+        same_site(request)
+        ident = need(request)
+        data = await form(request)
+        action, token = data.get("action", ""), data.get("token", "")
+        if action not in SHOP_FORMS:
+            raise HTTPException(422, "That is not a step staff can take here.")
+        if not re.fullmatch(r"[0-9a-f]{12}", token):
+            raise HTTPException(422, "Reload the page and try again.")
+        text = lambda k, n=200: " ".join(data.get(k, "").split())[:n]
+        whole = lambda k: int(data[k]) if data.get(k, "").strip().isdecimal() else None
+        def cents(k):               # dollars typed as 12 or 12.50, kept in cents; anything else is left for the gate to refuse
+            try:
+                value = Decimal(data.get(k, "").strip().lstrip("$")) * 100
+                return int(value) if value >= 0 and value == int(value) else None
+            except ArithmeticError:
+                return None
+        about = text("about", 120)
+        # a product is named exactly as it is stored when it is chosen; only a name being created is tidied (spaces collapsed)
+        product = text("product", 80) if action == "add_product" else data.get("product", "")
+        # the same form sent twice gets its first decisions back; other words or numbers are another command
+        what = hashlib.sha256(json.dumps([[k, data.get(k, "")] for k in sorted(data) if k not in ("token", "action")]).encode()).hexdigest()[:10]
+        base = f"form:{token}:{action}:{what}"
+        held = lambda: shop.state(fd.view(ident)[0])
+
+        def go() -> str:
+            if action in ("change_price", "add_product"):
+                latest = held().versions.get(product, [{}])[-1]
+                fd.staff_shop(ident, shop.Act(base, "publish_product", STAFF, product, {
+                    "price": cents("price"), "cost": cents("cost"), "tax_class": latest.get("tax_class", "standard") if action == "change_price" else text("tax_class", 40),
+                    "active": data.get("active") == "yes" if action == "change_price" else True}))
+            elif action == "expect_delivery":
+                fd.staff_shop(ident, shop.Act(base, "record_delivery", STAFF, None, {"product": product, "quantity": whole("quantity"), "reason": text("reason")}))
+            elif action == "receive_delivery":
+                delivery = held().deliveries.get(about)
+                fd.staff_shop(ident, shop.Act(base, "record_receipt", STAFF, None, {"product": delivery["product"] if delivery else "", "quantity": whole("quantity"),
+                                                                                           "reason": text("reason"), "delivery": about}),
+                              lambda d: shop.Act(base + ":post", "receive_stock", STAFF, d.made),
+                              "The delivery receipt was saved, but it is not added to stock yet:")
+            elif action == "post_receipt":
+                fd.staff_shop(ident, shop.Act(base, "receive_stock", STAFF, about))
+            elif action == "give_away":
+                quantity = whole("quantity")
+                fd.staff_shop(ident, shop.Act(base, "record_handover", STAFF, None, {"product": product, "quantity": quantity, "reason": text("reason"),
+                                                                                            "approval": text("approval"), "handover": text("handover")}),
+                                     lambda d: shop.Act(base + ":post", "adjust_stock", STAFF, product, {"kind": "give-away", "quantity": -quantity, "reason": text("reason"), "handover": d.made}),
+                                     "The give-away was saved, but it is not taken out of stock yet (use the button on its line once stock allows it):")
+            elif action == "post_give_away":
+                handover = held().handovers.get(about)
+                fd.staff_shop(ident, shop.Act(base, "adjust_stock", STAFF, handover["product"] if handover else "", {
+                    "kind": "give-away", "quantity": -handover["quantity"] if handover else 0, "reason": handover["reason"] if handover else "", "handover": about}))
+            elif action == "record_count":
+                fd.staff_shop(ident, shop.Act(base, "record_count", STAFF, product, {"quantity": whole("quantity")}))
+            elif action in ("review_count", "ask_recount", "post_difference"):
+                count = held().counts.get(about)
+                reason = text("reason")
+                if count is None:
+                    fd.staff_shop(ident, shop.Act(base, "review_count", STAFF, about, {"reason": reason}))
+                elif action == "post_difference":
+                    fd.staff_shop(ident, shop.Act(base, "adjust_stock", STAFF, count["product"], {"kind": "count variance", "quantity": count["variance"],
+                                                                                                        "reason": (count["review"] or {}).get("reason", reason), "count": about}))
+                elif action == "ask_recount":
+                    # asking for a recount needs no findings (the button skips the box); the record still says what was asked
+                    fd.staff_shop(ident, shop.Act(base, "review_count", STAFF, about, {"reason": reason or "Recount asked for", "recount": True}))
+                else:
+                    fd.staff_shop(ident, shop.Act(base, "review_count", STAFF, about, {"reason": reason}),
+                                         lambda d: shop.Act(base + ":post", "adjust_stock", STAFF, count["product"], {"kind": "count variance", "quantity": count["variance"],
+                                                                                                                       "reason": reason, "count": about}),
+                                         "Your review of the count was saved, but its difference is not posted to stock:")
+            elif action == "sell":
+                card = data.get("card", "")
+                if card not in dict(SHOP_CARDS):
+                    raise HTTPException(422, "Choose a card.")
+                try:
+                    shown = json.loads(data.get("shown", "{}"))
+                except ValueError:
+                    shown = {}
+                price = shown.get(product) if isinstance(shown, dict) else None
+                fd.shop_counter_sale(ident, shop.Act(base, "quote_sale", STAFF, product, {"quantity": whole("quantity"), "price": price}), card)
+            elif action == "post_sale":
+                fd.staff_shop(ident, shop.Act(base, "complete_sale", STAFF, about))
+            elif action == "record_return":
+                fd.staff_shop(ident, shop.Act(base, "record_return", STAFF, about, {"quantity": whole("quantity"), "condition": text("condition", 20), "reason": text("reason")}),
+                                     lambda d: shop.Act(base + ":post", "return_stock", STAFF, d.made),
+                                     "The return was saved, but it is not back in stock yet:")
+            elif action == "post_return":
+                fd.staff_shop(ident, shop.Act(base, "return_stock", STAFF, about))
+            elif action == "retry_payment":
+                card = data.get("card", "")
+                if card not in dict(SHOP_CARDS):
+                    raise HTTPException(422, "Choose a card.")
+                fd.shop_retry_payment(ident, shop.Act(base, "retry_payment", STAFF, about), card)
+            elif action == "resume_payment":
+                fd.shop_resume_payment(ident, shop.Act(base, "resume_payment", STAFF, about, {"key": text("key", 200)}))
+            elif action == "refund_payment":
+                fd.staff_shop(ident, shop.Act(base, "refund_payment", STAFF, about, {"key": text("key", 200), "reason": text("reason")}))
+            elif action == "cancel_sale":
+                fd.staff_shop(ident, shop.Act(base, "cancel_sale", STAFF, about, {"reason": text("reason")}))
+            else:                       # write_off_payment
+                fd.staff_shop(ident, shop.Act(base, "write_off_payment", STAFF, about, {"reason": text("reason")}))
+            return SHOP_FORMS[action]
+
+        section = await run_in_threadpool(go)
+        return RedirectResponse(f"/shop?at={section}#{section}", status_code=303)
 
     @app.get("/liens", include_in_schema=False)
     def lien_cases(request: Request):

@@ -15,7 +15,7 @@ from . import delinquency as col
 from . import leads
 from . import renting
 from . import liens
-from . import protection
+from . import protection, shop
 from . import walk
 from .gate import Command, evaluate
 from .billing import Ledger
@@ -198,6 +198,7 @@ class Year:
                     renting.record_baseline_access(adopted, rental, self.now)       # the code each tenant already holds on the simulated gate
             self.led.pending.extend(adopted.pending)
             self.walkthrough(rent)
+            self.shop_records()
             if self.protected:
                 self.protection_records()
             if self.seed_leads:
@@ -637,6 +638,21 @@ class Year:
             d = self._protection("enrol:olga", "enroll_plan", "staff:office_manager", when + timedelta(hours=1), about=eid)
             assert d.allowed, d.check
         self.at(when, go)
+
+    def shop_records(self) -> None:
+        """Stock observations for the live copy; these records do not post money."""
+        at = self.now
+        def record(name, action, about=None, **form):
+            d = shop.command(self.led, shop.Act('seed:shop:' + name, action, 'staff:office_manager', about, form), at)
+            assert d.allowed, d.check
+            return d.made
+        record('product', 'publish_product', 'disc lock', price=1500, cost=500, tax_class='standard', active=True)
+        delivery = record('delivery', 'record_delivery', product='disc lock', quantity=12, reason='Opening delivery')
+        receipt = record('receipt', 'record_receipt', product='disc lock', quantity=12, reason='Staff counted the delivery', delivery=delivery)
+        record('receive', 'receive_stock', receipt)
+        record('count', 'record_count', 'disc lock', quantity=9)
+        record('unmatched-delivery', 'record_delivery', product='disc lock', quantity=4, reason='Delivery expected')
+        record('handover', 'record_handover', product='disc lock', quantity=1, reason='Goodwill', approval='Manager approved', handover='Staff handed over one lock')
 
     def protection_records(self) -> None:
         """What the tenant's own policy and the plan look like on the day the live copy opens, written through the staff commands as synthetic

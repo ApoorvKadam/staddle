@@ -38,7 +38,7 @@ def test_a_fresh_copy_lists_the_years_work_in_four_views_and_the_money_figures_d
     with sign_in(site(fms_url)) as c:
         page = c.get("/today").text
         text = seen(page)
-        assert "Work for staff" in text and "Facility-wide 25" in text and "My work 16" in text and "Waiting 0" in text and "Done today 0" in text
+        assert "Work for staff" in text and "Facility-wide 26" in text and "My work 17" in text and "Waiting 0" in text and "Done today 0" in text
         assert "Rhea Mills Payment plan breached since Oct 26" in text and text.count("Overlock due") == 12
         assert "Each item stays here until the record it is about shows the work done" in text
         assert "What closes it: Staff reinstate or end the plan." in text and "What closes it: The overlock is recorded on the unit." in text
@@ -100,7 +100,7 @@ def test_an_item_assigned_to_a_role_is_under_that_roles_my_work_and_overdue_ones
         assert f"unit {unit}" not in view(c, "mine")                                                # the front desk's, by default
         assert push(c, "assign", code, to="office_manager").status_code == 303
         mine = view(c, "mine")
-        assert f"unit {unit} Gate code not confirmed" in mine and "Assigned to Office manager" in mine and "My work 17" in mine
+        assert f"unit {unit} Gate code not confirmed" in mine and "Assigned to Office manager" in mine and "My work 18" in mine
         assert push(c, "assign", code, to="front_desk").status_code == 303
         assert f"unit {unit}" not in view(c, "mine") and "Assigned to Front desk" in view(c)
         assert push(c, "assign", code, to="person:dana.reyes").status_code == 303
@@ -149,8 +149,9 @@ def test_visiting_today_again_makes_no_second_item(fms_url, sim):
         fd.sweep()
         c.get("/today")
         opened = [e.payload["key"] for e in fd.ready().stream_events(fd.stream(ident)) if e.kind == "work.opened"]
-        assert len(opened) == len(set(opened)) == 25
+        assert len(opened) == len(set(opened)) == 27            # the year's items, the protection items, three leads and the shop check
         assert sum(key.startswith("lead:") for key in opened) == 3
+        assert opened.count('shop:check') == 1
         assert NOW.date() == fd.today()
 
 
@@ -186,3 +187,33 @@ def test_lien_work_links_to_the_file_and_staff_words_do_not_close_it(fms_url, si
             key = re.search(r'name="key" value="([^"]+)"', item).group(1)
             assert push(c, "finish", key, text="I checked it").status_code == 303
             assert words in view(c)
+
+
+def test_today_lists_the_seeded_shop_count(fms_url, sim):
+    with sign_in(site(fms_url)) as c:
+        response = c.get('/today')
+        assert response.status_code == 200
+        text = seen(response.text)
+        assert 'Stock count needs review' in text
+        assert 'disc lock: book quantity 12, counted 9, difference -3' in text
+
+
+def test_today_renders_each_shop_work_kind(fms_url, sim):
+    from core import shop
+
+    app = site(fms_url)
+    with sign_in(app) as c:
+        fd, ident = desk_of(app, c)
+        store, stream = fd.ready(), fd.stream(ident)
+        quote = shop.run(store, stream, shop.Act('today-shop-quote', 'quote_sale', 'staff:office_manager',
+                                                 'disc lock', {'quantity': 1}), NOW)
+        assert quote.allowed
+        assert shop.pay(store, stream, fd.processor, quote.made, 'card_declined', NOW)['status'] == 'failed'
+        fd.sweep()
+        response = c.get('/today')
+        assert response.status_code == 200
+        text = seen(response.text)
+        assert 'Stock count needs review' in text
+        assert 'Shop payment needs review' in text
+        assert 'Shop records need review' in text
+        assert 'id="shop"' in response.text

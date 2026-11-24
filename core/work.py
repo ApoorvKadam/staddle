@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 
 from . import delinquency as col
-from . import leads, liens, protection, reconcile, renting
+from . import leads, liens, protection, reconcile, renting, shop
 from .billing import Ledger
 from .books import PROTECTION, Books, local
 from .evidence import clock, day, money
@@ -362,11 +362,61 @@ def _leads(b: Books, rent: renting.Rent, now: datetime) -> list[Cond]:
     return out
 
 
+def _shop(b: Books) -> list[Cond]:
+    st = shop.state(b)
+    out = []
+    if st.checks and st.checks[-1]['differences']:
+        check = st.checks[-1]
+        since = check['day']
+        for prior in reversed(st.checks[:-1]):
+            if not prior['differences']:
+                break
+            since = prior['day']
+        out.append(Cond("shop:check", "shop", since, "shop reconciliation", "Shop records need review",
+                        "; ".join(check['differences']) + ".", "Staff resolve the differences in the shop records.",
+                        OFFICE, date.fromisoformat(since), "act"))
+    for quote, payment in st.payments.items():
+        if quote in st.cancelled or quote in st.write_offs:
+            continue
+        # a retry that has not been answered keeps the same item, waiting: the money is not recovered until the retry comes in or staff settle it
+        retry = bool(st.attempts.get(quote)) and payment['status'] in ('open', 'processing') and not payment.get('problem')
+        if payment['status'] in ('returned', 'failed') or (payment.get('problem') and payment['status'] in ('open', 'processing')) or retry:
+            description = {'returned': 'was returned', 'failed': 'failed'}.get(payment['status'], 'is not confirmed after the processor refused a request')
+            if retry:
+                description = 'was tried again and the card processor has not answered yet'
+            q = st.quotes[quote]
+            out.append(Cond(f"shop:payment:{quote}", "shop", quote, "shop payment needs review", "Shop payment needs review",
+                            f"The shop payment for {q['quantity']} {q['product']} {description}; staff need to settle the money and any handover.",
+                            "A new payment is collected, the unpaid sale is cancelled, or the lost payment is written off.",
+                            OFFICE, local(payment['at']).date(), "wait" if retry else "act", waits=retry))
+    for quote, a in st.refunds_owed():
+        q = st.quotes[quote]
+        if quote in st.cancelled:
+            why = (f"A card payment of {money(a['cents'])} for {q['quantity']} {q['product']} came in after the sale was cancelled. "
+                   "No sale was posted for it, so the money is owed back to the buyer.")
+        elif quote in st.write_offs:
+            why = (f"A card payment of {money(a['cents'])} for {q['quantity']} {q['product']} came in after the sale's payment was written off. "
+                   "The money is owed back to the buyer.")
+        else:           # an attempt a newer one replaced: the sale stands on the other payment, so this is an extra charge
+            why = (f"A card payment of {money(a['cents'])} for {q['quantity']} {q['product']} came in on an earlier attempt that a newer payment "
+                   "had replaced. It is an extra charge and is owed back to the buyer.")
+        out.append(Cond(f"shop:refund:{quote}:{a['key']}", "shop", quote, "shop refund owed", "Shop payment owed back", why,
+                        "The refund is recorded.", OFFICE, local(a['at']).date(), "act"))
+    for c in st.counts.values():
+        # only a record settles a count: its difference is posted to stock, or a recount was asked for and a newer count of the product exists
+        if c['variance'] and not any(m['kind'] == 'count variance' and m.get('reference') == c['id'] for m in st.moves) and not st.superseded(c['id']):
+            out.append(Cond(f"shop:count:{c['id']}", "shop", c['id'], "stock count variance", "Stock count needs review",
+                            f"{c['product']}: book quantity {c['book']}, counted {c['counted']}, difference {c['variance']}.",
+                            "The difference is posted to stock after review, or a recount is asked for and a new count is recorded.",
+                            OFFICE, local(c['at']).date() + timedelta(days=2), "act"))
+    return out
+
+
 def conditions(b: Books, rent: renting.Rent, now: datetime) -> dict[str, Cond]:
     """Everything staff have to do right now, by key, read off the books and the renting records."""
     today = local(now).date()
     return {c.key: c for c in _collections(b, today) + _overlocks(b, now, today) + _renting(b, rent, now, today) + _walk(b, rent, now) + _maintenance(rent)
-            + _protection(b, today) + _lien_evidence(b) + _legal_stops(b) + _leads(b, rent, now)}
+            + _protection(b, today) + _lien_evidence(b) + _legal_stops(b) + _leads(b, rent, now) + _shop(b)}
 
 
 # the folded record -----------------------------------------------------------------------------------------------------------
