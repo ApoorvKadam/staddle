@@ -348,7 +348,7 @@ class State:
                                                     tuple(p["products"]), p["scope"], at)
             return "PLE", p["id"]
         elif kind == "price_law.emergency_extended":
-            self.emergencies[p["id"]] = replace(self.emergencies[p["id"]], ends=day("ends"), source=p["source"])
+            self.emergencies[p["id"]] = replace(self.emergencies[p["id"]], ends=day("ends"), source=p["source"], at=at)
         elif kind == "price_law.emergency_checked":
             self.checks.append(EmergencyCheck(p["id"], p["place"], day("checked_on"), day("valid_until"), p["by"], p["source"], tuple(p["active"]), at))
             return "PLK", p["id"]
@@ -710,7 +710,10 @@ def _emergency(run: _Run) -> None:
     run.versions["emergency"] = ",".join(sorted(chk.active))
     if not change.raises:
         return
-    late = [r for r in st.emergencies.values() if r.place == place and st.order[r.id] > st.order[chk.id] and _covers(r, change.effective_on)]
+    late = [r for r in st.emergencies.values() if r.place == place and _covers(r, change.effective_on) and
+            (local(r.at).date() > chk.checked_on or
+             (local(r.at).date() == chk.checked_on and
+              (local(chk.at).date() != chk.checked_on or st.order[r.id] > st.order[chk.id])))]
     if late:
         run.hold("EMERGENCY_STATUS_UNKNOWN", f"A declaration or extension ({late[0].name}) was recorded after the last check, so whether it covers this facility is not known.")
         return

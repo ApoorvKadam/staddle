@@ -456,3 +456,15 @@ def test_hand_delivery_cannot_precede_attempt_even_in_existing_evidence():
     records[0] = replace(records[0], delivered_on=TODAY)
     outcome, codes, _ = verdict(led, change(), CA)
     assert outcome == 'refuse' and 'NOTICE_SERVICE_UNPROVEN' in codes
+
+
+def test_backdated_lookup_cannot_precede_a_known_declaration():
+    led = book(UT)
+    terms(led)
+    notice(led)
+    declared = at_local(date(2026, 11, 24), 10)
+    pl.record_emergency(led, declared, place='UT', name='Example emergency', source='public notice', starts=TODAY, ends=date(2026, 12, 31))
+    entered = at_local(date(2026, 11, 25), 10)
+    pl.record_emergency_check(led, entered, place='UT', checked_on=TODAY, valid_until=date(2027, 1, 1), by='staff:manager', source='state page', active=[])
+    outcome, codes, _ = verdict(led, change(), UT)
+    assert outcome == 'hold' and 'EMERGENCY_STATUS_UNKNOWN' in codes
