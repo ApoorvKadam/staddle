@@ -247,6 +247,7 @@ class Books:
         self.leads = None                                 # inquiries and their histories (core/leads.py)
         self.shop = None                                  # shop stock and counts
         self.protection = None                            # plan versions, offers, acceptances, enrolments and policy evidence (core/protection.py)
+        self.promotions = None                            # promotion versions and redemptions (core/promotions.py)
         self.seq = 0
         self.last_at: datetime | None = None
         self.counters: dict[str, int] = {}
@@ -392,6 +393,11 @@ class Books:
                 from .protection import State        # protection reads these books, so it cannot be imported at the top
                 self.protection = State()
             self.protection.apply(kind, at, p)
+        elif kind.split(".", 1)[0] == "promotion":
+            if self.promotions is None:
+                from .promotions import State        # promotions reads these books, so it cannot be imported at the top
+                self.promotions = State()
+            self.promotions.apply(kind, at, p)
         elif kind.split(".", 1)[0] in COLLECTION_RECORDS:
             from .delinquency import fold_event      # delinquency reads these books, so it cannot be imported at the top
             fold_event(self, kind, at, p)
