@@ -47,7 +47,7 @@ def _clause(note: str, words: str) -> str:
 # a part of a sentence: "Water on the floor, the ceiling could be leaking" holds a seen fact and a guess, judged apart
 _PART = re.compile(r",|\bbut\b|\bwhile\b")
 # what is left of a part once its guess words, a unit label and small filler words are taken out; nothing left means a bare hedge
-_FILLER = re.compile(r"\b(?:i|i'm|im|it|but|and|so|well|honestly|really|just|though)\b|\b[A-Za-z]-?\d{1,4}\b:?|[^\w\s]", re.I)
+_FILLER = re.compile(r"\b(?:i'm|im|i|it|but|and|so|well|honestly|really|just|though)\b|\b[A-Za-z]-?\d{1,4}\b:?|[^\w\s]", re.I)
 
 
 def _bare_hedge(part: str) -> bool:
@@ -56,7 +56,7 @@ def _bare_hedge(part: str) -> bool:
 
 def _part(note: str, words: str) -> str:
     """The comma part of the sentence that holds the quoted words; the sentence when the quote spans parts. A part that is only a hedge
-    ("Not sure, but the latch is bent") belongs to the part after it, so a leading guess still covers what follows."""
+    ("Not sure, but the latch is bent") belongs to the part after it, and a trailing one ("bent, I think") to the part before it."""
     sentence = _clause(note, words)
     parts: list[str] = []
     carry = ""
@@ -68,8 +68,11 @@ def _part(note: str, words: str) -> str:
             continue
         parts.append(carry + p)
         carry = ""
-    if carry:
-        parts.append(carry)
+    if carry:                       # a trailing bare hedge ("the latch is bent, I think") covers the part before it
+        if parts:
+            parts[-1] += " " + carry
+        else:
+            parts.append(carry)
     return next((p for p in parts if found_in(words, p)), sentence)
 
 

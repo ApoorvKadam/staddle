@@ -63,7 +63,8 @@ def test_a_set_with_check_labels_scores_check_and_not_work_words(tmp_path):
     path.write_text(json.dumps({"about": "stand-in", "mix": {}, "pairs": [pair], "notes": [
         note("B1", "The door might be bent near the bottom, hard to tell.", False, False, True),
         note("B2", "Lots of trash all over the floor.", True, False, False, "none"),
-        note("B3", "Couch to remove at the back.", False, False, False, '"Couch to remove"')]}))
+        note("B3", "Couch to remove at the back.", False, False, False, '"Couch to remove"'),
+        note("B4", "Old stain by the door, sweep the floor.", True, False, False, '"Old stain"')]}))
 
     def answer3(content):
         if "<note>" in content:
@@ -72,6 +73,8 @@ def test_a_set_with_check_labels_scores_check_and_not_work_words(tmp_path):
                 return note_answer(unit=None, work=[("check", "might be bent")])
             if "Couch" in text:
                 return note_answer(unit=None, work=[("cleaning", "Couch to remove")])
+            if "Old stain" in text:
+                return note_answer(unit=None, work=[("cleaning", "Old stain by the door")])
         return answer(content)
 
     report = evaluate.walk_judged(StandIn(*[answer3] * 200), 1, "claude-haiku-5-5", "low", str(path))
@@ -83,5 +86,6 @@ def test_a_set_with_check_labels_scores_check_and_not_work_words(tmp_path):
     assert rows[("B2", "tilden")]["right"] and rows[("B2", "strong_rule")]["right"]
     assert rows[("B3", "tilden_unchecked")]["critical"] == ["not-work words turned into work"] and rows[("B3", "tilden_unchecked")]["not_work_in_words"]
     assert rows[("B3", "strong_rule")]["right"] and not rows[("B3", "strong_rule")]["critical"]
+    assert not rows[("B4", "tilden_unchecked")]["right"] and rows[("B4", "tilden_unchecked")]["critical"]   # right kind, forbidden words
     same = {r["arm"]: r for r in report["rows"] if r["part"] == "same_fault" and r["item"] == "A1"}
     assert same["tilden"]["right"] and same["fixed_unit"]["right"]

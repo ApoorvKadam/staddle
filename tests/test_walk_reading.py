@@ -281,6 +281,12 @@ def test_a_leading_hedge_still_covers_the_part_after_it():
     assert r.work == [{"kind": "check", "words": "the latch is bent"}]
 
 
+def test_a_trailing_hedge_and_a_contraction_still_cover_their_part():
+    for note in ("C335: the latch is bent, I think.", "C335: I'm not sure, but the latch is bent."):
+        r = keep(note_answer(work=[("repair", "the latch is bent")]), note=note)
+        assert r.work == [], note
+
+
 def test_a_guess_with_its_own_content_does_not_cover_the_next_part():
     note = "C335: Probably just dust, but the door track is cracked."
     r = keep(note_answer(work=[("check", "Probably just dust"), ("repair", "the door track is cracked")]), note=note)

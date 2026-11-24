@@ -411,8 +411,10 @@ def walk_judged(client, runs: int, model: str, effort: str, outside_path: str = 
                 # cleaning or repair the label does not have, on a note that carries such words. Whether a reading's own words hold
                 # the author's phrase is kept beside it as a column
                 done = [str(w.get("words") or "").lower() for w in (items or []) if w.get("kind") in ("cleaning", "repair")]
-                crit += ["not-work words turned into work"] if note["not_work"] and (kinds - {"check"}) - want else []
                 in_words = bool(note["not_work"]) and any(p in d for d in done for p in note["not_work"])
+                # a reading's own words naming the author's phrase as work count too, even when its kinds match the label: this check can
+                # only fault an arm that gives words, so it can never raise a reading above a rule
+                crit += ["not-work words turned into work"] if note["not_work"] and ((kinds - {"check"}) - want or in_words) else []
                 extra = {"work": r.work, "refusal": r.refusal, "contents": r.fields.get("contents"), "cents": r.call.cents if r.call else 0.0} if arm == "tilden" else {"cents": 0.0}
                 # a refused note proposes no work, so on a note that needs none a refusal scores as right: kept apart so it can be counted
                 rows.append({"item": note["id"], "part": "move_out_note", "arm": arm, "run": run, "right": kinds == want and not crit,
