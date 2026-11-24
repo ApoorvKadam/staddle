@@ -730,6 +730,7 @@ def _emergency(run: _Run) -> None:
     for r in (st.emergencies[i] for i in chk.active if _covers(st.emergencies[i], change.effective_on)):
         run.records.append(f"emergency:{r.id}")
         if auth := _authorized(run, r.id):
+            run.records.append(f"authorization:{auth.id}")
             run.add("note", "EMERGENCY_EXCEPTION_RECORDED", f"The owner recorded a documented legal exception for this price ({auth.basis}); it lifts the emergency "
                                                           "restriction for this change only.")
             continue

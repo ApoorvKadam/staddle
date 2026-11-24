@@ -363,7 +363,10 @@ def test_a_claimed_exception_counts_only_once_the_owner_has_recorded_it_with_its
         pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256="", by="owner", restriction=rid, terms=pl._snapshot(claimed))
     pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11400, document_sha256=SHA, by="owner", restriction=rid, terms=pl._snapshot(replace(claimed, new_cents=11400)))
     assert "LEGAL_EXCEPTION_UNVERIFIED" in verdict(led, claimed, CA, "publication", NOW)[1]
-    pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256=SHA, by="owner", restriction=rid, terms=pl._snapshot(claimed))
+    auth = pl.record_exception(led, NOW, change="PC1", basis="documented cost increase", covers_cents=11500, document_sha256=SHA, by="owner", restriction=rid, terms=pl._snapshot(claimed))
+    recorded = pl.decide(led, NOW, claimed, point="publication", profile=CA)
+    assert f"authorization:{auth}" in recorded.records
+    assert f"authorization:{auth}" in led.books.price_law.decisions[-1].records
     ok = verdict(led, claimed, CA, "publication", NOW)
     assert ok[:2] == ("allow", []) and any(r.code == "EMERGENCY_EXCEPTION_RECORDED" and r.kind == "note" for r in ok[2].reasons)
 
