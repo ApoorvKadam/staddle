@@ -649,7 +649,7 @@ def differences(st: State) -> list[str]:
     for handover in st.handovers.values():
         found = [m for m in st.moves if m['kind'] == 'give-away' and m.get('reference') == handover['id']]
         if not found:
-            out.append("A give-away was handed over but is not taken out of stock yet")
+            out.append(f"A give-away of {handover['product']} (quantity {handover['quantity']}) was handed over but is not taken out of stock yet")
         elif len(found) != 1 or found[0]['product'] != handover['product'] or found[0]['quantity'] != -handover['quantity']:
             out.append("A give-away was taken out of stock more than once, or by another amount than was handed over")
     for receipt in st.returns.values():

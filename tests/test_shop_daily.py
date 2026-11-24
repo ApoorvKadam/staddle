@@ -35,7 +35,7 @@ def test_daily_check_closes_when_a_recorded_handover_is_posted():
     shop.sweep(w.store, 'shop', NOW)
     b, rent, wk = work.load(w.store, 'shop')
     items = [i for i in work.queue(b, rent, wk, NOW) if i.source == 'shop' and i.kind == 'shop reconciliation']
-    assert len(items) == 1 and handover.made in items[0].why
+    assert len(items) == 1 and 'give-away of lock (quantity 1)' in items[0].why       # names what was handed over, in words, not a record number
     assert w.do('adjust_stock', 'lock', kind='give-away', quantity=-1, reason='Goodwill', handover=handover.made).allowed
     shop.sweep(w.store, 'shop', NOW)
     b, rent, wk = work.load(w.store, 'shop')
