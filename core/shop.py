@@ -205,13 +205,21 @@ def command(led: Ledger, act: Act, now: datetime) -> Decision:
         check = 'Name each product and record in words.'
     elif act.action == 'publish_product':
         product = act.about
-        if (isinstance(product, str) and product.strip() and type(f.get('price')) is int and f['price'] >= 0
-                and type(f.get('cost')) is int and f['cost'] >= 0 and isinstance(f.get('tax_class'), str)
-                and f['tax_class'].strip() and type(f.get('active')) is bool):
+        wrong = []                          # only what is wrong is named, so the person fixes that and nothing else
+        if not (isinstance(product, str) and product.strip()):
+            wrong.append('Give the product a name.')
+        for field, word in (('price', 'price'), ('cost', 'cost')):
+            if not (type(f.get(field)) is int and f[field] >= 0):
+                wrong.append(f'The {word} is not an amount of money; write it in dollars, like 12 or 12.50.')
+        if not (isinstance(f.get('tax_class'), str) and f['tax_class'].strip()):
+            wrong.append('Give the tax class.')
+        if type(f.get('active')) is not bool:
+            wrong.append('Say whether the product is on sale.')
+        if wrong:
+            check = ' '.join(wrong)
+        else:
             event, made = 'product', product
             payload = dict(product=product, version=len(st.versions.get(product, [])) + 1, price=f['price'], cost=f['cost'], tax_class=f['tax_class'], active=f['active'])
-        else:
-            check = 'Give a product, price, cost, tax class and whether it is active.'
     elif act.action in ('record_delivery', 'record_receipt', 'record_handover'):
         product, quantity = f.get('product'), f.get('quantity')
         if product not in st.versions or type(quantity) is not int or quantity <= 0 or not isinstance(f.get('reason'), str) or not f['reason'].strip():
