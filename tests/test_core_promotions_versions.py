@@ -84,3 +84,16 @@ def test_non_string_covered_period_is_refused():
         promotions.publish_version(led, "first-month", terms(covers=["first_full_month"]), date(2026, 10, 1), BY, WHEN)
     assert refusal.value.code == promotions.TERMS_INCOMPLETE
     assert led.pending == []
+
+
+def test_published_terms_are_independent_of_caller_and_event_payload():
+    led = Ledger()
+    original = terms(stacks_with=["other"])
+    promotions.publish_version(led, "first-month", original, date(2026, 10, 1), BY, WHEN)
+    original["unit_types"].append("5x10")
+    event = led.pending[0]
+    assert event.payload["terms"]["unit_types"] == ["10x10"]
+    event.payload["terms"]["stacks_with"].append("another")
+    stored = promotions.state(led.books).versions["first-month"][0].terms
+    assert stored["unit_types"] == ["10x10"]
+    assert stored["stacks_with"] == ["other"]

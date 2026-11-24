@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import calendar
 import re
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -100,7 +101,7 @@ class State:
 
     def apply(self, kind: str, at: datetime, p: dict) -> None:
         if kind == "promotion.version_published":
-            self.versions.setdefault(p["promotion"], []).append(Version(p["promotion"], p["version"], dict(p["terms"]), date.fromisoformat(p["effective"]), p["by"], at))
+            self.versions.setdefault(p["promotion"], []).append(Version(p["promotion"], p["version"], deepcopy(p["terms"]), date.fromisoformat(p["effective"]), p["by"], at))
         elif kind == "promotion.redeemed":
             self.redemptions[p["redemption"]] = Redemption(p["redemption"], p["promotion"], p["version"], p["lease"], p["tenant"], p["unit"], date.fromisoformat(p["start"]),
                                                            list(p["periods"]), p["planned_cents"], date.fromisoformat(p["first_full_price"]), p.get("carried_from"), at)
@@ -174,7 +175,7 @@ def publish_version(led: Ledger, promotion: str, terms: dict, effective: date, b
     if versions and effective < versions[-1].effective:
         raise Refused(f"a new version cannot take effect before the version it follows ({versions[-1].effective.isoformat()})")
     n = len(versions) + 1
-    led.emit("promotion.version_published", at, {"promotion": promotion, "version": n, "terms": dict(terms), "effective": effective.isoformat(), "by": by},
+    led.emit("promotion.version_published", at, {"promotion": promotion, "version": n, "terms": deepcopy(terms), "effective": effective.isoformat(), "by": by},
              f"promotion:version:{promotion}:{n}", source=by)
     return n
 
