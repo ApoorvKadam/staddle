@@ -1307,6 +1307,9 @@ def _try_activate(rent: Rent, led: Ledger, rid: str, now: datetime) -> None:
         return
     if _d(r.quote["start"]) > local(now).date():
         return                      # paid and signed for a later day: it starts on that day (advance tries again), and that is no task
+    if act.id in rent.books.decisions:
+        p = rent.books.decisions[act.id]
+        return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
     dec = evaluate_rent(rent, rent.books, act, now)
     if dec.allowed:
         _activate(rent, led, act, now)
@@ -1357,6 +1360,9 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
 def apply(rent: Rent, led: RentLedger, act: Act, now: datetime) -> Decision:
     """One renting command on books held in memory, decided and recorded as `run` does inside its transaction: used where a year is built
     without a store. A command the gate refuses writes only its decision."""
+    if act.id in rent.books.decisions:
+        p = rent.books.decisions[act.id]
+        return Decision(p["allowed"], p["action"], p["check"], command=act.id, repeated=True, made=p.get("made"), why=p.get("why"))
     dec = evaluate_rent(rent, rent.books, act, now)
     if dec.allowed:
         dec.made = DO[act.action](rent, led, act, now)
