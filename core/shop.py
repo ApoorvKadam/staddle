@@ -482,8 +482,8 @@ def pay(store: Store, stream: str, processor, quote: str, card: str, now: dateti
         payment = state(books).payments[quote]
         if which not in (None, 'first') and payment['key'] != which:
             raise Refused('no such payment attempt')
-        if payment['status'] not in ('open', 'processing'):
-            return payment
+        if payment['status'] not in ('open', 'processing') or payment.get('problem'):
+            return payment                      # an answered attempt, or one the processor confirmed it holds nothing for, is never sent again
         card = payment.get('card') or card
         if not card:
             raise Refused('no card is on record for this payment')
