@@ -113,6 +113,7 @@ class FrontDesk:
         self._proposals: OrderedDict[str, tuple] = OrderedDict()     # visitor -> (id, proposal, sentence, rule versions, day)
         self._resets: dict[str, int] = {}                            # visitor -> how many times their copy was reset
         self._notes: dict[str, str] = {}                             # visitor -> why a going back was refused, shown once on the Rules page
+        self._site_notes: dict[str, str] = {}                         # visitor -> why the website inquiry was refused, shown once beside the form
         self._shop_notes: dict[str, tuple[str, bool]] = {}           # visitor -> (why a shop step was refused, whether part of it was saved), shown once on the Shop page only
         self._step_notes: dict[str, str] = {}                        # visitor -> why a staff step on a tenant was refused, shown once there
         self._reset_notes: dict[str, str] = {}                       # visitor -> why Start over was refused, shown once on Home
@@ -1018,6 +1019,15 @@ class FrontDesk:
         """Why the last staff step on a tenant was refused, once; empty when nothing was."""
         with self.lock:
             return self._step_notes.pop(visitor, "")
+
+    def put_site_note(self, visitor: str, text: str) -> None:
+        with self.lock:
+            self._site_notes[visitor] = f"{text[:1].upper()}{text[1:]}" + ("" if text.endswith(".") else ".")
+
+    def take_site_note(self, visitor: str) -> str:
+        """Why the last website inquiry was refused, once."""
+        with self.lock:
+            return self._site_notes.pop(visitor, "")
 
     def take_shop_note(self, visitor: str) -> tuple[str, bool]:
         """The last shop step's note, once, and whether part of that step was saved before it was refused."""

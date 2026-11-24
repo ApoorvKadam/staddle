@@ -45,7 +45,10 @@ def test_a_refused_inquiry_does_not_use_up_its_page(fms_url, sim):
     with sign_in(app) as c:
         token = form_token(c)
         refused = c.post("/rent/inquiry", data={"token": token, "name": "Morgan Fixed"}, follow_redirects=False)      # no phone or email
-        assert refused.status_code == 422 and not inquiries(app, c, "Morgan Fixed")
+        assert refused.status_code == 303 and refused.headers["location"] == "/rent#ask" and not inquiries(app, c, "Morgan Fixed")
+        page = c.get("/rent").text
+        assert 'role="alert"' in page and "phone" in page.lower()                         # why, beside the form, not an error page
+        assert 'role="alert"' not in c.get("/rent").text                                 # shown once
         fixed = c.post("/rent/inquiry", data={"token": token, "name": "Morgan Fixed", "phone": "4075550143"}, follow_redirects=False)
         assert fixed.status_code == 303 and len(inquiries(app, c, "Morgan Fixed")) == 1
 

@@ -1127,7 +1127,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         size = request.query_params.get("size")
         size = size if size in sizes else None        # an unknown size shows every unit
         shown = [u for u in units if u.size == size] if size else units
-        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size, token=secrets.token_hex(6))
+        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size, token=secrets.token_hex(6),
+                         inquiry_note=fd.take_site_note(f.ident))
 
     @app.post("/rent/inquiry", include_in_schema=False)
     async def website_inquiry(request: Request):
@@ -1151,11 +1152,15 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     try:
                         leads.capture(led, fd.clock(), source="website inquiry", name=data.get("name", ""), phone=data.get("phone", ""), email=data.get("email", ""), size=data.get("size", ""), start=data.get("start", ""), words=data.get("message", ""), permissions=channels)
                     except Refused as exc:
-                        raise HTTPException(422, str(exc)) from exc
+                        return str(exc)
                     store.append(stream, led.pending)
                 if token:
                     fd.site_forms.add((ident, "inquiry:" + token))              # only after it was saved: a refused form can be corrected and sent again
-        await run_in_threadpool(save_inquiry)
+                return None
+        why = await run_in_threadpool(save_inquiry)
+        if why:                         # the visitor sees why beside the form, not an error page
+            fd.put_site_note(ident, why)
+            return RedirectResponse("/rent#ask", status_code=303)
         return RedirectResponse("/rent?inquiry=received", status_code=303)
 
     @app.get("/leads", include_in_schema=False)
