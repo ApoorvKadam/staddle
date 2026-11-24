@@ -326,7 +326,7 @@ class State:
         """Fold one `price_law.*` event. Returns the (prefix, id) the books count, or None."""
         day = lambda key: date.fromisoformat(p[key]) if p.get(key) else None
         self._n += 1
-        if kind in ("price_law.emergency_declared", "price_law.emergency_checked"):
+        if kind in ("price_law.emergency_declared", "price_law.emergency_extended", "price_law.emergency_checked"):
             self.order[p["id"]] = self._n
         for counted, key in (("price_law.profile_set", "profile"), ("price_law.approved", p.get("change")), ("price_law.notice_updated", p.get("notice"))):
             if kind == counted:
@@ -699,9 +699,9 @@ def _emergency(run: _Run) -> None:
     run.versions["emergency"] = ",".join(sorted(chk.active))
     if not change.raises:
         return
-    late = [r for r in st.emergencies.values() if r.place == place and r.id not in chk.active and st.order[r.id] > st.order[chk.id] and _covers(r, change.effective_on)]
+    late = [r for r in st.emergencies.values() if r.place == place and st.order[r.id] > st.order[chk.id] and _covers(r, change.effective_on)]
     if late:
-        run.hold("EMERGENCY_STATUS_UNKNOWN", f"A declaration ({late[0].name}) was recorded after the last check, so whether it covers this facility is not known.")
+        run.hold("EMERGENCY_STATUS_UNKNOWN", f"A declaration or extension ({late[0].name}) was recorded after the last check, so whether it covers this facility is not known.")
         return
     rule = next((rs for rs in run.sets if rs.topic == "emergency"), None)
     for r in (st.emergencies[i] for i in chk.active if _covers(st.emergencies[i], change.effective_on)):

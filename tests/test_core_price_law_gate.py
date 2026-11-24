@@ -341,3 +341,17 @@ def test_an_open_ended_emergency_cannot_be_shortened_by_extension():
     for end in ('2026-11-19', '2026-12-20'):
         assert not d.go('extend_emergency', restriction=restriction, ends=end, source='order').allowed
     assert d.books().price_law.emergencies[restriction].ends is None
+
+
+@pytest.mark.parametrize('listed', [False, True])
+def test_emergency_extension_after_a_check_requires_a_fresh_lookup(listed):
+    d = Desk('Synthetic Utah facility', 'Salt Lake City, UT', pl.SYNTHETIC_PROFILES['UT'])
+    rid = d.go('record_emergency', place='UT', name='Emergency', source='order', starts='2026-11-20', ends='2026-12-10').made
+    assert d.go('record_emergency_check', place='UT', checked_on='2026-11-23', valid_until='2027-01-31', source='state page', active=[rid] if listed else []).allowed
+    args = dict(kind='street_rate', lease=None, unit_class='10x10', effective_on='2026-12-15')
+    assert d.change('check_price_change', 'proposal', NOW, **args).allowed
+    assert d.go('extend_emergency', restriction=rid, ends='2026-12-20', source='extension').allowed
+    result = d.change('check_price_change', 'proposal', NOW, **args)
+    assert not result.allowed and result.why == 'EMERGENCY_STATUS_UNKNOWN'
+    assert d.go('record_emergency_check', place='UT', checked_on='2026-11-23', valid_until='2027-01-31', source='state page', active=[rid]).allowed
+    assert d.change('check_price_change', 'proposal', NOW, **args).why != 'EMERGENCY_STATUS_UNKNOWN'
