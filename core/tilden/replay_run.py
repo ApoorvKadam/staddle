@@ -66,7 +66,8 @@ def main(argv=None):
     p.add_argument('--out', required=True)
     a = p.parse_args(argv)
     raw = open(a.set, 'rb').read()
-    parsed = replay.parse(raw.decode())
+    skipped = []
+    parsed = replay.parse(raw.decode(), skipped)
     client = None
     names = a.arms.split(',')
     if any(n in ('planner', 'fixed', 'hybrid') for n in names):
@@ -76,7 +77,7 @@ def main(argv=None):
         commit = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip() or None
     except FileNotFoundError:     # the test image has no git; the run's code is pinned by the freeze record instead
         commit = None
-    report = {'set_sha256': hashlib.sha256(raw).hexdigest(), 'cases': len(parsed), 'commit': commit,
+    report = {'set_sha256': hashlib.sha256(raw).hexdigest(), 'cases': len(parsed), 'not_loaded': skipped, 'commit': commit,
               'planner_model': os.getenv('TILDEN_PLANNER_MODEL', 'claude-haiku-5-5'), 'planner_effort': os.getenv('TILDEN_PLANNER_EFFORT', 'medium'),
               'cutoffs': {'ready': runtime.READY_CUTOFF, 'same_fault': runtime.SAME_FAULT_CUTOFF, 'tenant_items': runtime.BELONGINGS_CUTOFF},
               'arms': {}}

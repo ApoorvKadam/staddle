@@ -438,3 +438,13 @@ WHY: Ready after staff decide
     # a handoff that comes only with or after the release is not a recovery from it
     after = replay.score(case, [replay.Step('E1', False, False), replay.Step('E2', False, False), replay.Step('E3', True, True)])
     assert after.post_handoff_recovery is False
+
+
+def test_an_unreadable_case_is_listed_and_the_rest_still_load():
+    from core.tilden.replay import parse
+    bad = MINI.replace('U1.', 'U2.').replace('WORK DONE, Sam, answers E3', 'WORK DONE, Sam, answers E1')
+    skipped = []
+    cases = parse(MINI + '\n' + bad, skipped)
+    assert [c.id for c in cases] == ['U1'] and skipped == ['U2: work must answer a note, report or inspection']
+    with pytest.raises(ValueError):
+        parse(MINI + '\n' + bad)
