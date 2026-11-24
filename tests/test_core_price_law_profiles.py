@@ -130,3 +130,16 @@ def test_florida_design_review_does_not_imply_counsel_review():
     led = northstar()
     terms(led)
     assert 'RULE_NOT_REVIEWED' in [r.code for r in pl.evaluate(led.books, change(), NOW).reasons]
+
+
+def test_unrepresentable_agreement_notice_period_is_rejected_and_legacy_evidence_holds():
+    led = northstar()
+    with pytest.raises(pl.Refused):
+        terms(led, notice_days=1000000000)
+    assert not led.books.price_law.terms
+    terms(led, notice_days=365)
+    history = led.books.price_law.terms["L0001"]
+    history[-1] = replace(history[-1], notice_days=1000000000)
+    result = pl.evaluate(led.books, change(), NOW, point="proposal")
+    assert result.outcome == "hold"
+    assert "LEASE_TERMS_MISSING" in [reason.code for reason in result.reasons]

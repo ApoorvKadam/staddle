@@ -414,6 +414,13 @@ def terms_of(books: Books, lease: str) -> Terms | None:
     return history[-1] if history else None
 
 
+MAX_NOTICE_DAYS = 365
+
+
+def _valid_notice_days(value) -> bool:
+    return type(value) is int and 0 <= value <= MAX_NOTICE_DAYS
+
+
 def record_terms(led: Ledger, at: datetime, *, lease: str, signed_on, agreement_sha256: str, notice_methods, notice_days: int | None = None,
                  email_notice_authorized: bool = False, last_known_address: str = "", last_known_email: str = "", designated_method: str | None = None,
                  price_promise_until=None, price_promise_max_cents: int | None = None, rent_change_allowed: bool = True) -> int:
@@ -425,8 +432,8 @@ def record_terms(led: Ledger, at: datetime, *, lease: str, signed_on, agreement_
     methods = tuple(notice_methods)
     if not _clean(lease) or any(m not in CHANNELS for m in methods):
         raise Refused("name the lease and use only the ways of giving notice the system knows")
-    if notice_days is not None and (not isinstance(notice_days, int) or isinstance(notice_days, bool) or notice_days < 0):
-        raise Refused("the agreement's notice days must be a whole number")
+    if notice_days is not None and not _valid_notice_days(notice_days):
+        raise Refused(f"the agreement's notice days must be a whole number from 0 to {MAX_NOTICE_DAYS}")
     if designated_method is not None and designated_method not in CHANNELS:
         raise Refused("the designated way of giving notice is not one the system knows")
     if price_promise_max_cents is not None and (not isinstance(price_promise_max_cents, int) or price_promise_max_cents < 0):
@@ -646,6 +653,8 @@ def adopt_owner_rule(led: Ledger, at: datetime, *, version: int, sentence: str, 
 
 def required_notice_days(books: Books, sets, terms: Terms | None = None) -> int | None:
     """The notice a change needs: the law's days (the agreement's own where the rule defers to it) or the owner's, whichever is longer."""
+    if terms and terms.notice_days is not None and not _valid_notice_days(terms.notice_days):
+        return None
     days = [terms.notice_days if rs.agreement_specific and terms else rs.notice_days for rs in sets if rs.topic == "notice"]
     owner = ((owner_rule(books) or {}).get("typed") or {}).get("notice_days")
     known = [d for d in days + [owner] if d is not None]
@@ -951,8 +960,8 @@ def _notice(run: _Run, terms: Terms) -> None:
     name = PLACE_NAMES.get(rule.place, rule.place)
     src = "The signed agreement" if rule.agreement_specific else name
     law = terms.notice_days if rule.agreement_specific else rule.notice_days
-    if law is None:
-        run.hold("LEASE_TERMS_MISSING", f"{rule.citation} leaves the notice period to the agreement, and the agreement states none, so the increase waits for review.", rule)
+    if law is None or not _valid_notice_days(law):
+        run.hold("LEASE_TERMS_MISSING", f"{rule.citation} leaves the notice period to the agreement, and the agreement states no valid supported period, so the increase waits for review.", rule)
         return
     owner = ((owner_rule(run.books) or {}).get("typed") or {}).get("notice_days")
     notices = [n for n in st.notices.get(c.id, ()) if n.lease == c.lease and n.new_cents == c.new_cents and n.effective_on == c.effective_on]
