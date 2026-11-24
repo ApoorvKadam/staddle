@@ -275,6 +275,24 @@ def test_seen_work_beside_a_guess_in_the_same_sentence_stays_when_the_guess_is_a
     assert r.work == [{"kind": "cleaning", "words": "water on the floor"}, {"kind": "check", "words": "the ceiling could be leaking"}]
 
 
+def test_a_leading_hedge_still_covers_the_part_after_it():
+    note = "C335: Not sure, but the latch is bent."
+    r = keep(note_answer(work=[("repair", "the latch is bent"), ("check", "the latch is bent")]), note=note)
+    assert r.work == [{"kind": "check", "words": "the latch is bent"}]
+
+
+def test_a_guess_with_its_own_content_does_not_cover_the_next_part():
+    note = "C335: Probably just dust, but the door track is cracked."
+    r = keep(note_answer(work=[("check", "Probably just dust"), ("repair", "the door track is cracked")]), note=note)
+    assert r.work == [{"kind": "check", "words": "Probably just dust"}, {"kind": "repair", "words": "the door track is cracked"}]
+
+
+def test_an_unsure_note_records_no_field_beside_its_check():
+    note = "C335: door closed, maybe a few cobwebs."
+    r = keep(note_answer(door=("closed", "door closed"), work=[("check", "maybe a few cobwebs")], flags=["unsure"]), note=note)
+    assert r.refusal is None and r.fields["door"] == "unknown" and "door" not in r.quotes
+
+
 def test_a_guess_is_read_in_its_own_sentence_so_a_plain_fact_beside_it_stays():
     note = "C335: Door closed. Staff think it is our lock."
     r = keep(note_answer(whose=("facility overlock", "our lock"), door=("closed", "Door closed")), note=note)

@@ -2,8 +2,9 @@
 
 Read a note: a staff member types what they saw at one unit in their own words. Tilden reads it into a typed draft (lock, whose lock,
 overlock tag, door, belongings inside), each field with the staff member's words for it. Code keeps a field only when those words are in the note; every
-other field is unknown. Words aimed at the system, a note Tilden is unsure of, a note about more than one unit and a unit that is not on
-the walk's route are not recorded. A note that mentions money changes no charge: nothing here can.
+other field is unknown. Words aimed at the system, a note about more than one unit and a unit that is not on the walk's route are not
+recorded. A note Tilden is unsure of keeps only its checks (a look for staff) and records no field; with no check it is not recorded.
+A note that mentions money changes no charge: nothing here can.
 
 Investigate a finding: code builds the unit's history as a fixed list of records, each with an id made for this run. Tilden returns a
 packet (a summary that never speaks in the first person, the contradiction in words, the ids it relies on, one next step and a reason,
@@ -45,12 +46,31 @@ def _clause(note: str, words: str) -> str:
 
 # a part of a sentence: "Water on the floor, the ceiling could be leaking" holds a seen fact and a guess, judged apart
 _PART = re.compile(r",|\bbut\b|\bwhile\b")
+# what is left of a part once its guess words, a unit label and small filler words are taken out; nothing left means a bare hedge
+_FILLER = re.compile(r"\b(?:i|i'm|im|it|but|and|so|well|honestly|really|just|though)\b|\b[A-Za-z]-?\d{1,4}\b:?|[^\w\s]", re.I)
+
+
+def _bare_hedge(part: str) -> bool:
+    return bool(GUESS_WORDS.search(part)) and not _FILLER.sub(" ", GUESS_WORDS.sub(" ", part)).strip()
 
 
 def _part(note: str, words: str) -> str:
-    """The comma part of the sentence that holds the quoted words; the sentence when the quote spans parts."""
+    """The comma part of the sentence that holds the quoted words; the sentence when the quote spans parts. A part that is only a hedge
+    ("Not sure, but the latch is bent") belongs to the part after it, so a leading guess still covers what follows."""
     sentence = _clause(note, words)
-    return next((p for p in _PART.split(sentence) if found_in(words, p)), sentence)
+    parts: list[str] = []
+    carry = ""
+    for p in _PART.split(sentence):
+        if not p.strip():
+            continue
+        if _bare_hedge(p):
+            carry += p + " "
+            continue
+        parts.append(carry + p)
+        carry = ""
+    if carry:
+        parts.append(carry)
+    return next((p for p in parts if found_in(words, p)), sentence)
 
 
 GUESS_WORDS = re.compile(r"\b(?:think|thinks|thought|guess|guesses|probably|maybe|might|perhaps|seems?|looks like|assume[sd]?|believe[sd]?|suppose[sd]?|not sure|could be)\b", re.I)
@@ -117,7 +137,8 @@ def unit_key(unit: str) -> str:
 
 def check_note(raw: dict, note: str, route: tuple[str, ...], chosen: str | None = None) -> Reading:
     """Keep only what the note's own words support. A field whose quoted words are not in the note is unknown, and the draft is refused
-    when it is aimed at the system, unsure, about more than one unit, about a unit off the route, or says nothing about the door."""
+    when it is aimed at the system, unsure with no check to offer, about more than one unit, about a unit off the route, or says nothing
+    about the door. An unsure note with a check keeps only its checks and no field."""
     r = Reading(flags=[f for f in dict.fromkeys(raw.get("flags") or []) if f in READ_FLAGS])
     if MONEY_WORDS.search(note) and "mentions_money" not in r.flags:
         r.flags.append("mentions_money")
@@ -169,8 +190,10 @@ def check_note(raw: dict, note: str, route: tuple[str, ...], chosen: str | None 
                      "so nothing was recorded.")
     if r.refusal:                   # a note that cannot be kept proposes no work either
         r.work = []
-    elif "unsure" in r.flags:       # an unsure note becomes a look for staff, never confirmed work and never a lost note
+    elif "unsure" in r.flags:       # an unsure note becomes a look for staff, never confirmed work, a recorded field or a lost note
         r.work = [w for w in r.work if w["kind"] == "check"]
+        r.fields = {name: "unknown" for name in r.fields}
+        r.quotes = {name: q for name, q in r.quotes.items() if name == "unit"}
     return r
 
 
