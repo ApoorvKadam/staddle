@@ -1354,6 +1354,18 @@ def run(store: Store, stream: str, act: Act, now: datetime) -> Decision:
         return dec
 
 
+def apply(rent: Rent, led: RentLedger, act: Act, now: datetime) -> Decision:
+    """One renting command on books held in memory, decided and recorded as `run` does inside its transaction: used where a year is built
+    without a store. A command the gate refuses writes only its decision."""
+    dec = evaluate_rent(rent, rent.books, act, now)
+    if dec.allowed:
+        dec.made = DO[act.action](rent, led, act, now)
+    _record(led, act, dec, now)
+    if dec.allowed and act.action in ("accept_agreement", "confirm_payment"):
+        _try_activate(rent, led, act.about, now)
+    return dec
+
+
 def checkout_intent(store: Store, stream: str, rental: str, now: datetime) -> str:
     """Record the intent to take a rental's payment, before the processor is called. The id returned is the processor's
     idempotency key; asking again while the answer is out returns the same id, so a retried call cannot charge twice."""

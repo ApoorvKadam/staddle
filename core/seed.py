@@ -15,7 +15,7 @@ from . import delinquency as col
 from . import leads
 from . import renting
 from . import liens
-from . import protection, shop
+from . import promotions, protection, shop
 from . import walk
 from .gate import Command, evaluate
 from .billing import Ledger
@@ -80,10 +80,12 @@ def story_month(today: date) -> date:
 class Year:
     """Builds the year. `cast` maps a role name to its tenant, its leases and its unit."""
 
-    def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True):
+    def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True,
+                 promoted: bool = True):
         # everything up to the cutoff happens: 09:00 on the fixed day; the live FMS passes midnight, so nothing is ahead of the clock
         self.today, self.now = today, cutoff or at_local(today, 9, 0)
         self.seed_leads = seed_leads
+        self.promoted = standing and promoted            # the live copy's first-month deal and the one move-in that used it; the year's other figures are the same without them
         self.standing = standing                         # the live copy's open dispute from last week; never in the fixed books
         self.protected = standing and protected          # the live copy's protection records; they carry no money, so the year's figures are the same without them
         self.plan_tenant: dict | None = None             # the live copy's tenant on a payment plan; kept out of the cast
@@ -203,6 +205,8 @@ class Year:
                 self.protection_records()
             if self.seed_leads:
                 self.lead_records(rent)
+            if self.promoted:
+                self.promoted_move_in(rent)
         return self
 
     def lead_records(self, rent: renting.Rent) -> None:
@@ -224,6 +228,39 @@ class Year:
             self.led.emit("lead.checkout_started", lease.signed_at - timedelta(minutes=30), {"rental": rental.id, "tenant": tenant.id, "lead": lead}, f"lead:checkout:{rental.id}")
             leads.convert(self.led, rent, self.now)
             break
+
+    def promoted_move_in(self, rent: renting.Rent) -> None:
+        """One first-month deal is live on 10x10 units ("$1 for the rest of this month", new customers, once each), and one new tenant, Maya,
+        moved into a vacant 10x10 unit on it yesterday: reserve, check out, pay, accept, each through renting's own command and the gate. On
+        the 1st, the month's rent run had already passed before her lease existed, so her lease's rent for the new month is billed the way the run
+        would have. Nothing is drawn, so no other part of the year moves."""
+        led, b = self.led, self.led.books
+        effective = self.today - timedelta(days=30)
+        promotions.publish_version(led, "first-month", {
+            "name": "$1 first month", "unit_types": ["10x10"], "customers": "new", "price_cents": 100, "covers": "rest_of_first_month",
+            "proration": "by_days", "expires": (self.today + timedelta(days=60)).isoformat(), "stacks_with": [], "transfer": "end",
+            "max_redemptions": 10, "max_concession_cents": 150000}, effective, "staff:office_manager", at_local(effective, 9, 30))
+        taken = {u for v in self.walked.values() for u in (v if isinstance(v, list) else [v])}        # the units yesterday's walk is about
+        unit = next((u for u in sorted(b.units) if u.startswith("B") and u not in taken and rent._target_free(u, self.now) is None), None)
+        if unit is None:
+            return
+        when = at_local(self.today - timedelta(days=1), 15)
+        tenant = led.add_tenant(when - timedelta(minutes=30), "Maya Okafor", "+14075550401")
+        rl = renting.RentLedger(b, rent)
+
+        def do(name: str, action: str, source: str, about: str, minutes: int, **args) -> renting.Decision:
+            d = renting.apply(rent, rl, renting.Act(f"seed:promotion:{name}", action, source, about, tenant, args), when + timedelta(minutes=minutes))
+            assert d.allowed, f"the seeded promoted move-in was refused at {name}: {d.check}"
+            return d
+        reservation = do("reserve", "reserve", "renter", unit, 0, promotions=["first-month"]).made
+        rental = do("checkout", "start_checkout", "renter", reservation, 1).made
+        due = rent.rentals[rental].quote["total_cents"]
+        payment = rl.receive_payment(tenant, due, when + timedelta(minutes=3))
+        do("pay", "confirm_payment", "code", rental, 3, payment=payment)
+        do("accept", "accept_agreement", "renter", rental, 4, sha256=rent.agreements[rent.rentals[rental].agreement].sha256)
+        if self.today.day == 1:
+            rl.post_rent(f"{self.today.year:04d}-{self.today.month:02d}")
+        led.pending.extend(rl.pending)
 
     def price_units(self, at: datetime) -> None:
         """The live copy gives every unit a size and an asking price, as renting's price_unit records them, so a vacant unit can be
@@ -697,5 +734,6 @@ class Year:
         assert not d.allowed, "the new price was never accepted, so the gate must refuse it"
 
 
-def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True) -> Year:
-    return Year(seed, today, cutoff, standing, protected, seed_leads).build()
+def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True,
+          promoted: bool = True) -> Year:
+    return Year(seed, today, cutoff, standing, protected, seed_leads, promoted).build()

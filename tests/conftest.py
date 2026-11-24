@@ -83,6 +83,16 @@ def session():
 
 
 @pytest.fixture(autouse=True)
+def seeded_promoted_move_in(request, monkeypatch):
+    """The live copy's year ends with one new rental made on the seeded first-month deal (core/seed.py). Most tests are about something else and
+    count rentals, codes and work items on a copy that starts with only the existing tenants, so they run without it; the tests marked
+    `promoted_seed` run with it."""
+    if "promoted_seed" not in request.keywords:
+        from core.seed import Year
+        monkeypatch.setattr(Year, "promoted_move_in", lambda self, rent: None)
+
+
+@pytest.fixture(autouse=True)
 def own_spend_sources():
     """An FMS site registers what its front desk spent in a module-wide list; each test starts and ends with the list it had,
     so one test's spending never counts in the next test's budget."""

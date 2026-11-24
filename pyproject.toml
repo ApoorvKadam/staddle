@@ -27,7 +27,8 @@ include = ["desk*", "fmssim*", "fms_checks*", "core*"]
 testpaths = ["tests"]
 # the two whole-evaluation tests take about 4 minutes each, so they run in their own job: pytest -m evaluation
 addopts = "-m 'not evaluation'"
-markers = ["evaluation: runs a whole evaluation end to end (minutes); selected with -m evaluation"]
+markers = ["evaluation: runs a whole evaluation end to end (minutes); selected with -m evaluation",
+           "promoted_seed: runs on the live copy's year with its one move-in on the seeded first-month deal"]
 
 [tool.setuptools.package-data]
 desk = ["reference/*.csv", "templates/*.html", "static/*", "reading_set.json"]

@@ -7,7 +7,7 @@ from datetime import date
 from core import promotions
 from core.billing import Ledger
 from core.books import at_local
-from core.renting import Act, load, run
+from core.renting import Act
 from core.store import BASE, Store
 
 from .test_core_renting import NOW, act, accept, billing, books, go, ok, pay, rent  # noqa: F401  (the renting tests' own helpers)
