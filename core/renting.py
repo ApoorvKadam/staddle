@@ -1400,6 +1400,11 @@ def checkout_due(books: Books, rent: "Rent", r, now: datetime) -> tuple[int, lis
     old = rent.rentals[rent.transfers[r.transfer].rental] if r.transfer else None
     cents = rent.short(r, now, old)
     quotes = [q for q, owner in st.attachments.items() if owner == r.id and q not in st.sales and q not in st.cancelled]
+    op = next((o for o in r.pay_ops if rent.ops[o].how is None), None)
+    held = delinquency.state(books).intents.get(rent.ops[op].intent) if op is not None and rent.ops[op].intent else None
+    held = held or (_add_on_intent(books, rent, r) if op is None else None)
+    if held is not None:            # a request already written holds its own amount (credit may have come since): the page shows it, so the resume matches
+        return cents, quotes, held.cents
     return cents, quotes, cents + sum(st.quotes[q]['price'] * st.quotes[q]['quantity'] for q in quotes)
 
 
