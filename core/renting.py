@@ -874,6 +874,7 @@ class Rent:
             if cents:
                 p["refund"] = {"cents": cents, "state": "pending"}
         led.emit("rental.cancelled", now, p, f"cancelled:{r.id}", source=source)
+        release_add_ons(led, r.id, now, source)
         for kind in ("payment", "activation", "hold"):
             self.close(led, now, r.id, kind)
         if r.transfer:
@@ -882,6 +883,21 @@ class Rent:
             self.task(led, now, r.id, "refund", f"Unit {r.unit} was paid for but the rental never started ({reason}); refund "
                                                 f"{money(p['refund']['cents'])}, which stays on the tenant's account until the refund is confirmed.",
                       key=f"refund:{r.id}")
+
+
+def release_add_ons(led: Ledger, rental: str, now: datetime, source: str = "code") -> None:
+    """Put back on the shelf the merchandise added to a rental that closed, when nobody paid for it: no payment was started, or the
+    processor's answer says the attempt can no longer succeed. An attempt that can still settle keeps its reservation; a payment that
+    comes in later is posted by the late-payment rules, and a later failure releases it on the next pass."""
+    from . import shop
+    st = shop.state(led.books)
+    for quote, owner in list(st.attachments.items()):
+        if owner != rental or quote in st.sales or quote in st.cancelled or (quote in st.payments and not st.can_close(quote)):
+            continue
+        q = st.quotes[quote]
+        led.emit("shop.quote_cancelled", now, dict(quote=quote, product=q["product"], quantity=q["quantity"],
+                                                    reason="The rental was cancelled before the add-on was paid for.", by=source),
+                 f"shop:release:{quote}", source=source)
 
 
 class RentLedger(Ledger):
@@ -1506,6 +1522,13 @@ def settle_payments(store: Store, stream: str, now: datetime) -> None:
     for a in acts:
         if a.id not in books.decisions:
             run(store, stream, a, now)
+    with store.write():             # a cancelled rental's add-on whose payment has since been answered as failed or never received is released now
+        books, rent = load(store, stream)
+        led = Ledger(books)
+        for r in rent.rentals.values():
+            if r.state == "cancelled":
+                release_add_ons(led, r.id, now)
+        store.append(stream, led.pending)
 
 
 # the gate's access system --------------------------------------------------------------------------------------------------
