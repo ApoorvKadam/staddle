@@ -586,6 +586,7 @@ class PriceChange:
     disclosure: dict | None = None      # a street rate's first-page disclosure: max_cents, months, first_page, recurring_cents
     claimed_exception: str = ""         # a legal exception the person proposing it relies on; it counts only once the owner has recorded it
     last_increase_on: date | None = None
+    other_recurring_cents: int | None = None  # required recurring charges other than the amount being changed
 
     @property
     def raises(self) -> bool:
@@ -823,6 +824,7 @@ def _checks(run: _Run, terms: Terms | None) -> None:
     elif terms is not None and c.raises:
         if c.kind == "lease_increase":
             _promise(run, terms)
+        if c.kind == "lease_increase" or any(r.recurring_fee for r in run.sets if r.topic == "disclosure"):
             _disclosed(run, terms)
         _notice(run, terms)
 
@@ -866,12 +868,18 @@ def _disclosed(run: _Run, terms: Terms) -> None:
                 last = max(yearly, key=lambda m: m.id)
                 run.refuse("ANNUAL_MAX_NOTICE_MISSING", f"{name} requires a yearly maximum-fee notice at least {rs.annual_max_notice_days} days before each anniversary; "
                                                         f"the notice for the year starting {day_words(anniversary)} was given {day_words(last.disclosed_on)}.", rs)
+    recurring = any(r.recurring_fee for r in run.sets if r.topic == "disclosure")
+    other = c.other_recurring_cents
+    if recurring and (not isinstance(other, int) or isinstance(other, bool) or other < 0):
+        run.hold("RECURRING_TOTAL_UNKNOWN", "Enter the other required recurring charges to check the complete occupancy fee.")
+        return
+    total = c.new_cents + other if recurring else c.new_cents
     for kind, words in (("first_year", "first-year"), ("anniversary", "yearly")):
         binding = [m for m in covering if m.kind == kind]
         if binding:
             m = min(binding, key=lambda m: m.max_cents)
-            if c.new_cents > m.max_cents:
-                run.refuse("DISCLOSED_MAX_EXCEEDED", f"The {words} maximum disclosed for this lease is {money(m.max_cents)} through {day_words(m.covers_to)}; this change would charge {money(c.new_cents)}.")
+            if total > m.max_cents:
+                run.refuse("DISCLOSED_MAX_EXCEEDED", f"The {words} maximum disclosed for this lease is {money(m.max_cents)} through {day_words(m.covers_to)}; this change would charge {money(total)}.")
 
 
 def _street_disclosure(run: _Run) -> None:
@@ -1134,7 +1142,7 @@ def _change_from(about: str | None, f: dict) -> PriceChange:
         raise Refused("name the change, its kind and its current and new amounts")
     return PriceChange(about, f["kind"], cents[0], cents[1], _when(f.get("effective_on"), "effective date"), f.get("lease") or None,
                        str(f.get("unit_class", "")), f.get("invoice") or None, f.get("disclosure"), str(f.get("claimed_exception", "")),
-                       _maybe(f.get("last_increase_on"), "date of the last increase"))
+                       _maybe(f.get("last_increase_on"), "date of the last increase"), f.get("other_recurring_cents"))
 
 
 def _stated(res: Result) -> tuple[str, str | None]:

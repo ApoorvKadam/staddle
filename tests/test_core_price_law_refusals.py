@@ -40,7 +40,7 @@ def notice(led, change="PC1", at=NOW, **over):
 
 
 def change(**over):
-    base = {"id": "PC1", "kind": "lease_increase", "current_cents": 10000, "new_cents": 10500, "effective_on": date(2026, 12, 23), "lease": "L0001"}
+    base = {"id": "PC1", "kind": "lease_increase", "current_cents": 10000, "new_cents": 10500, "effective_on": date(2026, 12, 23), "lease": "L0001", "other_recurring_cents": 0}
     return pl.PriceChange(**{**base, **over})
 
 
@@ -265,6 +265,23 @@ def test_new_york_city_needs_a_yearly_maximum_notice_at_least_60_days_before_eac
     assert verdict(led, c, NYC, "activation", at)[:2] == ("allow", [])
     notice(led, at=at_local(date(2027, 1, 5), 10), sent_to="5 Broad St, New York, NY 10004", attempted_on=date(2027, 1, 5), effective_on=date(2027, 4, 5), new_cents=12600)
     assert verdict(led, change(effective_on=date(2027, 4, 5), new_cents=12600), NYC, "activation", at)[1] == ["DISCLOSED_MAX_EXCEEDED"]
+
+
+@pytest.mark.parametrize("kind,current,new,other", [
+    ("lease_increase", 10000, 11000, 1500),
+    ("fee_change", 1000, 1500, 11000),
+])
+def test_nyc_compares_complete_recurring_total_to_maximum(kind, current, new, other):
+    led = book(NYC)
+    terms(led, designated_method="first_class_mail")
+    commit(led, max_cents=12000)
+    c = change(kind=kind, current_cents=current, new_cents=new, other_recurring_cents=other)
+    assert "DISCLOSED_MAX_EXCEEDED" in verdict(led, c, NYC, "proposal", NOW)[1]
+    at_cap = change(kind=kind, current_cents=current, new_cents=new, other_recurring_cents=12000 - new)
+    assert "DISCLOSED_MAX_EXCEEDED" not in verdict(led, at_cap, NYC, "proposal", NOW)[1]
+    for invalid in (None, -1, True, "1500"):
+        unknown = change(kind=kind, current_cents=current, new_cents=new, other_recurring_cents=invalid)
+        assert "RECURRING_TOTAL_UNKNOWN" in verdict(led, unknown, NYC, "proposal", NOW)[1]
 
 
 def test_nyc_annual_notice_deadline_uses_anniversary_not_record_start():

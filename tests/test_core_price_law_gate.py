@@ -53,7 +53,7 @@ class Desk:
         return self.go("record_notice", **{**form, **over})
 
     def change(self, action, point, at, about="PC1", **over):
-        form = {"kind": "lease_increase", "current_cents": 10000, "new_cents": 10500, "effective_on": "2026-12-23", "lease": "L0001", "point": point}
+        form = {"kind": "lease_increase", "current_cents": 10000, "new_cents": 10500, "effective_on": "2026-12-23", "lease": "L0001", "point": point, "other_recurring_cents": 0}
         return self.go(action, at=at, about=about, **{**form, **over})
 
     def walk(self, effective=date(2026, 12, 23), days=30, **over):
