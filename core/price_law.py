@@ -52,7 +52,7 @@ class RuleSet:
     citation: str
     effective_from: date
     effective_to: date | None
-    review: str                         # reviewed: counsel or a named reviewer checked it; demonstration: modeled for tests and the
+    review: str                         # reviewed: counsel checked it; demonstration: modeled for tests and the
                                         # evaluation only; pending: not reviewed, so it only holds
     reviewer: str
     reviewed_on: date | None
@@ -78,7 +78,7 @@ class RuleSet:
         return self.effective_from <= on and (self.effective_to is None or on <= self.effective_to)
 
 
-_REVIEWED_BY = "Staddle design review, 2026-11-23"
+_DESIGN_REVIEW = "Staddle design review, 2026-11-23; counsel review pending"
 _PENDING = "none: counsel review pending"
 RULE_SETS: tuple[RuleSet, ...] = (
     RuleSet("CA-notice", 1, "CA", "notice", "California notice of a change in rental terms", "California Business and Professions Code 21715.5",
@@ -99,10 +99,10 @@ RULE_SETS: tuple[RuleSet, ...] = (
             "New York City Administrative Code 20-566.4 and the city's rules under it", LONG_IN_FORCE, None, "demonstration", _PENDING, None,
             "advisor research, 2026-11-23", first_year_max=True, annual_max_notice_days=60, recurring_fee=True),
     RuleSet("FL-notice", 1, "FL", "notice", "Florida ordinary rent increase: the signed agreement's own terms",
-            "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "reviewed", _REVIEWED_BY, date(2026, 11, 23),
+            "the signed rental agreement; no statewide notice period is modeled", LONG_IN_FORCE, None, "pending", _DESIGN_REVIEW, None,
             "advisor research, 2026-11-23: no statewide statutory notice duration established", agreement_specific=True, email_needs_agreement=True),
     RuleSet("FL-emergency", 1, "FL", "emergency", "Florida price gouging during a declared emergency", "Florida Statutes 501.160",
-            LONG_IN_FORCE, None, "reviewed", _REVIEWED_BY, date(2026, 11, 23), "advisor research, 2026-11-23", emergency_hold=True),
+            LONG_IN_FORCE, None, "pending", _DESIGN_REVIEW, None, "advisor research, 2026-11-23", emergency_hold=True),
 )
 
 

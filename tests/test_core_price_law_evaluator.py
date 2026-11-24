@@ -42,6 +42,13 @@ def codes(result):
     return [r.code for r in result.reasons]
 
 
+@pytest.fixture
+def hypothetical_florida_rules(monkeypatch):
+    # Exercise the modeled rule mechanics under a hypothetical future review.
+    rules = tuple(replace(r, review="reviewed", reviewer="test fixture") if r.place == "FL" else r for r in pl.RULE_SETS)
+    monkeypatch.setattr(pl, "RULE_SETS", rules)
+
+
 def test_a_place_no_rule_covers_gets_no_activation_and_only_that_reason():
     led = book("Austin, TX")
     for kind in ("lease_increase", "street_rate", "fee_change"):
@@ -125,7 +132,7 @@ def test_an_active_declaration_in_a_place_with_no_emergency_rule_holds():
     assert after.outcome == "allow"
 
 
-def test_florida_has_no_number_so_any_increase_under_a_declaration_is_held_for_review():
+def test_florida_has_no_number_so_any_increase_under_a_declaration_is_held_for_review(hypothetical_florida_rules):
     led = book("Orlando, FL")
     rid = pl.record_emergency(led, NOW, place="FL", name="Declared emergency, example county", source="state order", starts=date(2026, 11, 20), ends=date(2026, 12, 20))
     checked(led, "FL", active=[rid])

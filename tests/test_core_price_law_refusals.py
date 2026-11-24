@@ -1,3 +1,4 @@
+from dataclasses import replace
 """Every refusal and hold of the price-law gate, each with words a staff member can read and a rule to point at, and the staff commands
 that carry them: a refusal never comes after a write."""
 from datetime import date
@@ -46,6 +47,13 @@ def change(**over):
 def verdict(led, c, profile, point="activation", at=LATER):
     res = pl.evaluate(led.books, c, at, point=point, profile=profile)
     return res.outcome, [r.code for r in res.reasons if r.kind != "note"], res
+
+
+@pytest.fixture
+def hypothetical_florida_rules(monkeypatch):
+    # Exercise the modeled rule mechanics under a hypothetical future review.
+    rules = tuple(replace(r, review="reviewed", reviewer="test fixture") if r.place == "FL" else r for r in pl.RULE_SETS)
+    monkeypatch.setattr(pl, "RULE_SETS", rules)
 
 
 def test_a_complete_utah_increase_is_allowed_only_once_the_notice_is_served_and_its_days_have_run():
@@ -316,7 +324,7 @@ def test_a_claimed_exception_counts_only_once_the_owner_has_recorded_it_with_its
     assert ok[:2] == ("allow", []) and any(r.code == "EMERGENCY_EXCEPTION_RECORDED" and r.kind == "note" for r in ok[2].reasons)
 
 
-def test_a_recorded_exception_lifts_the_florida_hold_but_never_a_notice_refusal():
+def test_a_recorded_exception_lifts_the_florida_hold_but_never_a_notice_refusal(hypothetical_florida_rules):
     led = Ledger()
     led.set_up(NOW, "Northstar Storage", "Orlando, FL", ["A1"])
     rid = pl.record_emergency(led, NOW, place="FL", name="Declared emergency, example county", source="state order", starts=date(2026, 11, 20), ends=date(2026, 12, 20))
