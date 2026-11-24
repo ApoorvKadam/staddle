@@ -1219,7 +1219,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                    if leads.conversion_evidence(f.b, f.rent, lead) else "")      # the core refuses follow-ups then, so the page does not offer them
         stopped = any(other.stopped and (other.id == lead.id or (lead.phone and lead.phone == other.phone) or (lead.email and lead.email == other.email))
                       for other in leads.state(f.b).records.values())      # the core's own test: a stop on any inquiry from this person
-        return show(request, "fms_lead.html", "leads", f, lead=lead, matches=matches, choices=choices, steps=steps, settled=settled, stopped=stopped, said=leads.said, token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
+        return show(request, "fms_lead.html", "leads", f, lead=lead, matches=matches, choices=choices, steps=steps, settled=settled, closed=leads.closed_reason(lead), stopped=stopped, said=leads.said, token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
 
     @app.post("/leads/{key}", include_in_schema=False)
     async def lead_step(request: Request, key: str):
