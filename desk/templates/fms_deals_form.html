@@ -1,0 +1,17 @@
+<details><summary>Publish new terms</summary>
+<form method="post" action="/deals" class="fms-rate-form">
+  <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="promotion" value="{{ row.id }}">
+  <label>Deal name <input name="name" value="{{ row.latest.name|plain }}" required></label>
+  <label>Eligible sizes, separated by commas <input name="unit_types" value="{{ row.latest.unit_types|join(', ')|plain }}" required></label>
+  <label>Customers <select name="customers"><option value="new"{% if row.latest.customers == 'new' %} selected{% endif %}>New customers</option><option value="any"{% if row.latest.customers == 'any' %} selected{% endif %}>All customers</option></select></label>
+  <label>Deal price in dollars <input name="price" type="number" min="0" step="0.01" value="{{ '%.2f'|format(row.latest.price_cents / 100) if row.latest.price_cents is defined and row.latest.price_cents is not none else '' }}"></label>
+  <label>Or percent off <input name="percent" type="number" min="1" max="100" step="1" value="{{ row.latest.percent if row.latest.percent is defined and row.latest.percent is not none else '' }}"></label>
+  <label>Covered period <select name="covers"><option value="rest_of_first_month"{% if row.latest.covers == 'rest_of_first_month' %} selected{% endif %}>Rest of first month, prorated by day</option><option value="first_full_month"{% if row.latest.covers == 'first_full_month' %} selected{% endif %}>First full month</option></select></label>
+  <label>Expires <input type="date" name="expires" value="{{ row.latest.expires }}" required></label>
+  <fieldset><legend>Stacks with</legend>{% for choice in row.stack_choices %}<label><input type="checkbox" name="stack_{{ loop.index }}" value="{{ choice.id }}"{% if choice.selected %} checked{% endif %}> {{ choice.name|plain }}</label>{% else %}<p>No other deals</p>{% endfor %}</fieldset>
+  <label>On transfer <select name="transfer"><option value="end"{% if row.latest.transfer == 'end' %} selected{% endif %}>Deal ends</option><option value="carry"{% if row.latest.transfer == 'carry' %} selected{% endif %}>Deal may follow</option></select></label>
+  <label>Redemption limit <input type="number" name="max_redemptions" min="1" step="1" value="{{ row.latest.max_redemptions }}" required></label>
+  <label>Concession budget in dollars <input type="number" name="budget" min="0.01" step="0.01" value="{{ '%.2f'|format(row.latest.max_concession_cents / 100) }}" required></label>
+  <label>Effective date <input type="date" name="effective" value="{{ row.effective }}" required></label>
+  <button class="button">Publish terms</button>
+</form></details>

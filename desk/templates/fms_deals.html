@@ -1,0 +1,3 @@
+{% extends "fms.html" %}
+{% block page %}Deals{% endblock %}
+{% block body %}<header class="head"><h1>Deals</h1></header>{% if note %}<p class="fms-status" role="status">{{ note|plain }}</p>{% endif %}{% include "fms_deals_rows.html" %}{% endblock %}

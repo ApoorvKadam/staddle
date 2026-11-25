@@ -16,7 +16,7 @@
   <h2 id="h-rentals">Rentals</h2>
   <div class="fms-scroll" tabindex="0" role="region" aria-labelledby="h-rentals"><table class="fms-table">
     <thead><tr><th>Unit</th><th>Started</th><th>Ended</th><th>Fees in the signed schedule</th><th class="num">Rent a month</th><th class="num">Open on this unit</th></tr></thead>
-    <tbody>{% for r in rentals %}<tr><td>{{ r.unit }}</td><td>{{ r.start }}</td><td>{{ r.ended or '' }}</td><td>{{ r.schedule|capitalize }}</td><td class="num">{{ r.rent }}</td><td class="num">{{ r.owed }}</td></tr>{% endfor %}</tbody>
+    <tbody>{% for r in rentals %}<tr><td>{{ r.unit }}{% for deal in r.deals %}<p>{{ deal.name|plain }}: {{ deal.months|plain }}, {{ deal.amount|plain }} {% if deal.expected %}expected off{% else %}taken off{% endif %}. First full-price bill: {{ deal.first|plain }}, {{ deal.rent|plain }}.</p>{% endfor %}</td><td>{{ r.start }}</td><td>{{ r.ended or '' }}</td><td>{{ r.schedule|capitalize }}</td><td class="num">{{ r.rent }}</td><td class="num">{{ r.owed }}</td></tr>{% endfor %}</tbody>
   </table></div>
 </section>
 

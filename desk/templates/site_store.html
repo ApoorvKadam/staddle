@@ -11,6 +11,7 @@
     <article class="website-card">
       <h2>{{ plain(unit.size) }}</h2><p class="website-unit">Unit {{ plain(unit.id) }}</p>
       <p class="website-price"><strong>{{ money(unit.rent_cents) }}</strong> <span>a month</span></p>
+      {% for offer in offers[unit.id] %}<p>{{ plain(offer.name) }}: {{ plain(offer.description) }}.</p>{% endfor %}
       <a class="button primary" href="/rent/{{ unit.id }}">Rent this unit</a>
     </article>
     {% else %}<p>No units are available right now.</p>{% endfor %}
