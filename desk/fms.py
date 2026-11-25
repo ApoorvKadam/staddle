@@ -100,7 +100,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rent-increases", "Rent increases", "circle-arrow-up"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rent-increases", "Rent increases", "circle-arrow-up"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "user-plus"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))

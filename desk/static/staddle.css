@@ -1082,7 +1082,7 @@ body.fms > main { min-width: 0; }
 .fms-steps input[type="checkbox"] { width: auto; margin: 0; flex: none; }
 .fms-steps label span { display: flex; align-items: center; gap: 8px; }
 .fms-steps form + form, .fms-steps details + form { margin-top: var(--s3); }
-.fms-steps .button { white-space: nowrap; }
+.fms-steps .button { white-space: nowrap; width: 16rem; justify-content: center; }      /* every step in the column is one length, the width of its forms */
 .fms-table tr:has(> .fms-steps) td.why { text-wrap: balance; }       /* a short reason never leaves one word alone on its last line */
 .fms-rate-form fieldset label { display: flex; align-items: center; }
 .fms-rate-form fieldset input { width: auto; }
