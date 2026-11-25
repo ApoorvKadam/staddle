@@ -820,13 +820,13 @@ def test_a_desk_payment_confirmed_while_a_ledger_read_was_being_stored_does_not_
 
 def test_a_ledger_reading_is_stamped_with_when_the_read_began_not_when_it_was_stored(session, fms_url, sim):
     """The read can finish, and the row be stored, after things happened that the reading does not show."""
-    from datetime import datetime, timezone
+    from desk.db import utcnow
 
     seen = {}
 
     class Slow(CubbyAdapter):
         def ledger(self, lease_provider_id):
-            seen["asked"] = datetime.now(timezone.utc).replace(tzinfo=None)
+            seen["asked"] = utcnow()        # the desk's own clock: the system clock can step back during the sleep below
             import time
             time.sleep(0.05)
             return super().ledger(lease_provider_id)
