@@ -61,7 +61,7 @@ BLOCKING_CUTOFF = 0.5
 _REMOVAL = re.compile(r"\b(remove|removal|dispose|disposal|discard|throw|thrown|clear|clearing|haul|dump|take away|take out)\w*\b", re.I)
 
 
-def _latest_look(store, stream, case, records):
+def _look_cutoff(store, stream, case, records):
     repairs = [o for o in records['work_orders'] if o['kind'] != 'check' and not o['joined_into']]
     books, _ = renting.load(store, stream)
     events = store.events(stream)
@@ -70,7 +70,12 @@ def _latest_look(store, stream, case, records):
                (e.kind == 'work_order.closed' and e.payload.get('order') in repair_ids and not e.payload.get('no_work')) or
                (e.kind == 'lease.ended' and (e.payload.get('unit') == case.unit or
                 (e.payload.get('lease') in books.leases and books.leases[e.payload['lease']].unit == case.unit)))]
-    cutoff = max(cutoffs, default=None)
+    return max(cutoffs, default=None)
+
+
+def _latest_look(store, stream, case, records):
+    events = store.events(stream)
+    cutoff = _look_cutoff(store, stream, case, records)
     notes = {n['id']: n for n in records['walk_notes'] if n.get('note') and not n.get('superseded_by') and str(n.get('by', '')).startswith('staff:')}
     checks = {o['id'] for o in records['work_orders'] if o['kind'] == 'check'}
     looks = []
@@ -106,8 +111,15 @@ def _ready_now(store, stream, case, records):
     unit, and someone looked at it after the last repair (or after the move-out when nothing was repaired). At release the look's own
     words also get a second opinion; this test never reads them."""
     repairs = [o for o in records['work_orders'] if o['kind'] != 'check' and not o['joined_into']]
+    look = _latest_look(store, stream, case, records)
+    cutoff = _look_cutoff(store, stream, case, records)
+    inspections = [e for e in store.events(stream) if e.kind == 'walk.observed'
+                   and e.payload.get('unit') == case.unit and e.payload.get('verdict') in ('ready', 'not ready')
+                   and cutoff is not None and (e.at, e.id) > cutoff]
+    latest = max(inspections, key=lambda e: (e.at, e.id), default=None)
+    negative = bool(latest and latest.payload['verdict'] == 'not ready')
     return (all(o['state'] == 'closed' for o in repairs) and not records['readiness']['reasons']
-            and _latest_look(store, stream, case, records) is not None)
+            and look is not None and not negative)
 
 
 def _unit_evidence(store, stream, case, after, staff_only=False):
@@ -340,8 +352,15 @@ def act(store, stream, case_id, action, args, now, *, check=None, readers=None):
         if not result_action.allowed:
             return result_action.check, c, True
         after = _records(store, stream, c, now)
-        if action == 'release_unit' and _ready_now(store, stream, c, after):
-            c = _record(store, stream, c, now, state='done', wake=[])
+        if action == 'release_unit':
+            release = next((e for e in reversed(store.events(stream)) if e.kind == 'unit.unblocked' and e.payload.get('case_id') == c.id), None)
+            _, rent = renting.load(store, stream)
+            unit = rent.units[c.unit]
+            verified = bool(unit.rent_cents and unit.size and after['availability']['status'] == 'vacant' and not after['readiness']['reasons'])
+            if release:
+                c = _step(store, stream, c, now, {'release_event': release.id, 'release_verified': verified}, c.state, c.wake)
+            if _ready_now(store, stream, c, after):
+                c = _record(store, stream, c, now, state='done', wake=[])
         return json.dumps(protect(after), default=str), c, False
 
     content, case_now, is_error = execute()

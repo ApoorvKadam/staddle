@@ -767,7 +767,7 @@ def create_app(settings: Settings | None = None, adapter: FMSAdapter | None = No
         from .front_desk import FrontDesk
         from .stripe_hook import mount as mount_stripe_hook
         core_path = os.environ.get("CORE_DATABASE_PATH") or os.path.join(tempfile.mkdtemp(prefix="staddle-core-"), "core.db")
-        front_desk = app.state.front_desk = FrontDesk(core_path, chat_client, processor=card_processor)
+        front_desk = app.state.front_desk = FrontDesk(core_path, chat_client, processor=card_processor, shift=settings.tilden_shift)
         mount_fms(app, front_desk, settings, guard, from_elsewhere, factory, live=chat_client is not None and settings.public_investigate)
         mount_stripe_hook(app, front_desk, settings.stripe_webhook_secret)
         if start_worker:

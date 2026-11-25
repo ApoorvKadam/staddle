@@ -82,12 +82,13 @@ class Year:
     """Builds the year. `cast` maps a role name to its tenant, its leases and its unit."""
 
     def __init__(self, seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True,
-                 promoted: bool = True):
+                 promoted: bool = True, shift: bool = False):
         # everything up to the cutoff happens: 09:00 on the fixed day; the live FMS passes midnight, so nothing is ahead of the clock
         self.today, self.now = today, cutoff or at_local(today, 9, 0)
         self.seed_leads = seed_leads
         self.promoted = standing and promoted            # the live copy's first-month deal and the one move-in that used it; the year's other figures are the same without them
         self.standing = standing                         # the live copy's open dispute from last week; never in the fixed books
+        self.shift = standing and shift                  # two move-outs this morning with their starting records, for Tilden's shift; only when the shift switch is on
         self.protected = standing and protected          # the live copy's protection records; they carry no money, so the year's figures are the same without them
         self.plan_tenant: dict | None = None             # the live copy's tenant on a payment plan; kept out of the cast
         self.breached_tenant: dict | None = None         # the live copy's tenant whose plan breached; kept out of the cast
@@ -216,7 +217,90 @@ class Year:
                 self.lead_records(rent)
             if self.promoted:
                 self.promoted_move_in(rent)
+            if self.shift:
+                self.morning_move_outs(rent)
         return self
+
+    # two move-outs this morning, for Tilden's shift (the live copy with the shift switch on) -------------------------------------------
+    ROUTINE = {"tenant.added", "lease.signed", "charge.posted", "payment.received", "payment.declined", "rental.adopted", "access.baselined",
+               "unit.priced", "facility.set_up", "rule.adopted", "schedule.adopted", "plan_policy.adopted", "protection.version_published"}
+
+    def shift_leases(self, rent: renting.Rent) -> list:
+        """Two active leases no other story of the live copy uses, in a stable order. A lease is free when its tenant is not in the cast
+        or on a plan, rents only this unit, owes nothing and holds no credit, and no record outside the routine ones (charges, payments,
+        the baseline gate codes) names its tenant, lease, rental or unit: so not the walk's units, the promoted move-in, the leads, the
+        lien file, a payment plan or a protection record."""
+        b = self.led.books
+        named: set[str] = set()
+
+        def strings(value) -> None:
+            if isinstance(value, str):
+                named.add(value)
+            elif isinstance(value, dict):
+                for v in value.values():
+                    strings(v)
+            elif isinstance(value, (list, tuple)):
+                for v in value:
+                    strings(v)
+        for e in self.led.pending:
+            if e.kind not in self.ROUTINE:
+                strings(e.payload)
+        cast = {t for c in self.cast.values() for t in [c["tenant"], *c["leases"]]}
+        cast |= {x["tenant"] for x in (self.plan_tenant, self.breached_tenant) if x}
+        rental = {r.lease: r.id for r in rent.rentals.values() if r.lease}
+        found = []
+        for lease in sorted(b.leases.values(), key=lambda x: x.id):
+            tenant = lease.tenant
+            if (lease.ended is not None or lease.id in cast or tenant in cast or self.habit.get(tenant) != "on_time"
+                    or sum(1 for x in b.leases.values() if x.tenant == tenant) != 1 or b.receivable(lease.id) or b.credit.get(tenant, 0)
+                    or lease.id not in rental or {lease.id, tenant, lease.unit, rental[lease.id]} & named
+                    or rent.rentals[rental[lease.id]].state != "active" or lease.start >= self.today - timedelta(days=45)):
+                continue
+            found.append(lease)
+        random.Random(f"shift:{self.today}").shuffle(found)
+        return found[:2]
+
+    def morning_move_outs(self, rent: renting.Rent) -> None:
+        """Two tenants moved out this morning, recorded through the staff move-out commands after the owner's grants, each a second after the last
+        so every record is dated the copy's own day. The first unit has a repair problem: two staff reports that may describe one fault. The
+        second has two staff notes that leave it unclear whether it is ready. These are starting records only: no repair is finished, no
+        inspection written, no hold placed and no decision made; the rest is for Tilden and the visitor's staff steps."""
+        led, b = self.led, self.led.books
+        picks = self.shift_leases(rent)
+        if len(picks) < 2:
+            return
+        rl = renting.RentLedger(b, rent)
+        tick = [0]
+
+        def at() -> datetime:
+            tick[0] += 1
+            return self.now + timedelta(seconds=tick[0])
+        for lease in picks:
+            rental = next(r.id for r in rent.rentals.values() if r.lease == lease.id)
+            made = rental
+            for step in ("request_move_out", "review_move_out", "final_bill"):
+                d = renting.apply(rent, rl, renting.Act(f"seed:shift:{step}:{lease.id}", step, "staff:front_desk", made, args={"on": self.today.isoformat()}), at())
+                assert d.allowed, f"the seeded move-out was refused at {step}: {d.check}"
+                made = d.made or made
+        led.pending.extend(rl.pending)
+        wk = walk.State()
+        for e in led.pending:
+            wk.apply(e.kind, e.at, e.payload)
+
+        def do(action: str, source: str, name: str, **kw) -> str:
+            act = walk.Act(f"seed:shift:{name}", action, source, **kw)
+            d = walk.command(led, wk, act, at())
+            assert d.allowed, f"the seeded morning record was refused: {d.check}"
+            return d.made
+        repair, unclear = (x.unit for x in picks)
+        do("report_work_order", "staff:front_desk", "repair-1", unit=repair, text="Roll-up door sticks halfway and scrapes the track when it is raised.")
+        do("report_work_order", "staff:office_manager", "repair-2", unit=repair, text="Door will not roll up smoothly; the bottom left of the track looks bent.")
+        for role, name, note in (("front_desk", "first", "Two cardboard boxes by the back wall, not sure if the old tenant meant to leave them. Floor looks swept."),
+                                 ("office_manager", "second", "Light works. Did not check the floor drain or the back panel, and the boxes may be the cleaners'.")):
+            walk_id = do("start_walk", f"staff:{role}", f"walk-{name}", route=[unclear])
+            do("observe_unit", f"staff:{role}", f"observe-{name}", about=walk_id, unit=unclear,
+               form={"lock": "absent", "whose": "unknown", "tag": "absent", "door": "closed"}, text=note)
+            do("finish_walk", f"staff:{role}", f"finish-{name}", about=walk_id)
 
     def lead_records(self, rent: renting.Rent) -> None:
         """Inquiries carry no charges and use the same records as the desk."""
@@ -760,5 +844,5 @@ class Year:
 
 
 def build(seed: int = SEED, today: date = TODAY, cutoff: datetime | None = None, standing: bool = False, protected: bool = True, seed_leads: bool = True,
-          promoted: bool = True) -> Year:
-    return Year(seed, today, cutoff, standing, protected, seed_leads, promoted).build()
+          promoted: bool = True, shift: bool = False) -> Year:
+    return Year(seed, today, cutoff, standing, protected, seed_leads, promoted, shift).build()

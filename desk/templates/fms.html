@@ -2,7 +2,7 @@
 {% block title %}{% block page %}{% endblock %} | {{ f.name }} | {{ brand }}{% endblock %}
 {% block bodyclass %}fms{% endblock %}
 {% block header %}
-{% set global_nav = nav in ('today', 'messages', 'rules') %}
+{% set global_nav = nav in ('today', 'messages', 'tilden', 'rules') %}
 <header class="fms-head">
   <div class="fms-head-row">
     <a class="brand" href="/home">{% include "icons/staddle.svg" %}{{ brand }}</a>
@@ -23,13 +23,14 @@
     <a href="/home"{% if not global_nav %} aria-current="page"{% endif %}>Facilities</a>
     <a href="/today"{% if nav == 'today' %} aria-current="page"{% endif %}>Today</a>
     <a href="/messages"{% if nav == 'messages' %} aria-current="page"{% endif %}>Messages</a>
+    {% if shift_enabled %}<a href="/tilden"{% if nav == 'tilden' %} aria-current="page"{% endif %}>{% include "icons/list-checks.svg" %} Tilden</a>{% endif %}
     <a class="push" href="/rules"{% if nav == 'rules' %} aria-current="page"{% endif %}>Settings</a>
   </nav>
 </header>
 {% endblock %}
 {% block main %}
-<div class="fms-work{% if nav in ('today', 'messages', 'rules') %} fms-work-full{% endif %}">
-{% if nav not in ('today', 'messages', 'rules') %}
+<div class="fms-work{% if nav in ('today', 'messages', 'tilden', 'rules') %} fms-work-full{% endif %}">
+{% if nav not in ('today', 'messages', 'tilden', 'rules') %}
 <aside class="fms-side">
   <p class="fms-fac"><b>{{ f.name }}</b><span>{{ f.b.facility.city|plain }}</span><span>{{ today }}</span></p>
   <a class="fms-site" href="/rent">{% include "icons/external-link.svg" %}View facility website</a>

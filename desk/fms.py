@@ -8,6 +8,7 @@ import hashlib
 import hmac
 from dataclasses import replace
 import json
+import logging
 import re
 import secrets
 from datetime import date, datetime, timedelta
@@ -1021,6 +1022,12 @@ class Facility:
                 "schedule": st.schedule, "schedule_fields": fields(SCHEDULE_FORM, st.schedule, col.SCHEDULE_BOUNDS)}
 
 
+def offered_units(f: Facility) -> list:
+    """The units the online rentals page offers: priced, with a size, and ready, not only vacant."""
+    return [record for unit, record in f.rent.units.items()
+            if record.rent_cents and record.size and not reconcile.readiness(f.b, f.rent, unit, f.now)]
+
+
 async def form(request: Request, limit: int = 8192) -> dict[str, str]:
     """A small form post, read up to its limit: a bigger body is refused before it is held in memory."""
     body = b""
@@ -1052,7 +1059,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
 
     def show(request: Request, name: str, nav: str, f: Facility, **ctx):
         return templates.TemplateResponse(request, name, {"nav": nav, "side": SIDE, "agent": AGENT, "f": f, "today": date_words(f.today), "live": live,
-                                                          "money": money, "day": day, "clock": clock, "local": local, "phone": phone, **ctx})
+                                                          "money": money, "day": day, "clock": clock, "local": local, "phone": phone, "shift_enabled": fd.shift, **ctx})
 
     templates.env.filters["plain"] = plain
 
@@ -1120,10 +1127,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             parts = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)\s*", size)
             return Decimal(parts[1]) * Decimal(parts[2]) if parts else Decimal("Infinity")
 
-        units = []
-        for unit, record in f.rent.units.items():
-            if record.rent_cents and record.size and not reconcile.readiness(f.b, f.rent, unit, f.now):      # ready, not only vacant
-                units.append(record)
+        units = offered_units(f)
         units.sort(key=lambda u: (area(u.size), u.rent_cents, u.id))
         sizes = sorted({u.size for u in units}, key=lambda size: (area(size), size))
         size = request.query_params.get("size")
@@ -1655,6 +1659,12 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     # The gate can name a record in a refusal; the page identifies it by its unit instead.
                     reason = re.sub(r"\s*\((?:W|O|WO)\d+\)", "", decision.check)
                     fd._keep(fd._step_notes, ident, reason)
+            # Tilden's shift wakes on a finished order or a walk note, never on a step that leaves an order half finished
+            if decision.allowed and fd.shift and (action == "close_work_order" or (action in ("observe_unit", "correct_observation") and (data.get("text") or "").strip())):
+                try:
+                    fd.run_shift(ident, walk_budget_left if live else None, live)
+                except Exception:
+                    logging.getLogger("desk.fms").exception("the shift step after a staff record failed")
         await run_in_threadpool(take_step)
         return RedirectResponse(f"/walkthrough?at={section}#{section}", status_code=303)
 
@@ -2101,3 +2111,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 execute(store, stream, Command(f"staff:{dispute}:{action}", action, d.tenant, STAFF, d.charge, reason=reason), fd.clock())
         await run_in_threadpool(act)
         return RedirectResponse("/today#decided", status_code=303)
+
+    if fd.shift:
+        from . import tilden_screen
+        tilden_screen.mount(app, fd, show=show, need=need, same_site=same_site, form=form, budget_left=walk_budget_left,
+                            live=live, facility=Facility, offered=offered_units, clock=clock, role_name=lambda role: role.replace("_", " ").capitalize())

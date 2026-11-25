@@ -1,0 +1,12 @@
+{% extends "fms.html" %}
+{% block page %}Tilden{% endblock %}
+{% block body %}
+<header class="head"><h1>Tilden</h1></header>
+<form method="post" action="/tilden/start"><input type="hidden" name="token" value="{{ token }}"><button class="button primary" type="submit">Start the morning shift</button></form>
+{% if running %}<p role="status">The shift is in progress. The latest confirmed activity is below.</p><script>setTimeout(function(){ location.reload(); }, 3000);</script>{% endif %}
+{% for kind, label, group in groups %}
+<section class="fms-section"><h2>{{ label }}</h2>
+{% for r in group %}<article class="fms-card"><p class="fms-card-head"><a href="/tilden/case/{{ r.unit }}">Unit {{ r.unit|plain }}</a></p><p>{{ r.words|plain }}</p>{% if r.held %}<p>Held from online renting</p>{% endif %}{% if r.walkthrough %}<a href="/walkthrough#staff-forms">Open the Walkthrough</a>{% endif %}{% for a in r.actions %}<a href="/tilden/case/{{ r.unit }}#work-{{ a.order or 'inspection' }}">{{ {'record_repair': 'Record repair', 'check_repair': 'Check repair', 'inspect': 'Inspect unit', 'check_inspection': 'Check inspection'}[a.kind] }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</article>{% else %}<p class="muted">None at present.</p>{% endfor %}
+</section>{% endfor %}
+<section class="fms-section"><h2>Recent activity</h2>{% for e in activity %}<p><a href="/tilden/case/{{ e.unit }}">Unit {{ e.unit|plain }}</a> · {{ e.actor|plain }} · {{ e.title|plain }}</p>{% else %}<p class="muted">No activity yet.</p>{% endfor %}</section>
+{% endblock %}
