@@ -1,0 +1,8 @@
+<section class="fms-section"><div class="fms-scroll"><table class="fms-table">
+  <thead><tr><th>Deal</th><th>Eligible sizes</th><th>Customers</th><th>Expires</th><th>Stacks with</th><th>On transfer</th><th class="num">Redemptions</th><th class="num">Concession given</th><th>Version history</th></tr></thead>
+  <tbody>{% for row in rows %}<tr><td class="why"><strong>{{ row.name|plain }}</strong>{% if row.terms %}<p>{{ row.offer|plain }} for {{ row.covers|plain }}</p>{% else %}<p>Not in force yet</p>{% endif %}</td>
+  {% if row.terms %}<td>{{ row.terms.unit_types|join(', ')|plain }}</td><td>{{ row.customers|plain }}</td><td>{{ row.expires|plain }}</td><td>{{ row.stacks|plain }}</td><td>{{ ("May follow" if row.terms.transfer == "carry" else "Deal ends")|plain }}</td><td class="num">{{ row.used }} of {{ row.terms.max_redemptions }}</td><td class="num">{{ money(row.given) }} of {{ money(row.terms.max_concession_cents) }}</td>
+  {% else %}<td colspan="7">No terms in force</td>{% endif %}
+  <td>{% for h in row.history %}<p>{{ h.when|plain }} by {{ h.by|plain }}; effective {{ h.effective|plain }}</p>{% endfor %}{% include "fms_deals_form.html" %}</td></tr>
+  {% else %}<tr><td colspan="9">No deals yet.</td></tr>{% endfor %}</tbody>
+</table></div></section>

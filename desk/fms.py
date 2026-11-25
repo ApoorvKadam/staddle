@@ -32,7 +32,7 @@ from core.gate import ACTIONS, RENT_SCOPE, STAFF_ACTIONS, STAFF_RULE, WORK_SCOPE
 from core.rules import staff_words, waiver_words
 from core.seed import story_month
 
-from . import pricing, spend
+from . import deal_store, deal_tenant, deals, deals_actions, pricing, spend
 from .web import AGENT
 from .front_desk import ACTION_WORDS, CLAIM_WORDS, SHIFT, CaseIn, FrontDesk, RuleIn, account_words
 from .guard import LIFETIME, SLOW_DOWN, UNSET, Unreachable
@@ -100,7 +100,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))
@@ -971,7 +971,8 @@ class Facility:
     def rentals(self, tenant: str) -> list[dict]:
         return [{"unit": x.unit, "rent": money(x.rent_cents), "start": f"{day(x.start)}, {x.start.year}",
                  "ended": f"{day(x.ended)}, {x.ended.year}" if x.ended else None,
-                 "schedule": ", ".join(KIND_WORDS.get(k, k) for k in x.schedule) or "no fees", "owed": money(self.b.receivable(x.id))}
+                 "schedule": ", ".join(KIND_WORDS.get(k, k) for k in x.schedule) or "no fees", "owed": money(self.b.receivable(x.id)),
+                 "deals": deal_tenant.for_lease(self.b, x)}
                 for x in self.leases_of.get(tenant, [])]
 
     def versions(self, name: str, say) -> list[dict]:
@@ -1133,7 +1134,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         size = request.query_params.get("size")
         size = size if size in sizes else None        # an unknown size shows every unit
         shown = [u for u in units if u.size == size] if size else units
-        return site_show(request, "site_store.html", f, units=shown, sizes=sizes, size=size, token=secrets.token_hex(6),
+        return site_show(request, "site_store.html", f, units=shown, offers={u.id: deal_store.offers(f, u) for u in shown}, sizes=sizes, size=size, token=secrets.token_hex(6),
                          inquiry_note=fd.take_site_note(f.ident))
 
     @app.post("/rent/inquiry", include_in_schema=False)
@@ -1254,7 +1255,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         record = f.rent.units.get(unit)
         if not record or not record.rent_cents or not record.size or reconcile.readiness(f.b, f.rent, unit, f.now):
             return RedirectResponse("/rent?unavailable=1", status_code=303)
-        return site_show(request, "site_renter.html", f, unit=record, token=secrets.token_hex(6))
+        return site_show(request, "site_renter.html", f, unit=record, offers=deal_store.offers(f, record), note=plain(fd.take_site_note(f.ident)), token=secrets.token_hex(6))
 
     @app.post("/rent/{unit}", include_in_schema=False)
     async def website_begin(request: Request, unit: str):
@@ -1272,8 +1273,10 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 if not record or not record.rent_cents or not record.size:
                     return None
                 tenant = fd.add_renter(ident, name, phone)
-                held = fd.rent_step(ident, renting.Act(f"site:{token}:reserve", "reserve", "renter", unit, tenant))
+                held = fd.rent_step(ident, renting.Act(f"site:{token}:reserve", "reserve", "renter", unit, tenant,
+                                                      {"promotions": [data["promotion"]]} if data.get("promotion") else {}))
                 if not held.allowed:
+                    fd.put_site_note(ident, held.check)
                     return None
                 checkout = fd.rent_step(ident, renting.Act(f"site:{token}:checkout", "start_checkout", "renter", held.made, tenant))
                 if checkout.allowed:
@@ -1285,7 +1288,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 return checkout.made if checkout.allowed else None
 
         rental = await run_in_threadpool(begin)
-        return RedirectResponse(f"/rent/checkout/{rental}" if rental else "/rent?unavailable=1", status_code=303)
+        return RedirectResponse(f"/rent/checkout/{rental}" if rental else f"/rent/{unit}", status_code=303)
 
     checkout_amounts = {}
 
@@ -1668,6 +1671,12 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         await run_in_threadpool(take_step)
         return RedirectResponse(f"/walkthrough?at={section}#{section}", status_code=303)
 
+    @app.get("/deals", include_in_schema=False)
+    def deals_page(request: Request):
+        f = Facility(fd, need(request))
+        return show(request, "fms_deals.html", "deals", f, rows=deals.rows(f), token=secrets.token_hex(6), note=plain(fd.take_step_note(f.ident)))
+
+    deals_actions.mount(app, fd, need, same_site, form, STAFF)
     pricing.mount(app, fd, need, same_site, form, show, Facility, STAFF)
 
     @app.get("/shop", include_in_schema=False)

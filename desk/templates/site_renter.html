@@ -3,16 +3,19 @@
 <div class="wrap website-page website-columns">
   <section>
     <h1>Your details</h1>
+    {% if note %}<p class="website-notice" role="alert">{{ plain(note) }}</p>{% endif %}
     <form class="website-form" method="post" action="/rent/{{ unit.id }}">
       <input type="hidden" name="token" value="{{ token }}">
       <label for="name">Name</label><input id="name" name="name" maxlength="80" required>
       <label for="phone">Phone</label><input id="phone" name="phone" type="tel" maxlength="30" required>
+      {% if offers %}<label for="promotion">Choose a deal</label><select id="promotion" name="promotion"><option value="">No deal</option>{% for offer in offers %}<option value="{{ offer.id }}">{{ plain(offer.name) }}: {{ plain(offer.description) }}</option>{% endfor %}</select>{% endif %}
       <button class="button primary" type="submit">Continue to the agreement</button>
     </form>
   </section>
   <aside class="website-summary">
     <h2>Your unit</h2><p class="website-summary-unit">Unit {{ plain(unit.id) }} <span>{{ plain(unit.size) }}</span></p>
     <p class="website-price"><strong>{{ money(unit.rent_cents) }}</strong> <span>a month</span></p>
+    {% for offer in offers %}<p class="website-deal">{{ plain(offer.name) }}: {{ plain(offer.description) }}.</p>{% endfor %}
     <h2>What happens next</h2>
     <ol class="website-steps"><li>Your details</li><li>Agreement and test payment</li><li>Gate code set and read back</li></ol>
   </aside>
