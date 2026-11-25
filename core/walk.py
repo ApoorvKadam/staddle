@@ -169,6 +169,10 @@ class State:
             self.walks[o.walk].observations.append(o)
         elif kind == "walk.investigated":               # a report only: nothing it says is a record of what happened
             self.investigations.setdefault(p["key"], []).append({**p, "at": at})
+        elif kind == "work_order.returned":             # staff reviewed the recorded work and sent it back: the order is assigned again
+            o = self.orders[p["order"]]
+            o.state = "assigned"
+            o.changes.append(Change("returned", p["by"], at, p.get("text", "")))
         elif kind == "work_order.kept_apart":           # staff said the two are different faults: the pair is not offered again
             self.apart.add(frozenset((p["order"], p["other"])))
             self.orders[p["order"]].changes.append(Change("kept apart", p["by"], at, p.get("text", "")))
@@ -209,7 +213,8 @@ ACTIONS = {"start_walk": "start a walk", "observe_unit": "record what was seen o
            "assign_work_order": "assign a work order", "record_order_work": "record the work on an order",
            "check_order_work": "check the work on an order", "close_work_order": "close a work order", "close_report_no_work": "close a report needing no work",
            "join_work_order": "join a work order into another one for the same fault",
-           "keep_work_orders_apart": "keep two work orders apart as different faults"}
+           "keep_work_orders_apart": "keep two work orders apart as different faults",
+           "return_order_work": "return recorded work for more work"}
 # the move each work order command makes, and the state the order must be in first
 MOVES = {"triage_work_order": ("work_order.triaged", "reported"), "assign_work_order": ("work_order.assigned", "triaged"),
          "record_order_work": ("work_order.recorded", "assigned"), "check_order_work": ("work_order.checked", "work recorded"),
@@ -334,6 +339,14 @@ def evaluate(books, wk: State, act: Act, now: datetime, agent_allowed: bool = Fa
             return False, "staff kept this report apart from another"
         if not text:
             return False, "cite the staff record"
+    elif a == "return_order_work":
+        o = wk.orders.get(act.about or "")
+        if o is None:
+            return False, "there is no such work order"
+        if o.state != "work recorded":
+            return False, "only recorded work that has not been checked can be returned" if o.state != "closed" else "that work order is already closed"
+        if len(text) < 3:
+            return False, "say what is still to do"
     elif a in ("join_work_order", "keep_work_orders_apart"):
         o, keep = wk.orders.get(act.about or ""), wk.orders.get(act.into or "")
         if o is None or keep is None:
@@ -384,10 +397,14 @@ def record(led: Ledger, wk: State, act: Act, now: datetime) -> str:
         put("walk.observed", {"walk": walk_id, "observation": oid, "unit": unit, "lock": form["lock"], "whose": form.get("whose", "unknown"),
                               "tag": form["tag"], "door": form["door"], "note": text, "by": who, "supersedes": old.id if old else None,
                               **({"read": act.read} if act.read else {}),
+                              **({"verdict": form["verdict"]} if form.get("verdict") in ("ready", "not ready") else {}),
                               **({"contents": form["contents"]} if form.get("contents", "unknown") != "unknown" else {})}, "walk")
         return oid
     if a == "finish_walk":
         put("walk.finished", {"walk": act.about, "by": who}, "walk")
+        return act.about
+    if a == "return_order_work":
+        put("work_order.returned", {"order": act.about, "by": who, "text": text}, "order")
         return act.about
     if a == "join_work_order":
         put("work_order.joined", {"order": act.about, "into": act.into, "by": who, "text": text}, "order")

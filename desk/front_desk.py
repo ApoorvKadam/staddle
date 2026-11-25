@@ -28,6 +28,7 @@ from core.rules import Proposal, compile_rule, replay
 from core.cases import load
 from core.seed import build
 from core.store import BASE, Store
+from core.tilden import shift as tilden_shift
 
 from . import spend
 
@@ -85,9 +86,47 @@ def as_utc(at: datetime) -> datetime:
     return at.replace(tzinfo=timezone.utc) if at.tzinfo is None else at.astimezone(timezone.utc)
 
 
+class _ShiftAllowance(tilden_shift.Allowance):
+    """The shift's reservations in the usage table, beside every other live Tilden job's, so the shared $1 cap sees them at once. A row is
+    written before any call is made and holds the case's worst cost until the case settles it to what it really cost."""
+
+    def __init__(self, desk: "FrontDesk", store: Store, visitor: str, budget_left):
+        self.desk, self.store, self.visitor, self.budget_left = desk, store, visitor, budget_left
+
+    def reserve(self, key: str, cents: float) -> bool:
+        since = as_utc(spend.day_start()).isoformat()
+        with self.desk.lock:
+            db = self.store.db
+            if db.execute("SELECT 1 FROM usage WHERE visitor = ? AND run = ? AND shift = 'shift'", (self.visitor, key)).fetchone():
+                return True                 # this reservation was already made: it counts once
+            mine = db.execute("SELECT COALESCE(SUM(cents), 0) FROM usage WHERE visitor = ? AND shift = 'shift' AND at >= ?", (self.visitor, since)).fetchone()[0]
+            every = db.execute("SELECT COALESCE(SUM(cents), 0) FROM usage WHERE shift = 'shift' AND at >= ?", (since,)).fetchone()[0]
+            if mine + cents > tilden_shift.VISITOR_DAY_CENTS or every + cents > tilden_shift.ALL_SHIFTS_DAY_CENTS:
+                return False
+            if self.budget_left is not None and self.budget_left() < cents / 100:
+                return False
+            db.execute("INSERT INTO usage(at, visitor, run, shift, cents) VALUES (?,?,?,?,?)",
+                       (datetime.now(timezone.utc).isoformat(), self.visitor, key, "shift", cents))
+            return True
+
+    def settle(self, case_key: str, cents: float) -> None:
+        """The case's real cost replaces what was reserved for it; what was not used is returned. A cost above the reservation is kept in
+        full: nothing is hidden."""
+        with self.desk.lock:
+            rows = self.store.db.execute("SELECT id FROM usage WHERE visitor = ? AND shift = 'shift' AND run LIKE ? ORDER BY id",
+                                         (self.visitor, f"{case_key}:%")).fetchall()
+            for n, (row,) in enumerate(rows):
+                self.store.db.execute("UPDATE usage SET cents = ? WHERE id = ?", (cents if n == 0 else 0, row))
+
+
 class FrontDesk:
-    def __init__(self, path: str, client=None, clock=None, processor_path: str | None = None, processor=None):
+    def __init__(self, path: str, client=None, clock=None, processor_path: str | None = None, processor=None, shift: bool = False):
         self.path, self.client = path, client
+        # Tilden's morning shift (DESK_TILDEN_SHIFT): off, the seeded copy and every page are as they were and no shift model call is made
+        self.shift = shift
+        self.shift_hooks: dict = {}         # a test's own readers and second check for the shift; the live service leaves it empty
+        self._shift_presses: OrderedDict[tuple[str, str], bool] = OrderedDict()      # (visitor, page token) of Start presses already taken
+        self._shift_threads: dict[str, threading.Thread] = {}
         # the simulated payment processor keeps its records beside the core's database: one per running app, never in the repository
         if processor_path is None and path != ":memory:":
             processor_path = os.path.join(os.path.dirname(os.path.abspath(path)), "processor.json")
@@ -179,7 +218,7 @@ class FrontDesk:
         starts it at boot). Yesterday's file keeps yesterday's visitor copies: the footer says a copy lasts a day."""
         root, ext = os.path.splitext(self.path)
         store = Store(self.path if self.path == ":memory:" else f"{root}-{today.isoformat()}{ext}")
-        year = build(today=today, cutoff=at_local(today), standing=True)
+        year = build(today=today, cutoff=at_local(today), standing=True, shift=self.shift)
         if not store.events(BASE):
             with store.write():
                 store.append(BASE, year.led.pending)
@@ -410,7 +449,7 @@ class FrontDesk:
         """Today's tries by this visitor, each with the shift messages it ran: a shift is one try, a typed message is one try."""
         since = as_utc(spend.day_start()).isoformat()
         out: dict[str, set] = {}
-        rows = self.ready().db.execute("SELECT run, shift FROM usage WHERE visitor = ? AND at >= ? AND (shift IS NULL OR shift NOT IN ('rule', 'walk', 'investigate'))", (visitor, since))
+        rows = self.ready().db.execute("SELECT run, shift FROM usage WHERE visitor = ? AND at >= ? AND (shift IS NULL OR shift NOT IN ('rule', 'walk', 'investigate', 'shift'))", (visitor, since))
         for run, shift in rows:
             out.setdefault(run, set()).add(shift)
         return out
@@ -624,6 +663,64 @@ class FrontDesk:
         with self.lock:
             store.db.execute("UPDATE usage SET cents = ? WHERE id = ?", (call.cents if call else worst_cents, usage))
             self.reserved -= worst_cents
+
+    # Tilden's morning shift ----------------------------------------------------------------------------------------------------
+    def run_shift(self, visitor: str, budget_left=None, live: bool = True, wait: bool = False) -> tilden_shift.Shift | None:
+        """One shift step on the visitor's copy: the old gate codes of this morning's move-outs are carried forward first (a unit is free to
+        keep off the list only once its code is revoked), then the shift admits, holds and runs cases (core/tilden/shift.py). Nothing
+        here when the shift switch is off. The model's cost is reserved in the shared daily budget before it is spent and settled after.
+        Without a model client the shift keeps units off the list and does no model work."""
+        if not self.shift:
+            return None
+        with self.lock:
+            store, stream, now = self.ready(), self.stream(visitor), self.clock()
+            self._advance(store, stream, now)
+            allowance = _ShiftAllowance(self, store, visitor, budget_left)
+        return tilden_shift.start_shift(store, stream, now, allowance=allowance, client=self.client if live else None, wait=wait, **self.shift_hooks)
+
+    def start_shift_async(self, visitor: str, token: str, budget_left=None, live: bool = True) -> bool:
+        """The Start button: one shift step on a thread of its own, so the page can show the records as they are written. The same page token
+        starts it once; a second press (a double click, a second tab on the same page) returns the first decision and starts nothing. False when
+        the shift is off."""
+        if not self.shift:
+            return False
+        with self.lock:
+            key = (visitor, token)
+            if key in self._shift_presses:
+                return self._shift_presses[key]
+            self._shift_presses[key] = True
+
+        def go() -> None:
+            try:
+                self.run_shift(visitor, budget_left, live)
+            except Exception:
+                log.exception("the shift step failed for %s", visitor)
+        thread = threading.Thread(target=go, name="tilden-shift", daemon=True)
+        self._shift_threads[visitor] = thread
+        thread.start()
+        return True
+
+    def wake_shift_async(self, visitor: str, budget_left=None, live: bool = True) -> None:
+        """Continue once after a committed staff submission, without blocking the case page."""
+        def go() -> None:
+            try:
+                self.run_shift(visitor, budget_left, live, wait=True)
+            except Exception:
+                log.exception("the shift step after a staff submission failed")
+        thread = threading.Thread(target=go, name="tilden-wake", daemon=True)
+        self._shift_threads[visitor] = thread
+        thread.start()
+
+    def shift_running(self, visitor: str) -> bool:
+        """A queued or running shift step for this visitor."""
+        thread = self._shift_threads.get(visitor)
+        return bool(thread and thread.is_alive()) or tilden_shift.running(self.ready(), self.stream(visitor))
+
+    def join_shift(self, visitor: str, timeout: float = 60) -> None:
+        """Wait for the visitor's shift step to end (a test's way of reading the records after Start)."""
+        thread = self._shift_threads.get(visitor)
+        if thread:
+            thread.join(timeout)
 
     def read_walk_note(self, visitor: str, walk: str, unit: str | None, text: str, live: bool = True, budget_left=None,
                        source: str = "staff:office_manager", record: bool = True) -> dict:

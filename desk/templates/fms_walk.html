@@ -46,7 +46,7 @@
     <button type="button" class="button walk-same">Ask {{ agent|plain }} whether this is one fault</button><p class="walk-status" role="status"></p>
     <form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ p.second.id }}"><input type="hidden" name="into" value="{{ p.first.id }}"><label>Note <input name="text" maxlength="{{ note_max }}"></label><button class="button" name="action" value="join_work_order">Same fault: join into the first order</button><button class="button" name="action" value="keep_work_orders_apart">Different faults: keep both</button></form>
   </article>{% endfor %}
-  {% for o in orders %}<article class="fms-line"><h3>Unit {{ o.unit|plain }}: {{ o.problem|plain }}</h3>
+  {% for o in orders %}<article class="fms-line" id="order-{{ o.id }}"><h3>Unit {{ o.unit|plain }}: {{ o.problem|plain }}</h3>
     {% if o.joined_into %}{% set kept = order_of[o.joined_into] %}<p>Closed as the same fault as the order reported {{ clock(kept.reported)|plain }}: {{ kept.problem|plain }}.</p>
     {% else %}<p>{{ o.state|capitalize|plain }}. With: {{ staff(o.assigned_to)|plain }}.</p>{% endif %}
     {% set last = o.changes[-1] %}<p>Last change: {{ last.state|plain }}{% if last.text %}: {{ last.text|plain }}{% endif %}, {{ staff(last.by)|plain }}, {{ clock(last.at)|plain }}{% if last.to %}, to {{ staff(last.to)|plain }}{% endif %}.</p>

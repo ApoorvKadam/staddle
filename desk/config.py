@@ -84,6 +84,9 @@ class Settings:
     # key the simulated processor stays; a live-mode key stops the desk at startup (desk/api.py)
     stripe_secret_key: str | None = field(default=None, repr=False)
     stripe_webhook_secret: str | None = field(default=None, repr=False)
+    # Tilden's morning shift (core/tilden/shift.py): two move-outs in each live copy and a staff-only Tilden screen. Off unless set to 1; off
+    # means no shift route, no change to the seeded copy and no model call for it.
+    tilden_shift: bool = False
 
     @staticmethod
     def from_env() -> "Settings":
@@ -114,4 +117,5 @@ class Settings:
             live_check_client_secret=os.environ.get("STORA_READ_CLIENT_SECRET") or None,
             stripe_secret_key=os.environ.get("STRIPE_SECRET_KEY") or None,
             stripe_webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET") or None,
+            tilden_shift=os.environ.get("DESK_TILDEN_SHIFT") == "1",
         )

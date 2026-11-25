@@ -1,0 +1,40 @@
+{% extends "fms.html" %}
+{% block page %}{{ job|plain }}{% endblock %}
+{% block body %}
+<p class="muted"><a href="/tilden">Tilden</a></p>
+<header class="head"><h1>{{ job|plain }}</h1></header>
+<p>{% if case.held %}Held from online renting{% else %}Not held from online renting{% endif %}</p>
+{% if running %}<p role="status" id="shift-running">The shift is in progress. The latest confirmed activity is below.</p>{% endif %}
+<section class="fms-section"><h2>Current plan</h2>{% for step in plan %}<p>{{ step|plain }}</p>{% else %}<p>{{ case.words|plain }}</p>{% endfor %}</section>
+<section class="fms-section" id="staff-work"><h2>Staff work</h2>{% if step_note %}<p role="status">Nothing changed. {{ step_note|plain }}</p>{% endif %}
+{% for form in forms %}<article class="fms-card" id="work-{{ form.order or 'inspection' }}">
+{% if form.kind == 'record_repair' %}<h3>Record the repair</h3><p>{{ form.problem|plain }}</p>{% elif form.kind == 'check_repair' %}<h3>Check the recorded repair</h3>{% elif form.kind == 'inspect' %}<h3>Inspect the unit</h3>{% else %}<h3>Check the inspection record</h3>{% endif %}
+{% if form.record %}<p>{{ form.record.text|plain }}</p>{% endif %}
+<form class="fms-form-stack" method="post" action="/tilden/case/{{ case.unit }}/step"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="action" value="{{ form.kind }}"><input type="hidden" name="order" value="{{ form.order }}">
+{% if form.kind in ('record_repair', 'inspect') %}{% if form.order %}{% if form.scope %}<p>Recorded scope: {{ form.scope_display|plain }}</p><input type="hidden" name="scope" value="{{ form.scope }}"><label><input type="checkbox" name="scope_confirmed" value="yes" required> I confirm the recorded scope</label>{% else %}<label>Confirm the work scope <input name="scope" required minlength="3" maxlength="300"></label>{% endif %}{% if form.assigned %}<p>Assigned to {{ form.assigned.replace('person:', '').replace('_', ' ')|plain }}</p><input type="hidden" name="person" value="{{ form.assigned }}"><label><input type="checkbox" name="person_confirmed" value="yes" required> I confirm the person responsible</label>{% else %}<label>Person responsible <input name="person" required minlength="2" maxlength="40" pattern="[A-Za-z.-]+" title="Enter the person’s name using letters, periods or hyphens"></label>{% endif %}{% endif %}{% endif %}
+{% if form.kind == 'record_repair' %}<label>What work was performed? <input name="work" required minlength="3" maxlength="300"></label><button class="button primary">Record completed work</button>
+{% elif form.kind == 'inspect' %}<label>What did you observe? <input name="observations" required minlength="3" maxlength="250"></label><label><input type="radio" name="verdict" value="ready" required> Ready to rent</label><label><input type="radio" name="verdict" value="not_ready" required> Not ready to rent</label><button class="button primary">Record inspection</button>
+{% else %}<label>What did you check? <input name="words" required minlength="3" maxlength="300"></label><button class="button primary" name="decision" value="accept">Accept {{ 'repair' if form.kind == 'check_repair' else 'inspection' }}</button><button class="button" name="decision" value="return">{{ 'Needs more work' if form.kind == 'check_repair' else 'Return for correction' }}</button>{% endif %}
+</form></article>{% else %}<p class="muted">No staff work is ready here.</p>{% endfor %}</section>
+<section class="fms-section" id="case-activity"><h2>Case activity</h2>{% for e in entries %}<article class="fms-card"{% if e.anchor %} id="{{ e.anchor }}"{% endif %}><h3>{{ e.title|plain }}</h3><p>{{ e.actor|plain }}</p>{% if e.detail %}<p>{{ e.detail|plain }}</p>{% endif %}{% if e.link %}<a href="{{ e.link[0] }}">{{ e.link[1]|plain }}</a>{% endif %}</article>{% else %}<p class="muted">No activity yet.</p>{% endfor %}</section>
+{% if running %}<script>
+(function refreshActivity() {
+  setTimeout(async function () {
+    try {
+      const response = await fetch(location.pathname + '?activity=1', {cache: 'no-store'});
+      if (!response.ok || response.redirected) return;
+      const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const activity = page.getElementById('case-activity');
+      if (activity) document.getElementById('case-activity').replaceWith(activity);
+      if (!page.getElementById('shift-running')) {
+        document.getElementById('shift-running').remove();
+        return;
+      }
+    } catch (error) {
+      // Try again on the next interval.
+    }
+    refreshActivity();
+  }, 3000);
+})();
+</script>{% endif %}
+{% endblock %}
