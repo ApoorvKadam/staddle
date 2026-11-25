@@ -324,6 +324,7 @@ class State:
         self.notices: dict[str, list[Notice]] = {}
         self.authorizations: dict[str, list[Authorization]] = {}
         self.approvals: dict[str, Approval] = {}
+        self.withdrawn: set[str] = set()                # changes staff took back before they were billed
         self.decisions: list[Recorded] = []
         self.postings: dict[str, tuple[str, str]] = {}
         self.order: dict[str, int] = {}                 # declaration and check ids -> their place in the log, so "after" never reads a clock
@@ -380,6 +381,8 @@ class State:
             return "PLX", p["id"]
         elif kind == "price_law.approved":
             self.approvals[p["change"]] = Approval(p["change"], dict(p["versions"]), dict(p.get("snapshot", {})), p["by"], at)
+        elif kind == "price_law.withdrawn":
+            self.withdrawn.add(p["change"])
         elif kind == "price_law.invoice_posted":
             self.postings[p["invoice"]] = (p["decision"], p["charge"])
         elif kind == "price_law.decided":
@@ -581,6 +584,19 @@ def record_exception(led: Ledger, at: datetime, *, change: str, basis: str, cove
 # decisions --------------------------------------------------------------------------------------------------------------------
 def record_approval(led: Ledger, at: datetime, *, change: str, versions: dict, by: str, snapshot: dict) -> None:
     led.emit("price_law.approved", at, {"change": change, "versions": dict(versions), "snapshot": dict(snapshot), "by": by}, f"price_law:approved:{change}:{state(led.books).counts.get(change, 0) + 1}", source=by)
+
+
+def withdraw(led: Ledger, at: datetime, *, change: str, by: str) -> None:
+    """Staff take a change back before it is billed. It is never posted after that, and a new change can be proposed in its place."""
+    st = state(led.books)
+    changes = {d.id: d.change for d in st.decisions}
+    if change not in changes.values():
+        raise Refused("that change is not on file")
+    if change in st.withdrawn:
+        raise Refused("that change was already withdrawn")
+    if any(changes.get(decision) == change for decision, _ in st.postings.values()):
+        raise Refused("that change is already billed, so it cannot be withdrawn")
+    led.emit("price_law.withdrawn", at, {"change": change, "by": by}, f"price_law:withdrawn:{change}", source=by)
 
 
 def record_decision(led: Ledger, at: datetime, *, change: str, point: str, outcome: str, reasons, records, versions: dict, lease: str | None,
@@ -1129,19 +1145,48 @@ def post_invoice(led: Ledger, at: datetime, *, decision: str, profile: FacilityP
             or isinstance(snap.get("new_cents"), bool) or snap["new_cents"] <= 0 or basis.lease not in led.books.leases
             or basis.invoice in state(led.books).postings):
         raise Refused("the invoice decision cannot be posted")
+    if basis.change in state(led.books).withdrawn:
+        raise Refused("the change was withdrawn, so it cannot be billed")
     due = _when(snap.get("effective_on"), "effective date")
     if local(at).date() < due:
         raise Refused("the change is not effective yet")
+    if led.books.live("rent:" + basis.invoice):
+        raise Refused("that month's rent is already billed, so the increase cannot be posted over it")
     change = _change_from(basis.change, snap)
     current = evaluate(led.books, change, at, point="invoice", profile=profile)
     if not current.allowed:
         raise Refused("the invoice no longer passes the price-change check: " + current.words)
     decision = record_decision(led, at, change=change.id, point="invoice", outcome=current.outcome, reasons=current.reasons,
                                records=current.records, versions=current.versions, lease=change.lease, invoice=change.invoice, snapshot=_snapshot(change))
-    charge = led._charge(at, basis.lease, "rent", snap["new_cents"], "rent:" + basis.invoice, due)
+    year, month = map(int, basis.invoice.rsplit(":", 1)[1].split("-"))
+    charge = led._charge(at, basis.lease, "rent", snap["new_cents"], "rent:" + basis.invoice, max(due, date(year, month, 1)))      # rent is due on the 1st, never before the month it bills
     led.emit("price_law.invoice_posted", at, {"invoice": basis.invoice, "decision": decision, "charge": charge},
              f"price_law:posting:{basis.invoice}")
+    # from this bill on the lease's rent is the new amount, so every later month bills it
+    led.emit("lease.rent_changed", at, {"lease": basis.lease, "rent_cents": snap["new_cents"], "from_cents": snap["current_cents"],
+                                        "effective_on": due.isoformat(), "change": basis.change, "invoice": basis.invoice},
+             f"lease-rent:{basis.invoice}", source="billing")
     return charge
+
+
+def post_due_increase(led: Ledger, at: datetime, lease: str, month: str) -> str | None:
+    """The monthly rent run's step for one lease: the approved, noticed increase whose effective day has come is checked at the invoice
+    point and, when the rules allow it, posted as this month's rent. The charge id, or None when nothing is posted (no such increase,
+    its day has not come, or the check holds or stops it: the run then bills the old rent, and a later run tries again)."""
+    st = state(led.books)
+    if not st.approvals:
+        return None
+    first = date(int(month[:4]), int(month[5:]), 1)
+    done = {r.change for r in st.decisions if r.id in {d for d, _ in st.postings.values()}}
+    due = sorted(((date.fromisoformat(a.snapshot["effective_on"]), change, a) for change, a in st.approvals.items()
+                  if a.snapshot.get("lease") == lease and a.snapshot.get("kind") == "lease_increase" and change in st.notices and change not in done and change not in st.withdrawn
+                  and date.fromisoformat(a.snapshot["effective_on"]) <= first), reverse=True)
+    for _, change, approval in due:
+        change_terms = _change_from(change, {**approval.snapshot, "invoice": f"{lease}:{month}"})
+        result = decide(led, at, change_terms, point="invoice")
+        if result.allowed:
+            return post_invoice(led, at, decision=result.id)
+    return None
 
 
 def _revision(change: PriceChange) -> dict:
@@ -1169,7 +1214,7 @@ def decide(led: Ledger, at: datetime, change: PriceChange, *, point: str, profil
 
 # staff commands ---------------------------------------------------------------------------------------------------------------
 ACTIONS = ("record_terms", "record_commitment", "record_notice", "update_notice", "record_emergency", "extend_emergency", "record_emergency_check",
-           "record_baseline", "record_exception", "check_price_change", "approve_price_change")
+           "record_baseline", "record_exception", "check_price_change", "approve_price_change", "withdraw_price_change")
 OWNER_ONLY = ("record_exception",)
 
 
@@ -1278,6 +1323,9 @@ def command(led: Ledger, act: Act, now: datetime, profile: FacilityProfile | Non
             made = record_exception(led, now, change=f.get("change", ""), basis=f.get("basis", ""), covers_cents=f.get("covers_cents"),
                                     document_sha256=f.get("document_sha256"), by=who, restriction=f.get("restriction", ""), terms=f.get("terms"))
             check = "Legal exception recorded for the price it covers."
+        elif act.action == "withdraw_price_change":
+            withdraw(led, now, change=act.about or "", by=who)
+            made, check = act.about, "The change was withdrawn. It will not be billed."
         else:
             point = "approval" if act.action == "approve_price_change" else f.get("point", "proposal")
             if point not in POINTS:

@@ -20,6 +20,18 @@
   </table></div>
 </section>
 
+{% if increases %}
+<section class="fms-section" id="rent-increase" aria-labelledby="h-increase">
+  <h2 id="h-increase">Rent increase</h2>
+  <div class="fms-scroll" tabindex="0" role="region" aria-labelledby="h-increase"><table class="fms-table">
+    <thead><tr><th>Unit</th><th>Where it stands</th><th class="num">Rent before</th><th class="num">New rent</th><th>Takes effect</th></tr></thead>
+    <tbody>{% for x in increases %}<tr><td>{{ x.unit|plain }}</td><td class="fms-state"><span class="chip {{ x.tone }}">{{ x.words|plain }}</span></td>
+      <td class="num">{{ money(x.current) }}</td><td class="num">{{ money(x.new) }}</td><td>{{ day(x.effective) }}, {{ x.effective.year }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted"><a href="/rent-increases">Open Rent increases</a> to take the next step.</p>
+</section>
+{% endif %}
+
 {% if renting %}
 <section class="fms-section" id="renting" aria-labelledby="h-renting">
   <h2 id="h-renting">Renting</h2>

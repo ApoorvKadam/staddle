@@ -1077,6 +1077,13 @@ body.fms > main { min-width: 0; }
 .fms-rate-form { display: grid; gap: var(--s2); min-width: 16rem; text-align: left; }
 .fms-rate-form label { display: grid; gap: 4px; font-size: var(--t-sm); color: var(--ink-2); }
 .fms-rate-form input { width: 100%; }
+/* the steps of one row, stacked in its last cell: forms keep to the cell's width and a tick box sits beside its words */
+.fms-table td.fms-steps { max-width: none; }          /* the forms need their full width; the shared cap is for chips and short words */
+.fms-steps input[type="checkbox"] { width: auto; margin: 0; flex: none; }
+.fms-steps label span { display: flex; align-items: center; gap: 8px; }
+.fms-steps form + form, .fms-steps details + form { margin-top: var(--s3); }
+.fms-steps .button { white-space: nowrap; }
+.fms-table tr:has(> .fms-steps) td.why { text-wrap: balance; }       /* a short reason never leaves one word alone on its last line */
 .fms-rate-form fieldset label { display: flex; align-items: center; }
 .fms-rate-form fieldset input { width: auto; }
 .fms-rate-form .button { justify-self: start; }

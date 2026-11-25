@@ -1,0 +1,62 @@
+{% extends "fms.html" %}
+{% block page %}Rent increases{% endblock %}
+{% block body %}
+<header class="head"><h1>Rent increases</h1></header>
+{% if note %}<p class="fms-status" role="status">{{ note|plain }}</p>{% endif %}
+{% if "demonstration" in reviews %}<p>Some price rules are modeled for demonstration only.</p>{% endif %}
+{% if "pending" in reviews %}<p>Some price rules are not reviewed yet.</p>{% endif %}
+{% if progress %}
+<section class="fms-section" aria-labelledby="h-progress">
+  <h2 id="h-progress">Increases in progress</h2>
+  <div class="fms-scroll" tabindex="0" role="region" aria-labelledby="h-progress"><table class="fms-table">
+    <thead><tr><th>Tenant</th><th>Unit</th><th class="num">Rent before</th><th class="num">New rent</th><th>Takes effect</th><th>Where it stands</th><th>What the checks said</th><th>Next step</th></tr></thead>
+    <tbody>{% for r in progress %}<tr>
+      <td><a href="/tenants/{{ r.slug }}">{{ r.name|plain }}</a></td><td>{{ r.unit|plain }}</td><td class="num">{{ money(r.current) }}</td><td class="num">{{ money(r.new) }}</td>
+      <td>{{ day(r.effective) }}, {{ r.effective.year }}</td>
+      <td class="fms-state"><span class="chip {{ r.tone }}">{{ r.words|plain }}</span></td>
+      <td class="why">{{ r.checks|plain }}</td>
+      <td class="fms-state fms-steps">{% if r.stage == 'proposed' %}<form method="post" action="/rent-increases"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ r.id }}">
+        <button class="button" name="action" value="approve">Approve increase</button></form>
+        {% elif r.again %}<form method="post" action="/rent-increases"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ r.id }}">
+        <button class="button" name="action" value="approve">Check and approve again</button></form>
+        {% elif r.ways %}<details><summary>Record the notice</summary>{% for method, label in r.ways %}
+        <form method="post" action="/rent-increases" class="fms-rate-form"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ r.id }}"><input type="hidden" name="method" value="{{ method }}">
+          <label>Sent on <input type="date" name="sent_on" value="{{ today_iso }}" max="{{ today_iso }}" required></label>
+          {% if method == 'first_class_mail' %}<label><span><input type="checkbox" name="certificate" value="yes"> A certificate of mailing was obtained</span></label>
+          <label><span><input type="checkbox" name="postage" value="yes"> Postage was prepaid</span></label>
+          {% elif method == 'email' %}<label><span><input type="checkbox" name="accepted" value="yes"> The mail service accepted the email</span></label>
+          {% else %}<label>Delivered on <input type="date" name="delivered_on" max="{{ today_iso }}" required></label>{% endif %}
+          <button class="button" name="action" value="notice">Record notice by {{ label|plain }}</button>
+        </form>{% endfor %}</details>{% endif %}
+        {% if r.stage != 'billed' %}<form method="post" action="/rent-increases"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="about" value="{{ r.id }}">
+        <button class="button" name="action" value="withdraw">Withdraw increase</button></form>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+<section class="fms-section" aria-labelledby="h-leases">
+  <h2 id="h-leases">Rent against the street rate</h2>
+  <p class="muted">{% if total %}Leases {{ first_shown }} to {{ first_shown + rows|length - 1 }} of {{ total }}, the largest gap first.{% else %}No tenant is renting a unit right now.{% endif %}</p>
+  <div class="fms-scroll" tabindex="0" role="region" aria-labelledby="h-leases"><table class="fms-table">
+    <thead><tr><th>Tenant</th><th>Unit</th><th>Size</th><th class="num">Rent a month</th><th>Rent last changed</th><th class="num">Street rate</th><th class="num">Gap</th><th>Propose an increase</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td><a href="/tenants/{{ r.slug }}">{{ r.name|plain }}</a></td>
+      <td>{{ r.unit|plain }}</td><td>{{ r.size|plain }}</td><td class="num">{{ money(r.rent) }}</td><td>{{ r.changed|plain }}</td>
+      <td class="num">{% if r.street is not none %}{{ money(r.street) }}{% else %}Not priced{% endif %}</td><td class="num">{{ gap_words(r.gap) }}</td>
+      <td class="fms-state fms-steps">{% if r.open %}<p>An increase is in progress.</p>{% else %}<form method="post" action="/rent-increases" class="fms-rate-form">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="lease" value="{{ r.id }}">
+        <label>New rent in dollars <input type="number" name="rent" min="0.01" max="99999999.99" step="0.01" required></label>
+        <label>Takes effect on <input type="date" name="effective" min="{{ today_iso }}"{% if r.default_date %} value="{{ r.default_date }}"{% endif %} required></label>
+        {% if asks_other %}<label>Other required monthly charges in dollars <input type="number" name="other" min="0" max="99999999.99" step="0.01" required></label>{% endif %}
+        <button class="button" name="action" value="propose">Propose increase</button>
+      </form>{% endif %}
+      <details><summary>What the rules say</summary>{% for line in r.facts %}<p>{{ line|plain }}</p>{% endfor %}</details></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if last > 1 %}<nav class="muted" aria-label="Pages of leases">
+    {% if number > 1 %}<a href="/rent-increases?page={{ number - 1 }}">Previous</a>{% endif %}
+    Page {{ number }} of {{ last }}
+    {% if number < last %}<a href="/rent-increases?page={{ number + 1 }}">Next</a>{% endif %}
+  </nav>{% endif %}
+</section>
+{% endblock %}

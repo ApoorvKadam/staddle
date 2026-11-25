@@ -265,6 +265,7 @@ class Books:
         self.promotions = None                            # promotion versions and redemptions (core/promotions.py)
         self.street_rate_stops = {}                       # proposals staff must review
         self.price_law = None                             # the facility's legal profile, lease terms, disclosed maximums, emergencies, notices and decisions (core/price_law.py)
+        self.rent_changes: dict[str, list] = {}           # lease -> (first month billed at a new rent, the rent before it), oldest first
         self.seq = 0
         self.last_at: datetime | None = None
         self.counters: dict[str, int] = {}
@@ -298,6 +299,11 @@ class Books:
             self._seen("L", p["lease"])
         elif kind == "lease.ended":
             self.leases[p["lease"]].ended = date.fromisoformat(p["on"])
+        elif kind == "lease.rent_changed":
+            self.leases[p["lease"]].rent_cents = p["rent_cents"]       # an approved, noticed increase, posted with the bill it first applies to
+            if p.get("invoice") and p.get("from_cents") is not None:
+                year, month = map(int, p["invoice"].rsplit(":", 1)[1].split("-"))
+                self.rent_changes.setdefault(p["lease"], []).append((date(year, month, 1), p["from_cents"]))
         elif kind == "charge.posted":
             c = Charge(p["charge"], p["lease"], self.leases[p["lease"]].tenant, p["kind"], p.get("obligation"), p["cents"],
                        date.fromisoformat(p["due"]), at, p.get("source", "billing"), self.seq)
@@ -463,6 +469,11 @@ class Books:
     def billed(self, obligation: str) -> list[Charge]:
         """Every charge posted for the obligation and not reversed (a waived copy was still billed), in posting order."""
         return [self.charges[i] for i in self.obligations.get(obligation, []) if self.charges[i].closed != "reversed"]
+
+    def rent_for(self, lease: str, first: date) -> int:
+        """The rent for the month starting on `first`: a month before an increase's first bill keeps the rent that increase replaced."""
+        before = [cents for month, cents in self.rent_changes.get(lease, ()) if month > first]
+        return before[0] if before else self.leases[lease].rent_cents
 
     def live(self, obligation: str) -> list[Charge]:
         return [self.charges[i] for i in self.obligations.get(obligation, []) if not self.charges[i].closed]
