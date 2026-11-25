@@ -110,8 +110,9 @@ def test_the_seed_changes_no_money_figure_of_the_year():
     figures = (len(journal), dict(totals), len(books.charges), len(books.payments), sum(books.credit.values()), len(books.tenants), len(books.leases),
                sum(books.past_due(t, NOW) for t in books.tenants), sum(1 for t in books.tenants if books.past_due(t, NOW)))
     # read off the year before the walk was added, plus Maya's promoted move-in: 12 journal lines, two charges, one payment,
-    # $62 conceded, nothing past due (with her move-in off, the figures are exactly the old ones)
-    assert figures == (6329, {"receivable": 302100, "income": -21896988, "clearing": 21597688, "contra": 8200, "credit": -11000}, 1677, 1287,
+    # nothing past due. Maya's unit now carries its size's asking rate, so her first-month deal conceded $3 less than before
+    # (with her move-in off, the figures are exactly the old ones)
+    assert figures == (6329, {"receivable": 302100, "income": -21896688, "clearing": 21597688, "contra": 7900, "credit": -11000}, 1677, 1287,
                        11000, 125, 126, 299600, 23)
     assert sum(totals.values()) == 0
     walked = [e.id for e in store.stream_events("base") if e.kind.startswith(("walk.", "work_order.", "overlock."))]

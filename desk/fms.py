@@ -31,7 +31,7 @@ from core.gate import ACTIONS, RENT_SCOPE, STAFF_ACTIONS, STAFF_RULE, WORK_SCOPE
 from core.rules import staff_words, waiver_words
 from core.seed import story_month
 
-from . import spend
+from . import pricing, spend
 from .web import AGENT
 from .front_desk import ACTION_WORDS, CLAIM_WORDS, SHIFT, CaseIn, FrontDesk, RuleIn, account_words
 from .guard import LIFETIME, SLOW_DOWN, UNSET, Unreachable
@@ -99,7 +99,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))
@@ -152,7 +152,8 @@ WORK_STATES = {"open": ("Open", "plain"), "assigned": ("Assigned", "plain"), "in
                "reopened": ("Reopened: the problem came back", "act"), "done": ("Done", "done"), "cancelled": ("Cancelled", "plain")}
 WORK_ANCHORS = {"collections": "collections", "overlock": "overlocks", "reservation": "rentals", "rental": "rentals", "refund": "rentals",
                 "access": "codes", "turnover": "turnover", "walk": "walk", "maintenance": "maintenance",
-                "protection": "protection", "lien": "lien", "lien stop": "lien", "lead": "leads", "shop": "shop"}       # where Home's links land: the first item of each kind
+                "protection": "protection", "lien": "lien", "lien stop": "lien", "lead": "leads", "shop": "shop",
+                "street_rate": "pricing"}       # where Home's links land: the first item of each kind
 WORK_FORMS = {"acknowledge": "acknowledge_work", "start": "start_work", "assign": "assign_work", "note": "note_work", "finish": "finish_work"}
 SCOPE_WORDS = {"overlock": "overlock", "lien": "lien eligibility"}
 # the tenant's own policy and the facility's plan on the tenant's page: each state in words with its chip colour
@@ -614,7 +615,8 @@ class Facility:
             anchor = WORK_ANCHORS[i.source]
             rows.append({"i": i, "anchor": anchor if anchor not in seen else None, "who": self.people.get(i.tenant or ""), "since": dated(i.due, self.today.year), "upcoming": bool(i.due and i.due > self.today),
                          "unit": i.unit if i.source != "collections" else None, "state": f"{text} to {who(i.assignee)}" if i.state == "assigned" else text,
-                         "tone": tone, "why": shop_words(plain(i.why)) if i.source == "shop" else plain(i.why), "link": SHOP_LINKS.get(i.kind) if i.source == "shop" else None, "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
+                         "tone": tone, "why": shop_words(plain(i.why)) if i.source == "shop" else plain(i.why), "link": SHOP_LINKS.get(i.kind) if i.source == "shop" else "/pricing" if i.source == "street_rate" else None,
+                         "link_label": "Open it in Pricing" if i.source == "street_rate" else "Open it in Shop", "owner": who(i.assignee or i.role), "closes": plain(i.closes), "evidence": plain(i.evidence),
                          "seen": who(i.acknowledged[0]) if i.acknowledged else None,
                          "notes": [(clock(at), who(by), t) for at, by, t in i.notes],
                          "lead": leads.state(self.b).records.get(i.ref) if i.source == "lead" else None,
@@ -1655,6 +1657,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                     fd._keep(fd._step_notes, ident, reason)
         await run_in_threadpool(take_step)
         return RedirectResponse(f"/walkthrough?at={section}#{section}", status_code=303)
+
+    pricing.mount(app, fd, need, same_site, form, show, Facility, STAFF)
 
     @app.get("/shop", include_in_schema=False)
     def shop_page(request: Request):

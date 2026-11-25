@@ -31,7 +31,7 @@
 <div class="fms-work{% if nav in ('today', 'messages', 'rules') %} fms-work-full{% endif %}">
 {% if nav not in ('today', 'messages', 'rules') %}
 <aside class="fms-side">
-  <p class="fms-fac"><b>{{ f.name }}</b><span>{{ f.b.facility.city }}</span><span>{{ today }}</span></p>
+  <p class="fms-fac"><b>{{ f.name }}</b><span>{{ f.b.facility.city|plain }}</span><span>{{ today }}</span></p>
   <a class="fms-site" href="/rent">{% include "icons/external-link.svg" %}View facility website</a>
   <nav aria-label="Facility">
     {% for key, label, icon in side[0] %}<a href="/{{ key }}" {% if nav == key %}aria-current="page"{% endif %}>{% include "icons/" ~ icon ~ ".svg" %}<span>{{ label }}</span></a>{% endfor %}

@@ -42,8 +42,11 @@ def test_the_fixed_year_stays_byte_identical(year):
 # are the ones this test held before cards were put on file.
 # Maya's move-in on the first-month deal adds 20 events (her tenant, reservation, agreement, lease, charges, payment, gate code and
 # the deal's own records); with hers left out the count and fingerprint are the earlier 3294 and 45df80c0..., so nothing else moved.
-LIVE_COPY = {date(2026, 11, 14): (3314, "071df3a4bcb6d8929b4e9e0b737aaf4a3013fe28aa170d86f5dbad684595291d"),
-             date(2026, 12, 3): (3472, "cd9d9fac7ad947ae2b3f3ad3e70c38de845c73cbdc9bc9675a53c2f88a354ce8")}
+# Since every unit of a size has one asking rate on the live copy, Maya's move-in records carry her unit's new rate, and the Florida
+# emergency check that lets a size rate reach the price rules adds one record; before that the counts were 3314 and 3472 with
+# fingerprints 071df3a4... and cd9d9fac....
+LIVE_COPY = {date(2026, 11, 14): (3315, "bc5d6a68d58a3452656c523dbddadbcf9ec94478ca87e3e07cb7145353a672e5"),
+             date(2026, 12, 3): (3473, "7003ee04240d5108527dc3e07c86d7b4160f33e05741f10129b611cd45eea2b0")}
 
 
 def test_the_live_copy_prices_every_unit_and_nothing_else_moves(year):
@@ -54,7 +57,7 @@ def test_the_live_copy_prices_every_unit_and_nothing_else_moves(year):
         y = build(today=day, cutoff=at_local(day), standing=True)
         priced = [e for e in y.led.pending if e.kind == "unit.priced"]
         rest = [e for e in y.led.pending if e.kind not in ("unit.priced", "rental.adopted", "access.baselined") and not e.kind.startswith("protection.")
-                and not e.kind.startswith(("lead.", "tilden.authority.")) and not (e.command or "").startswith("seed:")]      # the seeded lien file's steps; the protection records carry no money (test_core_protection_seed)
+                and not e.kind.startswith(("lead.", "tilden.authority.", "street_rate.")) and not (e.command or "").startswith("seed:")]      # the seeded lien file's steps; the protection records carry no money (test_core_protection_seed)
         assert len(rest) == count and hashlib.sha256(repr(snapshot(rest)).encode()).hexdigest() == digest, day
         assert sorted(e.payload["unit"] for e in priced) == sorted(UNITS), day
         for e in priced:
