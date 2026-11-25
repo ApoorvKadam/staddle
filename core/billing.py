@@ -145,7 +145,13 @@ class Ledger:
         out = []
         for lease in self.books.leases.values():
             if lease.start < first and (lease.ended is None or lease.ended >= first) and not self.books.live(f"rent:{lease.id}:{month}"):
-                out.append(self._charge(at_local(first), lease.id, RENT, lease.rent_cents, f"rent:{lease.id}:{month}", first))
+                if self.books.price_law is not None:
+                    from .price_law import post_due_increase       # price_law reads this module, so it cannot be imported at the top
+                    posted = post_due_increase(self, at_local(first), lease.id, month)      # an increase whose day has come is this month's rent
+                    if posted:
+                        out.append(posted)
+                        continue
+                out.append(self._charge(at_local(first), lease.id, RENT, self.books.rent_for(lease.id, first), f"rent:{lease.id}:{month}", first))
         return out
 
     def assess_late_fees(self, month: str) -> list[str]:

@@ -32,7 +32,7 @@ from core.gate import ACTIONS, RENT_SCOPE, STAFF_ACTIONS, STAFF_RULE, WORK_SCOPE
 from core.rules import staff_words, waiver_words
 from core.seed import story_month
 
-from . import deal_store, deal_tenant, deals, deals_actions, pricing, spend
+from . import deal_store, deal_tenant, deals, deals_actions, pricing, rent_increases, spend
 from .web import AGENT
 from .front_desk import ACTION_WORDS, CLAIM_WORDS, SHIFT, CaseIn, FrontDesk, RuleIn, account_words
 from .guard import LIFETIME, SLOW_DOWN, UNSET, Unreachable
@@ -100,7 +100,7 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
+SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rent-increases", "Rent increases", "circle-arrow-up"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "users"),
          ("tenants", "Tenants", "users")),
         (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
          ("billing", "Billing and payments", "credit-card")))
@@ -1474,7 +1474,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         return show(request, "fms_tenant.html", "tenants", f, p=p, rentals=f.rentals(p["id"]), ledger=f.ledger(p["id"]), vacant=vacant,
                     cases=[c for c in f.cases() if c["who"] and c["who"]["id"] == p["id"]],
                     disputes=[d for d in f.disputes() if d["who"]["id"] == p["id"]], col=f.collections(p["id"]),
-                    renting=f.renting_of(p["id"]), prot=f.protection_of(p["id"]), lien_files=f.lien_files(p["id"]), manager=STAFF == lien_core.APPROVER, lien_kind_words=lien_core.KIND_WORDS, stop_words=lien_core.STOP_WORDS, surplus_words={"created": "The tenant has not yet been notified.", "held": "The tenant has been notified; the surplus is held.", "payout_requested": "Simulated payout requested.", "paid": "Simulated payout completed."}, token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)),
+                    renting=f.renting_of(p["id"]), increases=[r for r in rent_increases.stages(f) if r["slug"] == p["slug"]], prot=f.protection_of(p["id"]), lien_files=f.lien_files(p["id"]), manager=STAFF == lien_core.APPROVER, lien_kind_words=lien_core.KIND_WORDS, stop_words=lien_core.STOP_WORDS, surplus_words={"created": "The tenant has not yet been notified.", "held": "The tenant has been notified; the surplus is held.", "payout_requested": "Simulated payout requested.", "paid": "Simulated payout completed."}, token=secrets.token_hex(6), step_note=plain(fd.take_step_note(ident)),
                     note_at=request.query_params.get("at", ""))
 
     @app.post("/tenants/{key}/renting", include_in_schema=False)
@@ -1678,6 +1678,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
 
     deals_actions.mount(app, fd, need, same_site, form, STAFF)
     pricing.mount(app, fd, need, same_site, form, show, Facility, STAFF)
+    rent_increases.mount(app, fd, need, same_site, form, show, Facility, STAFF)
 
     @app.get("/shop", include_in_schema=False)
     def shop_page(request: Request):

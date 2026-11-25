@@ -165,7 +165,9 @@ def test_a_posted_invoice_keeps_the_rule_snapshot_it_was_decided_on(monkeypatch)
     assert again.allowed and again.made == basis.id
     assert len(d.books().price_law.decisions) == recorded
     assert pl.posted_basis(d.books(), "L0001:2026-12").versions["UT-notice"] == 1
-    fresh = d.change("check_price_change", "invoice", at_local(date(2027, 1, 23), 10), about="PC5", invoice="L0001:2027-01", effective_on="2027-01-23")
+    # the posted bill made 10500 the lease's rent, so the next increase starts from there
+    fresh = d.change("check_price_change", "invoice", at_local(date(2027, 1, 23), 10), about="PC5", invoice="L0001:2027-01", effective_on="2027-01-23",
+                     current_cents=10500, new_cents=11000)
     assert fresh.made != first.made and d.books().price_law.decisions[-1].versions["UT-notice"] == 2
     assert pl.posted_basis(d.books(), "L0001:2027-02") is None
 

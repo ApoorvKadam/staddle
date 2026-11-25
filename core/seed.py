@@ -7,6 +7,7 @@ payment that came back...). Which situation each cast member carries is known on
 records marks a charge as planted. Every name, phone number and amount is made up."""
 from __future__ import annotations
 
+import hashlib
 import random
 import re
 from datetime import date, datetime, timedelta
@@ -217,13 +218,15 @@ class Year:
                 self.lead_records(rent)
             if self.promoted:
                 self.promoted_move_in(rent)
+            self.lease_terms()          # after the promoted move-in, so its lease has terms too, and before the shift's records
             if self.shift:
                 self.morning_move_outs(rent)
         return self
 
     # two move-outs this morning, for Tilden's shift (the live copy with the shift switch on) -------------------------------------------
     ROUTINE = {"tenant.added", "lease.signed", "charge.posted", "payment.received", "payment.declined", "rental.adopted", "access.baselined",
-               "unit.priced", "facility.set_up", "rule.adopted", "schedule.adopted", "plan_policy.adopted", "protection.version_published"}
+               "unit.priced", "facility.set_up", "rule.adopted", "schedule.adopted", "plan_policy.adopted", "protection.version_published",
+               "price_law.terms_snapshotted"}
 
     def shift_leases(self, rent: renting.Rent) -> list:
         """Two active leases no other story of the live copy uses, in a stable order. A lease is free when its tenant is not in the cast
@@ -378,6 +381,20 @@ class Year:
         records one; it says so in its source, because it is modeled, not read from the state's page. Expires a year out."""
         price_law.record_emergency_check(self.led, at, place="FL", checked_on=at.date(), valid_until=self.today + timedelta(days=365),
                                          by="staff:office_manager", source="Demonstration copy: modeled, not read from the state's page", active=[])
+
+    def lease_terms(self) -> None:
+        """The live copy takes the terms of every active lease from a made-up signed agreement (price_law.record_terms), because the law's
+        checks on a rent increase read them: 30 days' notice by first-class mail or email. Without them every increase is held with "the
+        terms of the signed agreement have not been taken". The fingerprint is of a stated placeholder, never of a real document; the
+        address and email are examples. Never drawn."""
+        for n, lease in enumerate(sorted((x for x in self.led.books.leases.values() if x.ended is None), key=lambda x: x.id)):
+            name = self.led.books.tenants[lease.tenant].name
+            price_law.record_terms(
+                self.led, self.now, lease=lease.id, signed_on=lease.start,
+                agreement_sha256=hashlib.sha256(f"demonstration agreement for {lease.id}".encode()).hexdigest(),
+                notice_methods=("first_class_mail", "email"), notice_days=30, email_notice_authorized=True,
+                last_known_address=f"{100 + n} Example Street, Orlando, FL",
+                last_known_email=re.sub(r"[^a-z0-9]+", ".", name.lower()).strip(".") + "@example.com")
 
     def plan_month(self, month: str, rnd: random.Random) -> None:
         first = _d(month, 1)
