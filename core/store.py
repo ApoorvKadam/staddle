@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import pickle
 import sqlite3
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -82,9 +83,56 @@ def _iso(t: datetime) -> str:
     return t.astimezone(timezone.utc).isoformat()
 
 
+class _Rows:
+    """What one statement returned, read in full while the connection's lock was held."""
+
+    def __init__(self, cursor):
+        self.lastrowid, self.rowcount = cursor.lastrowid, cursor.rowcount
+        self._left = iter(cursor.fetchall())      # read like a cursor: each row once, in order
+
+    def fetchall(self):
+        return list(self._left)
+
+    def fetchone(self):
+        return next(self._left, None)
+
+    def __iter__(self):
+        return self._left
+
+
+class _Connection:
+    """The one SQLite connection, shared by the request threads and the shift's own thread. sqlite3 does not allow two threads to
+    use a connection at once (a page reload during Tilden's shift raised InterfaceError, 2026-11-25), so every statement runs and is
+    read in full under one re-entrant lock, and a write transaction holds it from BEGIN to COMMIT, so no other thread's statement
+    can land inside it."""
+
+    def __init__(self, db):
+        self._db, self.lock = db, threading.RLock()
+
+    def execute(self, sql, params=()):
+        with self.lock:
+            return _Rows(self._db.execute(sql, params))
+
+    def executemany(self, sql, rows):
+        with self.lock:
+            return _Rows(self._db.executemany(sql, rows))
+
+    def executescript(self, script):
+        with self.lock:
+            self._db.executescript(script)
+
+    @property
+    def in_transaction(self):
+        return self._db.in_transaction
+
+    def close(self):
+        with self.lock:
+            self._db.close()
+
+
 class Store:
     def __init__(self, path: str = ":memory:"):
-        self.db = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
+        self.db = _Connection(sqlite3.connect(path, isolation_level=None, check_same_thread=False))
         self.db.execute("PRAGMA foreign_keys = ON")
         if path != ":memory:":
             self.db.execute("PRAGMA journal_mode = WAL")
@@ -93,16 +141,18 @@ class Store:
 
     @contextmanager
     def write(self):
-        """One write transaction; everything inside it commits together or not at all."""
-        self.db.execute("BEGIN IMMEDIATE")
-        try:
-            yield self
-            self.db.execute("COMMIT")
-        except BaseException:
-            # a failed COMMIT rolls back too, so the shared connection is never left inside a transaction
-            if self.db.in_transaction:
-                self.db.execute("ROLLBACK")
-            raise
+        """One write transaction; everything inside it commits together or not at all. The connection's lock is held throughout,
+        so another thread waits instead of reading half a write or running its statement inside this transaction."""
+        with self.db.lock:
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                yield self
+                self.db.execute("COMMIT")
+            except BaseException:
+                # a failed COMMIT rolls back too, so the shared connection is never left inside a transaction
+                if self.db.in_transaction:
+                    self.db.execute("ROLLBACK")
+                raise
 
     def append(self, stream: str, events: list[Event], now: datetime | None = None) -> list[Event]:
         """Append events and their journal lines. Call inside write(). An event whose lines do not balance, a key already used
