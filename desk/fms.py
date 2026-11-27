@@ -100,16 +100,18 @@ STAFF = "staff:office_manager"
 # the menu in the groups an FMS is organised by; a module joins its group when it is built, never as a greyed-out item
 # the facility menu down the left inside Facilities: the day-to-day facility pages, then money and legal work. Today, Messages and
 # Settings (Rules) sit in the bar across the top.
-SIDE = ((("home", "Home", "house"), ("sitemap", "Site map", "rows-3"), ("units", "Units", "warehouse"), ("walkthrough", "Walkthrough", "list-checks"), ("shop", "Shop", "shopping-bag"), ("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rent-increases", "Rent increases", "circle-arrow-up"), ("rentals", "Rentals", "door-open"), ("leads", "Leads", "user-plus"),
-         ("tenants", "Tenants", "users")),
-        (("collections", "Collections", "hand"), ("liens", "Lien cases", "gavel"), ("gate", "Gate access", "shield-check"),
-         ("billing", "Billing and payments", "credit-card")))
+# Each group has a name staff would use for that part of the job; an item may show a count of what is open there right now.
+# the facility's menu down the left, under the Facilities tab; each item's icon says what the item is
+SIDE = (("Facility", (("home", "Home", "house"), ("sitemap", "Site map", "map"), ("units", "Units", "warehouse"),
+                      ("walkthrough", "Walkthrough", "clipboard-check"), ("shop", "Shop", "store"), ("gate", "Gate access", "key-round"))),
+        ("Customers", (("leads", "Leads", "user-plus"), ("rentals", "Rentals", "file-pen-line"), ("tenants", "Tenants", "users"))),
+        ("Pricing", (("pricing", "Pricing", "tag"), ("deals", "Deals", "badge-percent"), ("rent-increases", "Rent increases", "trending-up"))),
+        ("Money", (("billing", "Billing and payments", "credit-card"), ("collections", "Collections", "hand-coins"), ("liens", "Lien cases", "gavel"))))
 # the only addresses that answer without a session; tests/test_fms.py walks every route against this list. The card processor's
 # webhook is the one write among them: the processor calls it, no session exists, its signature is the check, and without a signing
 # secret it answers 503 (desk/stripe_hook.py)
 PUBLIC = {"/", "/film", "/sign-in", "/sign-out", "/static", "/health/live", "/health/ready", "/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc",
           "/webhooks/stripe"}
-SCORE = Path(__file__).parent / "static" / "first_shift.json"
 STAFF_WORDS = {"remove_disputed_fee": "Removed the fee", "keep_under_review": "Kept under review"}
 # renting's staff commands as the Today list words them; an attempt the gate refused reads "Asked to ..."
 RENT_WORDS = {"price_unit": ("Priced a unit", "Asked to price a unit"), "block_unit": ("Blocked a unit", "Asked to block a unit"),
@@ -255,7 +257,7 @@ def phone(p: str) -> str:
 
 
 def date_words(d: date) -> str:
-    return f"{d:%a}, {d:%b} {d.day}, {d.year}"
+    return f"{d:%A}, {d:%B} {d.day}, {d.year}"
 
 
 def dated(d: date, year: int) -> str:
@@ -729,11 +731,12 @@ class Facility:
             item = {"unit": u, "state": state, "chip": None, "who": held_for, "rent": "", "since": "", "note": plain(note),
                     "size": (priced.size if priced else None) or "", "price": money(cents) if cents else "Not priced",
                     "price_value": f"{cents / 100:.2f}" if cents else "",
-                    "block": (rent.holder(u, self.now) or ("", ""))[0] == "block"}
+                    "block": (rent.holder(u, self.now) or ("", ""))[0] == "block", "not_ready": False}
             if lease is None:
                 last = max((x.ended for x in b.leases.values() if x.unit == u and x.ended), default=None)
                 item["since"] = f"Empty since {day(last)}" if last else "Not rented this year"
                 why = reconcile.readiness(b, rent, u, self.now) if state == "vacant" else []
+                item["not_ready"] = bool(why)          # vacant on the books, but the readiness check finds something that keeps it off the market
                 if why and not item["note"]:         # vacant on the books, but something on the floor or a repair keeps it off the market
                     first = re.sub(r"^work order \S+ is", "a work order is", re.sub(r"\s*\(.*\)$", "", why[0].split(":")[0]))
                     item["note"] = plain(f"Not ready to rent: {first}.")
@@ -1059,7 +1062,13 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
             raise HTTPException(403, "this request came from another site")
 
     def show(request: Request, name: str, nav: str, f: Facility, **ctx):
-        return templates.TemplateResponse(request, name, {"nav": nav, "side": SIDE, "agent": AGENT, "f": f, "today": date_words(f.today), "live": live,
+        # the counts the menu shows: what waits on staff now, each the same number its own page says (Not ready on Home and Units, tenants who
+        # owe on Collections, messages not read yet on Messages). Vacant units that are ready need nothing, so they are not counted
+        rented = {x.unit for x in f.b.leases.values() if x.ended is None}
+        open_now = {"units": sum(1 for u in f.b.units if u not in rented and f.rent.status(u, f.now) == "vacant" and reconcile.readiness(f.b, f.rent, u, f.now)),
+                    "collections": sum(1 for p in f.people.values() if p["past"]), "messages": len(f.waiting(f.cases())),
+                    "today": len(work.open_items(f.queue))}
+        return templates.TemplateResponse(request, name, {"nav": nav, "side": SIDE, "open_now": open_now, "agent": AGENT, "f": f, "today": date_words(f.today), "live": live,
                                                           "money": money, "day": day, "clock": clock, "local": local, "phone": phone, "shift_enabled": fd.shift, **ctx})
 
     templates.env.filters["plain"] = plain
@@ -1071,7 +1080,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
     @app.get("/", include_in_schema=False)
     def overview(request: Request):
         # the worked example names the month the FMS's own story sits in, so the two never disagree
-        return templates.TemplateResponse(request, "overview.html", {"nav": "front", "facts": fd.facts(), "score": json.loads(SCORE.read_text()),
+        return templates.TemplateResponse(request, "overview.html", {"nav": "front", "facts": fd.facts(),
                                                                      "month": f"{story_month(fd.today()):%B}",
                                                                      "money": money, "agent": AGENT, "signed_in": session(request) is not None})
 
@@ -1118,7 +1127,10 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         def site_money(cents):
             return f"${cents // 100:,}" + (f".{cents % 100:02d}" if cents % 100 else "")
 
-        return templates.TemplateResponse(request, template, {"f": f, "money": site_money, "plain": plain, **ctx})
+        def exact(cents):      # totals keep their cents ("$25.00" under "$16.67"); a price on a card drops whole cents ("$100 a month")
+            return f"${cents / 100:,.2f}"
+
+        return templates.TemplateResponse(request, template, {"f": f, "money": site_money, "exact": exact, "plain": plain, **ctx})
 
     @app.get("/rent", include_in_schema=False)
     def website(request: Request):
@@ -1381,12 +1393,20 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
     @app.get("/home", include_in_schema=False)
     def home(request: Request):
         ident = need(request)
+        fd.sync_work(ident)          # Home shows the same open items Today does, so they are brought up to date first
         f = Facility(fd, ident)
         cases = f.cases()
         morning = [c for c in cases if c["shift"]]
         live = work.open_items(f.queue)
         count = lambda test: sum(1 for i in live if test(i))
-        return show(request, "fms_home.html", "home", f, rows=f.occupancy(), month=f.month(month_key(f.today)), past=f.past_due(),
+        needs, counts = f.worked("all")
+        free = [u for _, units in f.units() for u in units if not u["rent"]]
+        # ready to rent is what the readiness check passes; together with not ready it is the Vacant count on Units
+        vacant = [u for u in free if u["state"] == "vacant"]
+        avail = {"ready": sum(1 for u in vacant if not u["not_ready"]), "not_ready": sum(1 for u in vacant if u["not_ready"]),
+                 "blocked": sum(1 for u in free if u["state"] == "blocked"),
+                 "reserved": sum(1 for u in free if u["state"] not in ("vacant", "blocked"))}
+        return show(request, "fms_home.html", "home", f, rows=f.occupancy(), needs=needs[:6], counts=counts, avail=avail, first_name=re.split(r"[ ._]", DEMO_NAME)[0].capitalize(), greeting="Good morning" if local(f.now).hour < 12 else "Good afternoon" if local(f.now).hour < 17 else "Good evening", month=f.month(month_key(f.today)), past=f.past_due(),
                     waiting=len(f.waiting(cases)), handed=sum(1 for c in cases if c["handed"]), disputes=len(f.disputes()),
                     tasks=count(lambda i: i.source == "collections"), overlocks=count(lambda i: i.kind == "overlock"),
                     unfinished=count(lambda i: i.source in ("reservation", "rental", "refund") and not i.waits),     # a person is needed, not a checkout under way
@@ -1423,7 +1443,8 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
         once = hashlib.sha1(f"{to}|{text}".encode()).hexdigest()[:8]
         await run_in_threadpool(fd.staff_work, ident, work.Act(f"form:{token}:{action}:{key}:{once}", WORK_FORMS[action], STAFF, key, to or None, text or None))
         view = data.get("view", "all")
-        return RedirectResponse(f"/today?view={view if view in dict(WORK_VIEWS) else 'all'}#work", status_code=303)
+        back = f"item-{key}" if re.fullmatch(r"[\w:.\-]{1,80}", key) else "work"      # the item stays open beside the queue after the step
+        return RedirectResponse(f"/today?view={view if view in dict(WORK_VIEWS) else 'all'}#{back}", status_code=303)
 
     @app.get("/messages", include_in_schema=False)
     def messages(request: Request, case: int | None = None, unread: str | None = None):
@@ -1594,7 +1615,7 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                          money(f.b.receivable(lease.id)) if lease else "-", x["agreement"][0] if x["agreement"] else "-",
                          x["gate"][0] if x["gate"] else "-", f.protection_word(lease.id) if lease else "-")
                 rows.append({"cells": cells, "slug": f.people[tenant]["slug"]})
-        return show(request, "fms_list.html", "rentals", f, title="Rentals", heads=("Tenant", "Unit", "Where it stands", "Monthly rent", "Balance", "Agreement", "Gate code", "Protection"), rows=rows,
+        return show(request, "fms_list.html", "rentals", f, title="Rentals", heads=("Tenant", "Unit", "Where it stands", "Monthly rent", "Balance", "Agreement", "Gate code", "Protection"), rows=rows, num=(3, 4),
                     filters=filters, selected=status, lede="Rentals and reservations, with their agreement and gate code records.",
                     empty="No rentals match this view.")
 

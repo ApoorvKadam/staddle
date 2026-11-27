@@ -8,6 +8,20 @@
 {% endmacro %}
 {% block body %}
 <header class="head"><h1>Walkthrough</h1></header>
+<section class="fms-section" id="findings">
+  <h2>What disagrees with the records</h2>
+  {% for finding in findings %}<article class="fms-line"><h3>Unit {{ finding.unit|plain }}: {{ finding.kind|plain }}</h3><p>{{ finding.why|plain }}</p><p>What closes it: {{ finding.closes|plain }}</p><p><a href="/today?view=all#item-{{ finding.key|urlencode }}">View this item on Today</a></p>
+    <div class="walk-investigation" data-key="{{ finding.key }}">
+      {% set report = reports.get(finding.key) %}<div class="walk-report" aria-live="polite">
+      {% if report and report.stale %}<p class="muted">{{ agent|plain }} read this before the unit's records changed; ask again for a current report.</p>{% endif %}
+      {% if report %}{% if report.dropped %}<p>Not shown: {{ report.dropped|plain }}</p>{% else %}
+        <p>{{ report.summary|plain }}</p><p>Suggested next step: {{ report.step|plain }}.</p>
+        <p>Records checked:</p><ul>{% for record in report.records %}<li>{{ record|plain }}</li>{% endfor %}</ul>
+      {% endif %}{% endif %}</div>
+      <button type="button" class="button walk-ask">Ask {{ agent|plain }} to look into it</button><p class="walk-status" role="status"></p>
+    </div></article>
+  {% else %}<p>Every unit checked agrees with the records.</p>{% endfor %}
+</section>
 <section class="fms-section" id="latest-walk">
   <h2>Latest walk</h2>
   {% if walks %}{% set w = walks[0] %}
@@ -19,20 +33,6 @@
     {% if o.supersedes %}<details><summary>Earlier observations</summary>{% for old in w.history(unit) if old.id != o.id %}<p>{{ old.lock|plain }}, {{ old.whose|plain }}, tag {{ old.tag|plain }}, door {{ old.door|plain }}, belongings {{ old.contents|plain }}. {{ old.note|plain }} {{ staff(old.by)|plain }}, {{ clock(old.at)|plain }}</p>{% endfor %}</details>{% endif %}</td><td>{{ staff(o.by)|plain }}, {{ clock(o.at)|plain }}</td>
     {% else %}<td colspan="7">not checked</td>{% endif %}</tr>{% endfor %}</tbody></table></div>
   {% else %}<p>No walk has been started.</p>{% endif %}
-</section>
-<section class="fms-section" id="findings">
-  <h2>What disagrees with the records</h2>
-  {% for finding in findings %}<article class="fms-line"><h3>Unit {{ finding.unit|plain }}: {{ finding.kind|plain }}</h3><p>{{ finding.why|plain }}</p><p>What closes it: {{ finding.closes|plain }}</p><p><a href="/today?view=all#item-{{ finding.key|urlencode }}">View this item on Today</a></p>
-    <div class="walk-investigation" data-key="{{ finding.key }}">
-      {% set report = reports.get(finding.key) %}<div class="walk-report" aria-live="polite">
-      {% if report and report.stale %}<p class="muted">{{ agent|plain }} read this before the unit's records changed; ask again for a current report.</p>{% endif %}
-      {% if report %}{% if report.dropped %}<p>Not shown: {{ report.dropped|plain }}</p>{% else %}
-        <p>{{ report.summary|plain }}</p><p>Suggested next step: {{ report.step|plain }}.</p>
-        <p>Records checked by code:</p><ul>{% for record in report.records %}<li>{{ record|plain }}</li>{% endfor %}</ul>
-      {% endif %}{% endif %}</div>
-      <button type="button" class="button walk-ask">Ask {{ agent|plain }} to look into it</button><p class="walk-status" role="status"></p>
-    </div></article>
-  {% else %}<p>Every unit checked agrees with the records.</p>{% endfor %}
 </section>
 <section class="fms-section" id="orders">
   <h2>Work orders</h2>
@@ -77,7 +77,7 @@
   <details><summary>Correct an observation</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Observation <select name="about">{% for w in walks %}{% for unit in w.route %}{% set o = w.current(unit) %}{% if o %}<option value="{{ o.id }}" data-walk="{{ w.id }}" data-unit="{{ unit }}">Unit {{ unit|plain }}, walk started {{ clock(w.started)|plain }}, recorded {{ clock(o.at)|plain }}</option>{% endif %}{% endfor %}{% endfor %}</select></label>{{ seen_fields() }}<button class="button" name="action" value="correct_observation">Correct observation</button></form></details>
   <details><summary>Report a work order</summary><form method="post" action="/walkthrough" class="fms-decide"><input type="hidden" name="token" value="{{ token }}"><label>Unit <select name="unit">{% for building, units in groups.items() %}<optgroup label="Building {{ building|plain }}">{% for unit in units %}<option value="{{ unit }}">{{ unit|plain }}</option>{% endfor %}</optgroup>{% endfor %}</select></label><label>Problem <input name="text" minlength="3" maxlength="{{ note_max }}" required></label><button class="button" name="action" value="report_work_order">Report work order</button></form></details>
 </section>
-<section class="fms-section"><h2>Earlier walks</h2><details><summary>Earlier walks</summary>{% for w in walks[1:] %}<p>{{ clock(w.started)|plain }}, {{ staff(w.by)|plain }}, {{ w.route|length - w.not_checked|length }} units checked.</p>{% else %}<p>No earlier walks.</p>{% endfor %}</details></section>
+<section class="fms-section"><h2>Earlier walks</h2><details><summary>Show the list</summary>{% for w in walks[1:] %}<p>{{ clock(w.started)|plain }}, {{ staff(w.by)|plain }}, {{ w.route|length - w.not_checked|length }} units checked.</p>{% else %}<p>No earlier walks.</p>{% endfor %}</details></section>
 <script>
 (function () {
   function line(parent, text, tag) { var el = document.createElement(tag || "p"); el.textContent = text; parent.appendChild(el); return el; }
@@ -96,7 +96,7 @@
         report.textContent = "";
         if (p.dropped) { line(report, "Not shown: " + p.dropped); return; }
         line(report, p.summary); line(report, "Suggested next step: " + p.step + ".");
-        line(report, "Records checked by code:"); var ul = document.createElement("ul"); report.appendChild(ul);
+        line(report, "Records checked:"); var ul = document.createElement("ul"); report.appendChild(ul);
         p.records.forEach(function (record) { line(ul, record, "li"); });
       }).catch(function (err) { status.textContent = err.message; });
     });

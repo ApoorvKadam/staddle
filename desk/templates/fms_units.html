@@ -25,14 +25,14 @@
 {% if not map_only %}{% for row, items in rows %}
 <section class="fms-section" aria-labelledby="h-row-{{ row }}">
   <h2 id="h-row-{{ row }}">Building {{ row }}</h2>
-  <div class="fms-scroll" tabindex="0" role="region" aria-labelledby="h-row-{{ row }}"><table class="fms-table">
+  <div class="fms-scroll" tabindex="0" role="region" aria-labelledby="h-row-{{ row }}"><table class="fms-table fms-units-table">
     <thead><tr><th>Unit</th><th>Size</th><th>Tenant</th><th>Rented since</th><th>Status</th><th class="num">Street rate</th><th class="num">Rent a month</th><th><span class="visually-hidden">Change</span></th></tr></thead>
     <tbody>
       {% for u in items %}
       <tr id="u-{{ u.unit }}"><td>{{ u.unit }}</td><td class="muted">{{ u.size }}</td>
         <td>{% if u.state == 'occupied' and u.who %}<a href="/tenants/{{ u.who.slug }}">{{ u.who.name }}</a>{% endif %}</td>
         <td class="muted">{{ u.since }}</td>
-        <td class="fms-state">{% if u.state == 'vacant' %}<span class="chip done">Vacant</span>{% elif u.state == 'reserved' %}<span class="chip wait">Reserved</span>{% elif u.state == 'blocked' %}<span class="chip plain">Blocked</span>{% else %}<span class="muted">Occupied</span>{% if u.chip %} <span class="chip {{ u.chip[1] }}">{{ u.chip[0] }}</span>{% endif %}{% endif %}{% if u.note %}<span class="fms-why">{{ u.note }}</span>{% endif %}</td>
+        <td class="fms-state">{% if u.state == 'vacant' and u.not_ready %}<span class="muted">Vacant</span> <span class="chip wait">Not ready</span>{% elif u.state == 'vacant' %}<span class="chip done">Vacant</span>{% elif u.state == 'reserved' %}<span class="chip wait">Reserved</span>{% elif u.state == 'blocked' %}<span class="chip plain">Blocked</span>{% else %}<span class="muted">Occupied</span>{% if u.chip %} <span class="chip {{ u.chip[1] }}">{{ u.chip[0] }}</span>{% endif %}{% endif %}{% if u.note %}<span class="fms-why">{{ u.note }}</span>{% endif %}</td>
         <td class="num">{{ u.price }}</td><td class="num">{{ u.rent }}</td>
         <td><a href="#act-{{ u.unit }}" aria-controls="act-{{ u.unit }}">Change</a></td></tr>
       <tr class="fms-act" id="act-{{ u.unit }}"><td colspan="8"><div class="fms-unit-act">

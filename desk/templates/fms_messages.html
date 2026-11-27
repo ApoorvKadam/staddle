@@ -31,7 +31,7 @@
   <article class="fms-case" aria-label="The message">
     <p class="fms-card-head"><a href="/tenants/{{ opened.who.slug }}">{{ opened.who.name }}</a> <span class="muted">unit{{ 's' if opened.units|length > 1 }} {{ opened.units|join(' and ') }}</span> <span class="chip plain">Not read yet</span></p>
     <q class="fms-quote">{{ opened.text }}</q>
-    <p class="muted">This text came in overnight. {{ agent }} reads it, code checks it against {{ opened.who.name.split(' ')[0] }}'s books, and the result shows here.{% if not live %} {{ agent }} is switched off on this copy, so it goes to staff.{% endif %}</p>
+    <p class="muted">This text came in overnight. {{ agent }} reads it against {{ opened.who.name.split(' ')[0] }}'s books, and the result shows here.{% if not live %} {{ agent }} is switched off on this copy, so it goes to staff.{% endif %}</p>
     <p><button id="read-one" class="button primary" type="button" data-role="{{ opened.role }}" data-shift="{{ opened.shift }}" data-text="{{ opened.text }}">Have {{ agent }} read it</button></p>
     <p id="read-one-status" class="fms-status" role="status" aria-live="polite"></p>
   </article>
@@ -46,7 +46,7 @@
       {% if picked.plan_read %}<li>About paying in parts: the tenant {{ picked.plan_read.what }}{% if picked.plan_read.quote %}, in their words: <mark>{{ picked.plan_read.quote }}</mark>{% else %}.{% endif %}</li>
       {% elif not picked.claims %}<li>{{ 'Nothing: ' ~ agent ~ ' is off on this copy.' if picked.off else 'No claim about a charge.' }}</li>{% endif %}
     </ul>
-    {% for k in picked.calls %}<p class="muted">{% if k.ok %}{{ k.job }} cost {{ '%.3f'|format(k.cents) }} cents: {{ "{:,}".format(k.tokens_in) }} tokens read, {{ "{:,}".format(k.tokens_out) }} written, in {{ '%.1f'|format(k.seconds) }} seconds.{% else %}{{ k.job }} did not finish, so the message went to staff; up to {{ '%.3f'|format(k.cents) }} cents was counted for it.{% endif %}</p>{% endfor %}
+    {# what each call cost stays in the logs and the spend records; staff see only a call that did not finish #}{% for k in picked.calls if not k.ok %}<p class="muted">{{ k.job }} did not finish, so the message went to staff.</p>{% endfor %}
     {% if picked.outcomes %}
     <h3>What the records show and what was done</h3>
     {% for o in picked.outcomes %}
@@ -60,7 +60,7 @@
     <div class="fms-scroll" tabindex="0" role="region" aria-label="Table"><table class="fms-table"><thead><tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
       <tbody>{% for e in picked.entries %}<tr><td>{{ e.account }}</td><td class="num">{{ e.debit }}</td><td class="num">{{ e.credit }}</td></tr>{% endfor %}</tbody></table></div>
     {% endif %}
-    <h3>Reply, written by code from the records</h3>
+    <h3>Reply, written from the records</h3>
     <p class="fms-reply">{{ picked.reply }}</p>
     <p class="muted">Shown here, not sent.{% if picked.off %} {{ agent }} is off on this copy.{% endif %}</p>
   </article>
@@ -109,7 +109,7 @@
 {% elif part == 'try' %}
 <section class="fms-section fms-try" aria-labelledby="h-try">
   <h2 id="h-try">Try a tenant message</h2>
-  <p class="muted">Write as one of these tenants. The message goes the way a real text would: {{ agent }} reads it, code checks every claim against that tenant's books and decides, and the result lands in Conversations and on Today.{% if not live %} {{ agent }} is switched off on this copy, so the message goes to staff.{% endif %}</p>
+  <p class="muted">Write as one of these tenants. The message goes the way a real text would: {{ agent }} reads it against that tenant's books, and the result lands in Conversations and on Today.{% if not live %} {{ agent }} is switched off on this copy, so the message goes to staff.{% endif %}</p>
   <form id="try">
     <label for="who">Tenant</label>
     <select id="who">{% for t in tenants %}<option value="{{ t.role }}" data-text="{{ t.text }}">{{ t.name }}, unit{{ 's' if t.units|length > 1 }} {{ t.units|join(' and ') }}</option>{% endfor %}</select>

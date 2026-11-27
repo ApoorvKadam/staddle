@@ -97,7 +97,7 @@ def test_units_show_the_four_states_with_counts_and_a_price_and_staff_hold_block
         # a unit's change controls are a row under it, opened by its Change link, with the forms side by side in it
         assert page.count('<tr class="fms-act"') == 120 and f'href="#act-{held}"' in page and f'<tr class="fms-act" id="act-{held}">' in page
         row = page.split(f'<tr class="fms-act" id="act-{held}">', 1)[1].split("</tr>", 1)[0]
-        assert re.findall(r'name="action" value="(\w+)"', row) == ["price_unit", "reserve", "block_unit"] and "<details" not in page.split('class="fms-page"', 1)[1] and "<select" not in page
+        assert re.findall(r'name="action" value="(\w+)"', row) == ["price_unit", "reserve", "block_unit"] and "<details" not in page.split('class="fms-page', 1)[1] and "<select" not in page
         # the tenant is typed against one list of every name, shared by every row
         assert page.count("<datalist") == 1 and page.count('<option value="') == 125 and 'value="Priya Shah"' in page and page.count('list="tenant-names"') == 6
         last = (NOW + timedelta(days=3)).date()
@@ -554,3 +554,24 @@ def test_a_made_up_unit_or_a_checkout_the_page_never_offered_changes_nothing(fms
         sha = re.search(r'name="sha256" value="([0-9a-f]+)"', page).group(1)
         c.post(f"/rent/checkout/{new}", data={"token": "0123456789ab", "sha256": sha, "accept": "yes", "card": "card_ok"}, follow_redirects=False)
         assert not rent_of(fd, ident).rentals[new].accepted                                 # no amount was shown for that form, so nothing is accepted
+
+
+def test_home_counts_ready_and_not_ready_units_that_add_up_to_the_vacant_count_on_units(fms_url, sim):
+    """Home's Ready to rent counts only the vacant units the readiness check passes; with Not ready it is the Vacant count Units shows."""
+    with sign_in(site(fms_url)) as c:
+        home = c.get("/home").text
+        ready, not_ready = (int(re.search(rf"<dt>{label}</dt><dd>(\d+)</dd>", home).group(1)) for label in ("Ready to rent", "Not ready"))
+        vacant = int(re.search(r"\bVacant (\d+)\b", seen(c.get("/units").text)).group(1))
+        assert ready + not_ready == vacant and not_ready >= 1, (ready, not_ready, vacant)
+
+
+def test_every_link_on_home_lands_on_an_anchor_its_page_has(fms_url, sim):
+    """Each count and item on Home links to a page and, where it names one, to an anchor that page renders (the past-due count linked to an
+    anchor Billing does not render; Today's anchors sit on its cards, which the page shows when targeted)."""
+    with sign_in(site(fms_url)) as c:
+        home = c.get("/home").text
+        links = set(re.findall(r'href="(/(?:today|collections|billing|messages)[^"#]*#[^"]+)"', home))
+        assert any(link.startswith("/today#item-") for link in links) and "/collections#past-due" in links, links
+        for link in links:
+            path, anchor = link.split("#", 1)
+            assert f'id="{anchor}"' in c.get(path).text, link

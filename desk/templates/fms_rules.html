@@ -19,7 +19,7 @@
 </header>
 <section class="fms-section" aria-labelledby="h-write">
   <h2 id="h-write">Write a rule</h2>
-  <p class="muted">Write how waivers or hand-offs to staff should work, in your own words. {{ agent }} turns the sentence into an exact rule, code checks it and shows what it would have changed last year. Nothing changes until you approve it. On this copy you approve as the owner.</p>
+  <p class="muted">Write how waivers or hand-offs to staff should work, in your own words. {{ agent }} turns the sentence into an exact rule and shows what it would have changed last year. Nothing changes until you approve it. On this copy you approve as the owner.</p>
   {% if stale %}<p class="fms-status" role="status">That proposal was already approved, or the rules changed since it was read. Write the rule again.</p>{% endif %}
   <form id="rule-form" class="fms-rule-form">
     <label for="rule-text">Your rule</label>
@@ -113,7 +113,7 @@
     <h2 id="h-owner">The owner's waiver rule{% if waiver.version > 1 %} <span class="chip done">Version {{ waiver.version }}</span>{% endif %}</h2>
     <blockquote class="fms-rule">{{ waiver.sentence }}</blockquote>
     <ul class="fms-may">{% for w in waiver_words %}<li><span>{{ w }}</span></li>{% endfor %}</ul>
-    <p class="muted">The exact form code checks before any waiver is written:</p>
+    <p class="muted">The exact form a waiver must meet before it is written:</p>
     <dl class="fms-defs">{% for k, v in typed %}<div><dt>{{ k|upfirst }}</dt><dd>{{ v }}</dd></div>{% endfor %}</dl>
     {% if waiver_versions %}{{ versions(waiver_versions) }}{% endif %}
   </section>
@@ -128,7 +128,7 @@
   {% endif %}
   <section class="panel" aria-labelledby="h-agent">
     <h2 id="h-agent">What {{ agent }} may do</h2>
-    <p class="muted">{{ agent }} is the agent inside {{ brand }}. It reads each message. Code checks every claim against the books and picks the action; nothing is written unless the checks allow it.</p>
+    <p class="muted">{{ agent }} is the agent inside {{ brand }}. It reads each message against the books; nothing is written unless the owner's rules allow it.</p>
     <ul class="fms-may">{% for text, moves in actions %}<li><span>{{ text }}</span>{% if moves %}<span class="chip plain">Changes money</span>{% endif %}</li>{% endfor %}</ul>
     <p class="muted">Rent is never waived. A fee under dispute, a lease that has ended, and anything the tenant asks for that the rules do not allow go to staff.</p>
   </section>

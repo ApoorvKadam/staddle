@@ -24,6 +24,11 @@ def view(c, name="all") -> str:
     return seen(c.get(f"/today?view={name}").text)
 
 
+def listed(page: str, words: str) -> int:
+    """How many items on a Today page carry these words, each counted once as its card (the queue beside the cards repeats each title)."""
+    return sum(1 for a in re.findall(r'(?s)<article class="fms-line".*?</article>', page) if words in seen(a))
+
+
 def stuck_code(app, c):
     """A rental whose gate code never reads back with both groups: an item for the front desk."""
     fd, ident = desk_of(app, c)
@@ -39,7 +44,7 @@ def test_a_fresh_copy_lists_the_years_work_in_four_views_and_the_money_figures_d
         page = c.get("/today").text
         text = seen(page)
         assert "Work for staff" in text and "Facility-wide 26" in text and "My work 17" in text and "Waiting 0" in text and "Done today 0" in text
-        assert "Rhea Mills Payment plan breached since Oct 26" in text and text.count("Overlock due") == 12
+        assert "Rhea Mills Payment plan breached since Oct 26" in text and listed(page, "Overlock due") == 12
         assert "Each item stays here until the record it is about shows the work done" in text
         assert "What closes it: Staff reinstate or end the plan." in text and "What closes it: The overlock is recorded on the unit." in text
         assert 'id="collections"' in page and 'id="overlocks"' in page          # Home's links still land on the first of each kind
@@ -55,10 +60,10 @@ def test_acknowledging_a_due_overlock_keeps_it_listed_and_recording_it_moves_it_
     with sign_in(app) as c, sign_in(app) as other:
         key = next(k for k in keys(c.get("/today").text) if k.startswith("overlock:"))
         r = push(c, "acknowledge", key)
-        assert (r.status_code, r.headers["location"]) == (303, "/today?view=all#work")
+        assert (r.status_code, r.headers["location"]) == (303, f"/today?view=all#item-{key}")      # the item stays open beside the queue
         after = view(c)
-        assert after.count("Overlock due") == 12 and "Seen by Office manager" in after              # seen is not done
-        assert view(c, "done").count("Overlock due") == 0 and "Done today 0" in view(c, "done")
+        assert listed(c.get("/today").text, "Overlock due") == 12 and "Seen by Office manager" in after              # seen is not done
+        assert listed(c.get("/today?view=done").text, "Overlock due") == 0 and "Done today 0" in view(c, "done")
         assert "Seen by" not in view(other)                                                          # another copy keeps its own
         page = c.get("/today").text
         lease = re.search(r'name="lease" value="([A-Z0-9]+)"><input type="hidden" name="next" value="today"><button[^>]*>Record an overlock', page).group(1)
@@ -67,7 +72,7 @@ def test_acknowledging_a_due_overlock_keeps_it_listed_and_recording_it_moves_it_
         c.post(f"{who}/collections", data={"token": token(page), "action": "overlock", "lease": lease, "next": "today"}, follow_redirects=False)
         done = view(c, "done")
         assert "Done today 1" in done and "The overlock is recorded on the unit." in done and "What closes it" not in done.split("Work for staff")[1].split("Handed to staff")[0]
-        assert view(c).count("Overlock due") == 11 and owner not in keys(c.get("/today?view=all").text)
+        assert listed(c.get("/today").text, "Overlock due") == 11 and owner not in keys(c.get("/today?view=all").text)
 
 
 def test_acknowledging_an_unconfirmed_gate_code_does_not_close_it_but_the_code_reading_back_does(fms_url, sim):

@@ -1,0 +1,5 @@
+Bricolage Grotesque (bricolage-grotesque.woff2), Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
+DM Sans (dm-sans.woff2), Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts)
+
+Both are licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org
+The files are the Latin subsets served by Google Fonts, unmodified.

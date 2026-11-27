@@ -1,42 +1,82 @@
 {% extends "fms.html" %}
-{% block page %}Home{% endblock %}
+{% block page %}Overview{% endblock %}
 {% block body %}
-<header class="head">
-  <h1>Good morning</h1>
-</header>
-<p class="fms-greet">Here is what is happening at {{ f.name }} this morning.</p>
-{% if note %}<p class="fms-status" role="status">{{ note }}</p>{% endif %}
 {% set rented = rows|sum(attribute='rented') %}{% set units = rows|sum(attribute='units') %}
+{% set owed = past|sum(attribute='past') %}{% set billed = month.rent + month.fees %}
+<header class="desk-title">
+  <div><h1>{{ greeting }}, {{ first_name }}</h1><p>{{ today }} at {{ f.name }}</p></div>
+  <div class="desk-do"><a class="button primary" href="/rent">New rental</a><a class="button" href="/leads">Record inquiry</a></div>
+</header>
+{% if note %}<p class="fms-status" role="status">{{ note }}</p>{% endif %}
 <dl class="fms-kpis">
-  <div><dt>Unit occupancy</dt><dd>{{ (100 * rented / units)|round|int }}%<span>{{ rented }} of {{ units }}</span></dd></div>
-  <div><dt>Collected in {{ month.name.split(' ')[0] }}</dt><dd>{{ money(month.collected) }}<span>{{ money(month.rent + month.fees) }} billed</span></dd></div>
-  <div><dt>Past due</dt><dd>{{ money(past|sum(attribute='past')) }}<span>{{ past|length }} tenants</span></dd></div>
-  <div><dt>Messages this morning</dt><dd>{{ morning }}<span>{% if waiting %}{{ waiting }} not read yet{% else %}{{ closed }} closed by {{ agent }}{% endif %}</span></dd></div>
+  <div><dt>Occupancy</dt><dd><b>{{ (100 * rented / units)|round|int }}%</b><span>{{ rented }} of {{ units }} units rented</span></dd>
+    <p class="fms-kpi-foot"><span class="fms-meter" aria-hidden="true"><i style="width: {{ (100 * rented / units)|round(1) }}%"></i></span></p></div>
+  <div><dt>Collected in {{ month.name.split(' ')[0] }}</dt><dd><b>{{ money(month.collected) }}</b><span>of {{ money(billed) }} billed</span></dd>
+    <p class="fms-kpi-foot"><span class="fms-meter" aria-hidden="true"><i style="width: {{ (100 * month.collected / billed)|round(1) if billed else 0 }}%"></i></span></p></div>
+  <div><dt>Past due</dt><dd><b>{{ money(owed) }}</b><span>{{ past|length }} tenants owe rent or fees</span></dd>
+    <p class="fms-kpi-foot"><a class="fms-kpi-go" href="/collections">Open Collections {% include "icons/arrow-right.svg" %}</a></p></div>
 </dl>
 <div class="fms-home">
-  <section aria-labelledby="h-needs">
-    <h2 id="h-needs">What needs you</h2>
-    <ul class="fms-actions">
-      <li><a href="/messages">{% include "icons/message-square.svg" %}<span>{% if waiting %}<b>{{ waiting }}</b> message{{ 's' if waiting != 1 }} from this morning to read{% else %}Every message from this morning is read{% endif %}</span><span>Messages</span></a></li>
-      <li><a href="/today">{% include "icons/hand.svg" %}<span><b>{{ handed }}</b> message{{ 's' if handed != 1 }} handed to staff</span><span>Today</span></a></li>
-      <li><a href="/today#disputes">{% include "icons/scale.svg" %}<span><b>{{ disputes }}</b> dispute{{ 's' if disputes != 1 }} waiting for a decision</span><span>Today</span></a></li>
-      <li><a href="/today#collections">{% include "icons/list-checks.svg" %}<span><b>{{ tasks }}</b> collections item{{ 's' if tasks != 1 }} waiting for staff</span><span>Today</span></a></li>
-      <li><a href="/today#overlocks">{% include "icons/list-checks.svg" %}<span><b>{{ overlocks }}</b> overlock{{ 's' if overlocks != 1 }} due on the owner's schedule</span><span>Today</span></a></li>
-      {% if unfinished %}<li><a href="/today#rentals">{% include "icons/calendar-clock.svg" %}<span><b>{{ unfinished }}</b> rental{{ 's' if unfinished != 1 }} waiting for staff</span><span>Today</span></a></li>{% endif %}
-      {% if codes %}<li><a href="/today#codes">{% include "icons/shield-check.svg" %}<span><b>{{ codes }}</b> gate code{{ 's' if codes != 1 }} not confirmed</span><span>Today</span></a></li>{% endif %}
-      {% if turnover %}<li><a href="/today#turnover">{% include "icons/door-open.svg" %}<span><b>{{ turnover }}</b> unit{{ 's' if turnover != 1 }} waiting for an old gate code to be revoked</span><span>Today</span></a></li>{% endif %}
-      <li><a href="/billing#past-due">{% include "icons/credit-card.svg" %}<span><b>{{ past|length }}</b> tenants past due</span><span>Billing</span></a></li>
+  <section class="panel desk-needs" aria-labelledby="h-needs">
+    <div class="desk-tray-head">
+      <h2 id="h-needs">Needs you</h2>
+      <span class="desk-pill">{{ counts.get('all', needs|length) }} open</span>{% if counts.get('mine') %}<span class="desk-pill">{{ counts.mine }} yours</span>{% endif %}
+      <a class="desk-more" href="/today">Open Today {% include "icons/arrow-right.svg" %}</a>
+    </div>
+    <ol class="desk-queue">
+      {% for x in needs %}{% set i = x.i %}
+      <li><a href="/today#item-{{ i.key }}">
+        <span class="desk-what"><b>{{ i.what }}</b><span>{{ x.why }}</span></span>
+        <span class="desk-who">{% if x.lead %}<b>{{ x.lead.name|plain }}</b><span>inquiry</span>{% elif x.who %}<b>{{ x.who.name }}</b>{% if x.unit %}<span>unit {{ x.unit }}</span>{% endif %}{% elif x.unit %}<b>Unit {{ x.unit }}</b><span>no tenant</span>{% else %}<b>{{ f.name }}</b>{% endif %}</span>
+        <span class="desk-flag">{% if i.overdue %}Overdue{% endif %}</span>
+        <span class="desk-when">{{ 'due' if x.upcoming else 'since' }} {{ x.since }}</span>
+        {% include "icons/arrow-right.svg" %}
+      </a></li>
+      {% else %}<li class="desk-empty">Nothing is waiting for staff.</li>
+      {% endfor %}
+    </ol>
+    <ul class="desk-kinds" aria-label="Waiting, by kind">
+      <li class="{{ 'wait' if waiting else 'none' }}"><a href="/messages">{% if waiting %}<b>{{ waiting }}</b> message{{ 's' if waiting != 1 }} from this morning to read{% else %}Every message from this morning is read{% endif %}</a></li>
+      <li{% if not handed %} class="none"{% endif %}><a href="/today"><b>{{ handed }}</b> message{{ 's' if handed != 1 }} handed to staff</a></li>
+      <li class="{{ 'wait' if disputes else 'none' }}"><a href="/today#disputes"><b>{{ disputes }}</b> dispute{{ 's' if disputes != 1 }} waiting for a decision</a></li>
+      <li class="{{ 'act' if tasks else 'none' }}"><a href="/today#collections"><b>{{ tasks }}</b> collections item{{ 's' if tasks != 1 }} waiting for staff</a></li>
+      <li class="{{ 'act' if overlocks else 'none' }}"><a href="/today#overlocks"><b>{{ overlocks }}</b> overlock{{ 's' if overlocks != 1 }} due on the owner's schedule</a></li>
+      {% if unfinished %}<li class="wait"><a href="/today#rentals"><b>{{ unfinished }}</b> rental{{ 's' if unfinished != 1 }} waiting for staff</a></li>{% endif %}
+      {% if codes %}<li class="wait"><a href="/today#codes"><b>{{ codes }}</b> gate code{{ 's' if codes != 1 }} not confirmed</a></li>{% endif %}
+      {% if turnover %}<li class="wait"><a href="/today#turnover"><b>{{ turnover }}</b> unit{{ 's' if turnover != 1 }} waiting for an old gate code to be revoked</a></li>{% endif %}
+      <li class="{{ 'act' if past else 'none' }}"><a href="/collections#past-due"><b>{{ past|length }}</b> tenants past due</a></li>
     </ul>
   </section>
-  <section aria-labelledby="h-rows">
-    <h2 id="h-rows">Occupancy by building</h2>
-    <div class="panel">
+  <div class="desk-col">
+    <section class="desk-agent" aria-labelledby="h-agent">
+      <p class="desk-agent-state{% if live %} on{% endif %}"><i aria-hidden="true"></i>{{ 'Working' if live else 'Off on this copy' }}</p>
+      <h2 id="h-agent">{{ agent }}</h2>
+      {% if live %}
+      <dl>
+        <div><dt>Messages this morning</dt><dd>{{ morning }}</dd></div>
+        <div><dt>Not read yet</dt><dd>{{ waiting }}</dd></div>
+        <div><dt>Closed by {{ agent }}</dt><dd>{{ closed }}</dd></div>
+        <div><dt>Handed to staff</dt><dd>{{ handed }}</dd></div>
+      </dl>
+      {% else %}
+      <p class="desk-agent-line"><b>{{ waiting }}</b> of this morning's {{ morning }} messages {{ 'is' if waiting == 1 else 'are' }} not read yet. {{ agent }} is switched off on this copy, so each one goes to staff.</p>
+      {% endif %}
+      <a class="button" href="/messages">Open Messages {% include "icons/arrow-right.svg" %}</a>
+    </section>
+    <section class="panel desk-units" aria-labelledby="h-rows">
+      <div class="desk-tray-head"><h2 id="h-rows">Units</h2><a class="desk-more" href="/sitemap">Site map {% include "icons/arrow-right.svg" %}</a></div>
+      <dl class="desk-avail">
+        <div><dt>Ready to rent</dt><dd>{{ avail.ready }}</dd></div>
+        <div{% if avail.not_ready %} class="wait"{% endif %}><dt>Not ready</dt><dd>{{ avail.not_ready }}</dd></div>
+        <div><dt>Reserved</dt><dd>{{ avail.reserved }}</dd></div>
+        <div><dt>Blocked</dt><dd>{{ avail.blocked }}</dd></div>
+      </dl>
       {% for r in rows %}
       <div class="fms-row"><span>Building {{ r.row }}</span><span class="fms-track" aria-hidden="true"><i style="width: {{ (100 * r.rented / r.units)|round(1) }}%"></i></span><span>{{ r.rented }} of {{ r.units }}</span></div>
       {% endfor %}
       <p class="fms-more"><a href="/units">All {{ units }} units</a></p>
-    </div>
-  </section>
+    </section>
+  </div>
 </div>
-{% if f.balanced %}<p class="muted">Every books entry balances: {{ money(f.debits) }} in debits, the same in credits.</p>{% endif %}
+{% if f.balanced %}<p class="muted desk-books">Every books entry balances: {{ money(f.debits) }} in debits, the same in credits.</p>{% endif %}
 {% endblock %}

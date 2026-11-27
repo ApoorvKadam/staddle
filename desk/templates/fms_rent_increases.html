@@ -43,14 +43,15 @@
       <td><a href="/tenants/{{ r.slug }}">{{ r.name|plain }}</a></td>
       <td>{{ r.unit|plain }}</td><td>{{ r.size|plain }}</td><td class="num">{{ money(r.rent) }}</td><td>{{ r.changed|plain }}</td>
       <td class="num">{% if r.street is not none %}{{ money(r.street) }}{% else %}Not priced{% endif %}</td><td class="num">{{ gap_words(r.gap) }}</td>
-      <td class="fms-state fms-steps">{% if r.open %}<p>An increase is in progress.</p>{% else %}<form method="post" action="/rent-increases" class="fms-rate-form">
+      <td class="fms-state fms-steps">{% if r.open %}<p>An increase is in progress.</p>
+      <details><summary>What the rules say</summary>{% for line in r.facts %}<p>{{ line|plain }}</p>{% endfor %}</details>{% else %}<details class="fms-propose"><summary class="button">Propose an increase</summary><form method="post" action="/rent-increases" class="fms-rate-form">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="lease" value="{{ r.id }}">
         <label>New rent in dollars <input type="number" name="rent" min="0.01" max="99999999.99" step="0.01" required></label>
         <label>Takes effect on <input type="date" name="effective" min="{{ today_iso }}"{% if r.default_date %} value="{{ r.default_date }}"{% endif %} required></label>
         {% if asks_other %}<label>Other required monthly charges in dollars <input type="number" name="other" min="0" max="99999999.99" step="0.01" required></label>{% endif %}
-        <button class="button" name="action" value="propose">Propose increase</button>
-      </form>{% endif %}
-      <details><summary>What the rules say</summary>{% for line in r.facts %}<p>{{ line|plain }}</p>{% endfor %}</details></td>
+        <button class="button" name="action" value="propose">Save the proposal</button>
+      </form></details>
+      <details><summary>What the rules say</summary>{% for line in r.facts %}<p>{{ line|plain }}</p>{% endfor %}</details>{% endif %}</td>
     </tr>{% endfor %}</tbody>
   </table></div>
   {% if last > 1 %}<nav class="muted" aria-label="Pages of leases">

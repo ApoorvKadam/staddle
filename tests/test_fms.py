@@ -168,7 +168,7 @@ def test_a_reversal_lands_on_this_copy_only_is_shown_after_a_reload_and_start_ov
         assert run(a, "james", shift="s2", run_id="r1").status_code == 200
         shown = seen(a.get("/messages").text)
         assert "Reversed the second copy" in shown and "Fee income" in shown and "You are right" in shown
-        assert "Reading cost" in shown and "1,200 tokens read, 150 written" in shown          # the cost shows in the FMS too, as on the Overview
+        assert "Reading cost" not in shown and "tokens read" not in shown          # the owner questioned showing the cost in the FMS (2026-11-27): it stays in the logs
         james = record_of(a, "James Carter")
         assert "Late fee removed: duplicate" in seen(a.get(james).text)
         assert "removed" not in seen(b.get(james).text)
@@ -377,7 +377,8 @@ def test_the_overview_is_public_and_the_old_screens_are_gone(fms_url, sim):
         page = anyone.get("/")
         assert page.status_code == 200
         words = seen(page.text)
-        assert "36 right on average" in words and "handled 23" in words and "120 units" in words and 'href="/sign-in"' in page.text
+        assert "120 units" in words and 'href="/sign-in"' in page.text
+        assert "right on average" not in words and "fixed-rule" not in words, "no result from a set that is not a blind outside test"
         assert not re.search(r"(?i)claude|haiku|sonnet|anthropic|openai|gpt|our agent|github", re.sub(r"(?s)<footer.*</footer>", "", page.text)), "GitHub belongs in the footer only"
         assert "Tilden" in words and "could not close" not in words
         assert not re.search(r"(?i)surveyed|earlier screens|later steps|separate model|with code deciding|made up and said", words), "internal notes stay off the public page"
@@ -417,8 +418,13 @@ def test_his_corrections_of_the_night_stay_corrected(fms_url, sim):
         assert f'value="{DEMO_NAME}"' in page and f'value="{DEMO_PASSWORD}"' in page
         assert ">Username</label>" in page and "." in DEMO_NAME, "a sign-in asks for a username, and the demo one looks like a real one"
         overview = c.get("/").text
-        hero = overview.split('class="ov-hero"', 1)[1].split("</section>", 1)[0]
+        hero = overview.split('class="ov-hero', 1)[1].split("</section>", 1)[0]      # the top section (its replay class may follow)
         assert 'class="ov-shot"' in hero and "<video" not in overview and "walkthrough" not in overview.lower()
+        # the top is three real screens the visitor picks between: one choice held by radios, a capture file for each, nothing on a timer
+        for key in ("home", "today", "messages"):
+            assert f'id="ov-pick-{key}"' in hero and f"shots/fms-{key}.jpg" in hero
+            assert c.get(f"/static/shots/fms-{key}.jpg").status_code == 200
+        assert hero.count(" checked") == 1 and not re.search(r"setInterval|setTimeout|autoplay", hero)
     with sign_in(app) as c:
         cold = c.get("/messages").text
         conversations = cold.split('class="fms-convs"', 1)[1].split("</ol>", 1)[0]
@@ -433,10 +439,10 @@ def test_the_date_is_the_real_day_and_a_new_day_brings_new_books(fms_url, sim):
     fd = app.state.front_desk
     with sign_in(app) as c:
         home = c.get("/home").text
-        assert "Sat, Nov 14, 2026" in seen(home) and not re.search(r"(?i)facility date|demo date", home)
+        assert "Saturday, November 14, 2026" in seen(home) and not re.search(r"(?i)facility date|demo date", home)
         assert run(c, "james", shift="s2", run_id="r1").status_code == 200
         fd.clock = lambda: at_local(date(2026, 12, 3), 8)
-        assert "Thu, Dec 3, 2026" in seen(c.get("/home").text)
+        assert "Thursday, December 3, 2026" in seen(c.get("/home").text)
         assert "Reversed the second copy" not in seen(c.get("/messages").text)          # yesterday's copy stayed with yesterday
         root, ext = os.path.splitext(fd.path)
         assert [os.path.basename(p) for p in glob.glob(f"{glob.escape(root)}-*{ext}")] == [os.path.basename(f"{root}-2026-12-03{ext}")]   # Nov 14's copy went

@@ -6,11 +6,18 @@
 <header class="fms-head">
   <div class="fms-head-row">
     <a class="brand" href="/home">{% include "icons/staddle.svg" %}{{ brand }}</a>
-    <span class="fms-org">{{ f.name }}</span>
+    <span class="fms-org"><b>{{ f.name }}</b><span>{{ f.b.facility.city|plain }}</span></span>
+    <nav class="fms-tabs" aria-label="FMS">
+      <a href="/home"{% if not global_nav %} aria-current="page"{% endif %}>Facilities</a>
+      <a href="/today"{% if nav == 'today' %} aria-current="page"{% endif %}>Today{% if open_now.today %}<b class="fms-count act" title="{{ open_now.today }} open items">{{ open_now.today }}</b>{% endif %}</a>
+      <a href="/messages"{% if nav == 'messages' %} aria-current="page"{% endif %}>Messages{% if open_now.messages %}<b class="fms-count" title="{{ open_now.messages }} not read yet">{{ open_now.messages }}</b>{% endif %}</a>
+      {% if shift_enabled %}<a href="/tilden"{% if nav == 'tilden' %} aria-current="page"{% endif %}>{{ agent }}</a>{% endif %}
+    </nav>
     <form class="fms-find" method="get" action="/tenants" role="search">
       <label for="find" class="visually-hidden">Find a tenant by name, phone or unit</label>
       {% include "icons/search.svg" %}<input id="find" name="q" maxlength="60" placeholder="Find a tenant by name, phone or unit">
     </form>
+    <a class="fms-set" href="/rules"{% if nav == 'rules' %} aria-current="page"{% endif %}>{% include "icons/settings.svg" %}<span>Settings</span></a>
     <details class="fms-who">
       <summary><b>Dana Reyes</b><span>Office manager</span></summary>
       <div class="fms-who-menu">
@@ -19,31 +26,27 @@
       </div>
     </details>
   </div>
-  <nav class="fms-tabs" aria-label="FMS">
-    <a href="/home"{% if not global_nav %} aria-current="page"{% endif %}>Facilities</a>
-    <a href="/today"{% if nav == 'today' %} aria-current="page"{% endif %}>Today</a>
-    <a href="/messages"{% if nav == 'messages' %} aria-current="page"{% endif %}>Messages</a>
-    {% if shift_enabled %}<a href="/tilden"{% if nav == 'tilden' %} aria-current="page"{% endif %}>{% include "icons/list-checks.svg" %} Tilden</a>{% endif %}
-    <a class="push" href="/rules"{% if nav == 'rules' %} aria-current="page"{% endif %}>Settings</a>
-  </nav>
 </header>
 {% endblock %}
 {% block main %}
 <div class="fms-work{% if nav in ('today', 'messages', 'tilden', 'rules') %} fms-work-full{% endif %}">
 {% if nav not in ('today', 'messages', 'tilden', 'rules') %}
 <aside class="fms-side">
-  <p class="fms-fac"><b>{{ f.name }}</b><span>{{ f.b.facility.city|plain }}</span><span>{{ today }}</span></p>
-  <a class="fms-site" href="/rent">{% include "icons/external-link.svg" %}View facility website</a>
   <nav aria-label="Facility">
-    {% for key, label, icon in side[0] %}<a href="/{{ key }}" {% if nav == key %}aria-current="page"{% endif %}>{% include "icons/" ~ icon ~ ".svg" %}<span>{{ label }}</span></a>{% endfor %}
-    <hr class="fms-sep">
-    {% for key, label, icon in side[1] %}<a href="/{{ key }}" {% if nav == key %}aria-current="page"{% endif %}>{% include "icons/" ~ icon ~ ".svg" %}<span>{{ label }}</span></a>{% endfor %}
+    {% for group, items in side %}
+    <p class="fms-group">{{ group }}</p>
+    {% for key, label, icon in items %}<a href="/{{ key }}" {% if nav == key %}aria-current="page"{% endif %}>{% include "icons/" ~ icon ~ ".svg" %}<span>{{ label }}</span>{% if open_now.get(key) %}<b class="fms-count{% if key == 'collections' %} act{% elif key == 'units' %} wait{% endif %}" title="{{ open_now[key] }} {% if key == 'units' %}vacant units not ready to rent{% elif key == 'collections' %}tenants owe rent or fees{% endif %}">{{ open_now[key] }}</b>{% endif %}</a>{% endfor %}
+    {% endfor %}
   </nav>
+  <a class="fms-site" href="/rent">{% include "icons/external-link.svg" %}<span>View facility website</span></a>
 </aside>
 {% endif %}
-<div class="fms-page">
+<div class="fms-page page-{{ nav }}">
 {% block body %}{% endblock %}
 </div>
+<footer class="fms-foot">
+  <p><b>Demo copy.</b> A made-up facility with a year of made-up tenants, charges and payments. Your changes stay on your copy for a day, and nobody else sees them. Replies are shown here, never sent.</p>
+</footer>
 </div>
 <script>
 // a table fills its frame with the spare width shared equally by its columns, so every gap between columns is the same.
@@ -74,8 +77,4 @@
 })();
 </script>
 {% endblock %}
-{% block footer %}
-<footer class="fms-foot">
-  <p><b>Demo copy.</b> A made-up facility with a year of made-up tenants, charges and payments. Your changes stay on your copy for a day, and nobody else sees them. Replies are shown here, never sent.</p>
-</footer>
-{% endblock %}
+{% block footer %}{% endblock %}
