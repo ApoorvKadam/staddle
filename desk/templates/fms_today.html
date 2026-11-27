@@ -8,9 +8,9 @@
 <section class="fms-section" id="disputes" aria-labelledby="h-disputes">
   <h2 id="h-disputes">Disputes waiting for a decision</h2>
   {% for d in disputes %}
-  <article class="fms-card">
-    <p class="fms-card-head"><a href="/tenants/{{ d.who.slug }}">{{ d.who.name }}</a> <span class="muted">unit {{ d.unit }}</span> {% if d.held %}<span class="chip wait">Collection paused until the review by {{ d.review_by }}</span>{% else %}<span class="chip plain">Review by {{ d.review_by }}</span>{% endif %}</p>
-    <q>{{ d.quote }}</q>
+  <article class="fms-card fms-dispute"><details>
+    <summary class="fms-card-head"><a href="/tenants/{{ d.who.slug }}">{{ d.who.name }}</a> <span class="muted">unit {{ d.unit }}</span> {% if d.held %}<span class="chip wait">Collection paused until the review by {{ d.review_by }}</span>{% else %}<span class="chip plain">Review by {{ d.review_by }}</span>{% endif %}
+      <q>{{ d.quote }}</q><span class="button">Review dispute</span></summary>
     <dl class="fms-facts">
       <div><dt>Recorded</dt><dd>{{ d.recorded|upfirst }}</dd></div>
       <div><dt>The charge</dt><dd>{{ d.amount }} {{ d.fee }}, posted {{ d.posted }}{{ ' by hand' if d.by_hand }}</dd></div>
@@ -26,7 +26,7 @@
       <button class="button" name="action" value="keep_under_review" type="submit">Keep under review</button>
     </form>
     {% if d.in_schedule %}<p class="muted">The fee is in the schedule this tenant signed, so it cannot be removed as a correction.</p>{% else %}<p class="muted">The fee is not in the schedule this tenant signed. Removing it is a correction: it reverses the charge and does not use up a waiver.</p>{% endif %}
-  </article>
+  </details></article>
   {% else %}
   <p class="muted">No open disputes.</p>
   {% endfor %}
@@ -37,6 +37,18 @@
   <nav class="fms-tabs" aria-label="Work views">{% for key, label in views %}<a href="/today?view={{ key }}#work"{% if key == view %} aria-current="page" class="current"{% endif %}>{{ label }} <span class="muted">{{ counts[key] }}</span></a>{% endfor %}</nav>
   {% if step_note %}<p class="fms-status" role="status">Nothing changed. {{ step_note }}</p>{% endif %}
   <p class="muted">Each item stays here until the record it is about shows the work done. Acknowledging says it was seen; it does not close the item.</p>
+  <div class="today-work">
+  {% if items %}<ol class="desk-queue today-list" aria-label="Open items">
+    {% for x in items %}{% set i = x.i %}
+    <li><a href="#item-{{ i.key }}">
+      <span class="desk-what"><b>{{ i.what }}</b><span>{{ x.why }}</span></span>
+      <span class="desk-who">{% if x.lead %}<b>{{ x.lead.name|plain }}</b><span>inquiry</span>{% elif x.who %}<b>{{ x.who.name }}</b>{% if x.unit %}<span>unit {{ x.unit }}</span>{% endif %}{% elif x.unit %}<b>Unit {{ x.unit }}</b>{% endif %}</span>
+      <span class="desk-flag">{% if i.overdue %}Overdue{% endif %}</span>
+      <span class="desk-when">{{ 'due' if x.upcoming else 'since' }} {{ x.since }}</span>
+    </a></li>
+    {% endfor %}
+  </ol>{% endif %}
+  <div class="today-detail">
   {% for x in items %}{% set i = x.i %}
   <article class="fms-line"{% if x.anchor %} id="{{ x.anchor }}"{% endif %}><span id="item-{{ i.key }}"></span>
     <p>{% if x.lead %}<a href="/leads/{{ x.lead.id }}">{{ x.lead.name|plain }}</a>{% endif %}{% if x.who %}<a href="/tenants/{{ x.who.slug }}#{{ x.section }}">{{ x.who.name }}</a>{% endif %}{% if x.unit %}{% if x.who %} <span class="muted" aria-hidden="true">&middot;</span> {% endif %}<a href="/units#u-{{ x.unit }}">unit {{ x.unit }}</a>{% endif %} <span class="chip {{ 'act' if i.state == 'reopened' else i.tone }}">{{ i.what }}</span> <span class="muted">{{ 'due' if x.upcoming else 'since' }} {{ x.since }}</span> <span class="chip {{ x.tone }}">{{ x.state }}</span>{% if i.overdue %} <span class="chip act">Overdue</span>{% endif %}</p>
@@ -68,6 +80,25 @@
   {% else %}
   <p class="muted">{% if view == 'done' %}Nothing was finished today yet.{% elif view == 'mine' %}Nothing is with you right now.{% elif view == 'waiting' %}Nothing is waiting on anyone else.{% else %}Nothing is waiting for staff.{% endif %}</p>
   {% endfor %}
+  </div>
+  </div>
+  <script>
+  // the row whose item is open on the right is marked; without this script the page still works, the first item shows
+  (function () {
+    var rows = document.querySelectorAll(".today-list a");
+    function mark() {
+      // the open card is the target itself (Home's links to the first card of a kind) or the card holding it (a row's link)
+      var t = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+      var card = t && t.closest(".today-detail > .fms-line");
+      var inner = card && card.querySelector("[id^='item-']");
+      var open = inner ? "#" + inner.id : (rows[0] && rows[0].getAttribute("href"));
+      rows.forEach(function (a) { if (decodeURIComponent(a.getAttribute("href")) === open) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current"); });      // "true", not empty: an empty aria-current means not current
+      var cur = document.querySelector(".today-list a[aria-current]");
+      if (cur) { var list = cur.closest(".today-list"), r = cur.getBoundingClientRect(), b = list.getBoundingClientRect(); if (r.top < b.top || r.bottom > b.bottom) list.scrollTop += r.top - b.top - 8; }
+    }
+    mark(); addEventListener("hashchange", mark);
+  })();
+  </script>
 </section>
 
 {% set handed = cases|selectattr('handed')|list %}

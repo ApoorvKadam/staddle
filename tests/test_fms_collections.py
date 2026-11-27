@@ -25,7 +25,7 @@ def test_today_lists_the_breached_plan_and_an_acknowledgement_does_not_close_it(
         assert "The part due Oct 22 was not paid within 3 grace days." in text
         key = re.search(r'name="key" value="(collections:breached:[A-Z0-9:]+)"', page).group(1)
         r = c.post("/work/step", data={"token": token(page), "view": "all", "action": "acknowledge", "key": key}, follow_redirects=False)
-        assert (r.status_code, r.headers["location"]) == (303, "/today?view=all#work")
+        assert (r.status_code, r.headers["location"]) == (303, f"/today?view=all#item-{key}")      # the item stays open beside the queue
         c.post("/work/step", data={"token": token(page), "view": "all", "action": "acknowledge", "key": key}, follow_redirects=False)   # a second press: nothing
         after = seen(c.get("/today").text)
         assert "Rhea Mills Payment plan breached" in after and "Seen by Office manager" in after      # seen is not decided
@@ -174,7 +174,8 @@ def test_today_lists_every_due_overlock_and_records_one_from_the_list(fms_url, s
     with sign_in(site(fms_url)) as c:
         page = c.get("/today").text
         text = seen(page)
-        assert text.count("Overlock due") == 12
+        # each item counted once, as its card: the queue beside the cards repeats each title
+        assert sum(1 for a in re.findall(r'(?s)<article class="fms-line".*?</article>', page) if "Overlock due" in seen(a)) == 12
         due = re.findall(r'name="lease" value="([A-Z0-9]+)"><input type="hidden" name="next" value="today">', page)
         assert len(due) >= 2
         section = lambda t: t.split("Work for staff")[1].split("Handed to staff")[0]

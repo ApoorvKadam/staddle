@@ -256,7 +256,7 @@ def test_rentals_say_what_protection_each_rental_has_from_the_records(fms_url, s
     with sign_in(site(fms_url)) as client:
         page = client.get("/rentals").text
         assert seen(re.search(r"(?s)<thead>.*?</thead>", page).group(0)).strip().endswith("Protection")
-        widths = {len(re.findall(r"<td>", tr)) for tr in re.findall(r"(?s)<tr>.*?</tr>", page.split("<tbody>", 1)[1])}
+        widths = {len(re.findall(r"<td\b", tr)) for tr in re.findall(r"(?s)<tr>.*?</tr>", page.split("<tbody>", 1)[1])}
         assert widths == {8}                     # every row has the column, so the table stays even
         tara, luis, yara, dev = person(client, "Tara Singh"), person(client, "Luis Ortiz"), person(client, "Yara Quinn"), person(client, "Dev Patel", "A131")
         assert row_of(page, tara, "B226").endswith("Plan active")

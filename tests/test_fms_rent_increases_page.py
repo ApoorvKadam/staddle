@@ -27,7 +27,7 @@ def test_rent_increases_is_in_the_facility_menu_with_its_own_icon_and_needs_sign
         assert link and 'Rent increases' in seen(link.group(1))
         icon = re.search(r'<svg.*?</svg>', link.group(1), re.S).group(0).strip()
         same = [path.name for path in ICONS.glob('*.svg') if path.read_text().strip() == icon]
-        assert same == ['circle-arrow-up.svg']              # no other menu or page icon looks like it
+        assert same == ['trending-up.svg']              # no other menu or page icon looks like it
         page = client.get('/rent-increases')
         assert page.status_code == 200 and 'Rent increases' in seen(page.text)
 

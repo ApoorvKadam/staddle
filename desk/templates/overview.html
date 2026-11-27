@@ -1,91 +1,213 @@
 {% extends "base.html" %}
-{% block bodyclass %}page-front ov{% endblock %}
+{% block bodyclass %}page-front ov pub{% endblock %}
 {% block title %}{{ brand }}: the work gets done, the books prove it{% endblock %}
 {% block header %}{% include "site_top.html" %}{% endblock %}
-{% set cmp = score.comparison %}{% set ours = cmp.arms[1] %}{% set fixed = cmp.arms[0] %}
 {% block main %}
-<section class="ov-hero">
+<section class="ov-hero ov-play">
   <div class="wrap">
-    <div class="spot ov-spot" data-reveal>{% set guard_size = 120 %}{% set guard_pose = "" %}{% include "guard.html" %}<p class="spot-say say-pass">I read the message. {{ brand }} checks before anything changes.</p></div>
-    <h1><span>The work gets done.</span> <span class="ov-blue">The books prove it.</span></h1>
-    <p class="ov-lede">{{ brand }} is a self-storage FMS on its own books. {{ agent }}, the agent at its front desk, handles what tenants write and does the work it is allowed to. Code checks every claim against the records and the rules before anything changes, and staff see every action.</p>
+    <div class="spot ov-spot">{% set guard_size = 120 %}{% set guard_pose = "" %}{% include "guard.html" %}<p class="spot-say say-pass">I'm {{ agent }}. I work the front desk.</p></div>
+    <h1><span class="ov-line"><span>The work gets done.</span></span> <span class="ov-line ov-blue"><span>The books prove it.</span></span></h1>
+    <p class="ov-lede">{{ brand }} brings your units, tenants, billing, collections, liens and daily work into one self-storage management system. {{ agent }} works at the front desk. He reads tenants' texts about charges, fixes what your records and rules allow, and puts the rest on your desk with a reason.</p>
     <div class="actions ov-actions">
-      <a class="button primary" href="{{ '/home' if signed_in else '/sign-in' }}">Open the demo FMS {% include "icons/arrow-right.svg" %}</a>
+      <a class="button primary" href="{{ '/home' if signed_in else '/sign-in' }}">Open the demo {% include "icons/arrow-right.svg" %}</a>
     </div>
-    <figure class="ov-shot" data-reveal>
-      <picture>
-        <img src="{{ url_for('static', path='shots/fms-messages.jpg') }}?v={{ css_version }}" width="1536" height="900" alt="Messages in the FMS: James Carter's text about a late fee charged twice, what {{ agent }} read, what the books show, the second fee reversed in a balanced entry, and the reply written from the records">
-      </picture>
+    {# real captures of the FMS, taken from a running copy, lying as a loose pile; they are laid down once when the pile comes into view, and a click on the top one sends it under. Nothing plays by itself #}
+    {% set tour = [
+      ("home", "Home", "Your morning on one screen: who is late, what is free, and what needs you.", "Home in the FMS: occupancy, money collected and past due, the work that needs staff, " ~ agent ~ "'s morning and the units by building, with the facility's menu down the left"),
+      ("today", "Today", "Everything still open. Nothing is marked done until the record shows it.", "Today in the FMS: a dispute waiting for a decision, the staff work queue, and the selected task with what closes it"),
+      ("messages", "Messages", "What the tenant wrote, what " ~ agent ~ " understood, and what he changed.", "Messages in the FMS: James Carter's text about a late fee charged twice, what " ~ agent ~ " read, the records, the second fee reversed in a balanced entry and the reply written from the records")] %}
+    <figure class="ov-shot">
+      <div class="ov-stack">
+        {% for key, name, line, alt in tour %}<input class="ov-pick" type="radio" name="ov-tour" id="ov-pick-{{ key }}" aria-label="{{ name }}" aria-describedby="ov-say-{{ key }}"{% if loop.first %} checked{% endif %}>{% endfor %}
+        <div class="ov-cards">
+          {% for key, name, line, alt in tour %}<label class="ov-card ov-card-{{ key }}" for="ov-pick-{{ key }}"><img src="{{ url_for('static', path='shots/fms-' ~ key ~ '.jpg') }}?v={{ css_version }}" width="1536" height="900" alt="{{ alt }}"{% if loop.first %} fetchpriority="high"{% else %} decoding="async"{% endif %}></label>{% endfor %}
+        </div>
+        <div class="ov-tabs">
+          {% for key, name, line, alt in tour %}<label class="ov-tab ov-tab-{{ key }}" for="ov-pick-{{ key }}"><b>{{ name }}</b><span id="ov-say-{{ key }}">{{ line }}</span></label>{% endfor %}
+        </div>
+      </div>
     </figure>
-    <p class="ov-result" data-reveal>Tested {{ cmp.runs }} times on {{ ours.cases }} tenant messages, written and labelled before any run. {{ agent }} handled <b>{{ ours.right }}</b> right on average, with <b>{{ ours.critical }}</b> critical errors in any run, at a median {{ '%.3f'|format(ours.cents_median) }} cents a message. A fixed-rule workflow handled {{ fixed.right }}.</p>
+    <script>
+      (function () {
+        var stack = document.querySelector(".ov-stack");
+        if (!stack) return;
+        var moving = stack.animate && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var css = getComputedStyle(document.documentElement), physical = css.getPropertyValue("--spring").trim() || "ease-out";
+        var cards = [].slice.call(stack.querySelectorAll(".ov-card")), picks = [].slice.call(stack.querySelectorAll(".ov-pick"));
+        var pile = function (c) { return getComputedStyle(c).getPropertyValue("--pile").trim() || "none"; };
+        var z = function (c) { return +getComputedStyle(c).zIndex; };
+        var runs = [];
+        // laid down once, bottom print first, each on its own path (MOTION-1): from above, a little off to one side, turned a little more
+        var paths = { 1: "translate(24px, -64px) rotate(4deg)", 2: "translate(-32px, -48px) rotate(-5deg)", 3: "translate(12px, -36px) rotate(2deg)" };
+        if (moving && "IntersectionObserver" in window) {
+          var order = cards.slice().sort(function (a, b) { return z(a) - z(b); }), born = performance.now(), first = true, played = false;
+          stack.classList.add("ov-waiting");
+          order.forEach(function (c) { c.classList.add("ov-hold"); });
+          var seen = new IntersectionObserver(function (es) {
+            var e = es[es.length - 1], enough = e.intersectionRatio >= 0.34;      // a third of the pile in view, not its first pixel
+            if (e.intersectionRatio === 0) { away = away || null; stack.classList.add("ov-again"); return; }   // left the window: lay it down again next time
+            if (first && !enough) { order[0].classList.remove("ov-hold"); order.shift(); }   // mostly below the window: the bottom print is already down
+            first = false;
+            if (!enough || (played && !stack.classList.contains("ov-again"))) return;
+            if (played) order = cards.slice().sort(function (a, b) { return z(a) - z(b); });
+            played = true; stack.classList.remove("ov-again");
+            var wait = Math.max(0, 420 - (performance.now() - born));      // the promise reads first, then the prints are laid down
+            order.forEach(function (card, i) {
+              var to = pile(card); card.classList.remove("ov-hold");
+              try { runs.push(card.animate([{ transform: to + " " + paths[z(card)], opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: to, opacity: 1 }], { duration: z(card) === 3 ? 560 : 520, delay: wait + i * 120, easing: physical, fill: "backwards" })); } catch (err) {}
+            });
+            stack.style.setProperty("--tabs-at", (wait + (order.length - 1) * 120 + 200) + "ms");
+            stack.classList.remove("ov-waiting"); stack.classList.add("ov-landed");
+          }, { threshold: [0, 0.35] });
+          seen.observe(stack.querySelector(".ov-cards"));
+        }
+        var last = new Map(cards.map(function (c) { return [c, pile(c)]; })), away = null;
+        // a click on the top print sends it under the pile and brings up the next one
+        stack.querySelector(".ov-cards").addEventListener("click", function (e) {
+          var card = e.target.closest(".ov-card");
+          if (!card || z(card) !== 3) return;
+          e.preventDefault();
+          var at = picks.findIndex(function (p) { return p.checked; }), next = picks[(at + 1) % picks.length];
+          away = card; next.checked = true; next.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        stack.addEventListener("change", function (e) {
+          runs.forEach(function (a) { a.finish(); }); runs = [];
+          var card = stack.querySelector(".ov-card-" + e.target.id.replace("ov-pick-", "")), gone = away; away = null;
+          var from = last.get(card), to = pile(card), goneFrom = gone && last.get(gone), goneTo = gone && pile(gone);
+          last.forEach(function (_, c) { last.set(c, pile(c)); });
+          if (!moving) return;
+          try {
+            if (gone) {      // lift, pass beneath toward the open edge, settle at the back (MOTION-1: three phases, the stacking changes once it is clear)
+              gone.animate([{ transform: goneFrom, zIndex: 4 }, { transform: goneFrom + " translateY(-16px) scale(1.015)", zIndex: 4, offset: 0.16 },
+                            { transform: goneFrom + " translate(-56px, 30px) rotate(-3deg)", zIndex: 4, offset: 0.42 }, { transform: goneFrom + " translate(-56px, 30px) rotate(-3deg)", zIndex: 1, offset: 0.45 },
+                            { transform: goneTo, zIndex: 1 }], { duration: 620, easing: "cubic-bezier(.2, .8, .2, 1)" });
+            } else {         // a print picked from the pile is lifted out of it and laid on top
+              card.animate([{ transform: from }, { transform: "translateY(-16%) rotate(0deg)", offset: 0.45 }, { transform: to }], { duration: 620, easing: "cubic-bezier(.2, .8, .2, 1)" });
+            }
+          } catch (err) {}
+        });
+      })();
+    </script>
   </div>
 </section>
 
-<section class="feature">
-  <div class="wrap ov-cols">
-    <div data-reveal>
-      <h2>{{ agent }} works inside the FMS</h2>
-      <p class="tagline">Its work lands on the books, with the rule beside it.</p>
+<section class="feature ov-band ov-bento-sec">
+  <div class="wrap">
+    <div class="ov-bento-head ov-head" data-arrive="84">
+      <h2>The questions you ask every morning</h2>
+      <p class="tagline">Every screen belongs to the same demo facility: {{ facts.units }} units, {{ facts.tenants }} tenants and a full year of records, with {{ "{:,}".format(facts.charges) }} charges and {{ "{:,}".format(facts.payments) }} payments.</p>
     </div>
-    <div data-reveal>
-      <p>{{ brand }} is the FMS, so {{ agent }} settles a tenant's question on the facility's own books instead of passing it on as a ticket. A fee posted twice is reversed, a fee posted in error is removed, and a disputed fee stops collection until the office manager decides.</p>
-      <p>Each change shows what the tenant wrote, what the books showed, the rule that allowed it and the entries written.</p>
+    {# real captures of five more FMS pages, taken from a running copy; each card is the question that page answers #}
+    {% set bx = [
+      ("sitemap", "ov-bx-wide", "Which units are free, late or not ready?", "All " ~ facts.units ~ " units on one map, each coloured by what the books say about it.", "Site map: every unit in Buildings A, B and C, coloured as current, past due, fee in dispute, reserved, blocked or vacant"),
+      ("collections", "ov-bx-side", "Who owes rent this morning?", "Each tenant past due, how much, and how many days late.", "Collections: tenants past due with their unit, amount past due, days late and oldest unpaid charge"),
+      ("leads", "", "Who is waiting to hear back from us?", "Every inquiry with its next step, and when that step went overdue.", "Leads: a form to record an inquiry and the list of inquiries with their next step"),
+      ("rent-increases", "", "How far below the street rate is each lease?", "Rent, street rate and the gap, largest gap first, each with what the price rules allow.", "Rent increases: rent a month, when it last changed, the street rate and the gap for each lease"),
+      ("billing", "", "What came in this month?", "Rent and fees billed, what was paid, then every payment of the month.", "Billing and payments: rent billed, fees billed and paid this month, then the first payments")] %}
+    <div class="ov-bento">
+      {% for key, wide, q, a, alt in bx %}<article class="ov-bx {{ wide }}" data-arrive="85" style="--d: {{ [0, 90, 160, 220, 270][loop.index0] }}ms">
+        <div class="ov-bx-text"><b>{{ q }}</b><span>{{ a }}</span></div>
+        <div class="ov-bx-pic"><img src="{{ url_for('static', path='shots/area-' ~ key ~ '.jpg') }}?v={{ css_version }}" alt="{{ alt }}" loading="lazy" decoding="async"></div>
+      </article>{% endfor %}
     </div>
   </div>
 </section>
 
-<section class="feature ov-band flip">
+<section class="ov-statement">
+  <div class="wrap ov-statement-wrap" data-arrive="84">
+    <div class="spot">{% set guard_size = 96 %}{% set guard_pose = "" %}{% include "guard.html" %}<p class="spot-say say-pass">If your records and rules allow it, I fix it. Otherwise, I tell you why I stopped.</p></div>
+    <p class="ov-say">{{ agent }} can correct a charge, not just flag it.</p>
+    <p class="ov-say-more">When the records and your rules allow it, {{ agent }} reverses duplicate fees and corrects fees posted in error. A dispute can pause collection while you review it. Each correction shows the rule that allowed it.</p>
+  </div>
+</section>
+
+<section class="feature ov-band flip ov-told">
   <div class="wrap ov-cols">
-    <div data-reveal>
-      <h2>One message, end to end</h2>
+    <div class="ov-follow" data-arrive="80">
+      <h2>One text, start to finish</h2>
       <p class="tagline">“You charged me twice for the {{ month }} late fee.”</p>
+      {# the real Messages screen stays still; an outline moves to the part of it the current step is about (the step at the middle of the window, or the one clicked) #}
+      <figure class="ov-zoom" data-step="0" aria-hidden="true"><img src="{{ url_for('static', path='shots/fms-messages.jpg') }}?v={{ css_version }}" width="1536" height="900" alt="" loading="lazy" decoding="async"><span class="ov-mark"></span></figure>
     </div>
-    <ol class="ov-steps" data-stagger>
-      <li><b>{{ agent }} reads it</b><span>One claim: the {{ month }} late fee appears twice. It quotes the tenant's own words and names no amount it did not see.</span></li>
-      <li><b>Code checks the books</b><span>Two late fees for {{ month }} rent on unit B238: one posted by billing on {{ month[:3] }} 6, one posted again by hand on {{ month[:3] }} 10.</span></li>
-      <li><b>The gate acts</b><span>The second copy is reversed in one balanced entry: fee income down $20.00, owed by the tenant down $20.00. A second press changes nothing.</span></li>
-      <li><b>Code writes the reply</b><span>“You are right: the $20.00 late fee was posted twice for the same thing. The second one has been reversed.”</span></li>
+    <ol class="ov-steps">
+      <li data-arrive="80"><b>{{ agent }} reads it</b><span>The tenant says the {{ month }} late fee was charged twice. {{ agent }} keeps their exact words. The message doesn't name an amount.</span></li>
+      <li data-arrive="80"><b>The records show two fees</b><span>Two late fees for {{ month }} rent on unit B238: one posted by billing on {{ month[:3] }} 6, one posted again by hand on {{ month[:3] }} 10.</span></li>
+      <li data-arrive="80"><b>He reverses the second one</b><span>One balanced entry takes $20.00 off fee income and $20.00 off what the tenant owes. Running it again doesn't reverse the fee twice.</span></li>
+      <li data-arrive="80"><b>The reply reflects what changed</b><span>“You are right: the $20.00 late fee was posted twice for the same thing. The second one has been reversed.”</span></li>
     </ol>
   </div>
 </section>
 
-<section class="feature ov-band">
+<section class="feature ov-stops">
   <div class="wrap ov-cols">
-    <div data-reveal>
-      <h2>When it cannot finish</h2>
-      <p class="tagline">It stops, says why, and puts the work in front of a person.</p>
+    <div class="ov-head" data-arrive="84">
+      <div class="spot">{% set guard_size = 96 %}{% set guard_pose = "bashful" %}{% include "guard.html" %}<p class="spot-say say-pass">Refunds to a card are your call, not mine.</p></div>
+      <h2>When it's your call</h2>
+      <p class="tagline">You get the reason and the records you need to decide.</p>
     </div>
-    <div class="ov-pair" data-stagger>
-      <article><b>A card charged twice</b><p>Faye says her card was charged twice on {{ month }} 2. The books show two $110 payments that morning, the second held as credit. Money goes back to a card only through staff, so {{ agent }} hands it over with that reason. Nothing on her account changes.</p></article>
-      <article><b>A fee she never signed for</b><p>Priya disputes a $25 admin fee. It is not in the schedule she signed, so the dispute is recorded and collection pauses. The office manager removes the fee or keeps it under review, on Today.</p></article>
-    </div>
-  </div>
-</section>
-
-<section class="feature flip">
-  <div class="wrap ov-cols">
-    <div data-reveal>
-      <h2>A facility with a year of books</h2>
-      <p class="tagline">{{ agent }} works on a year of records, not a chat window.</p>
-    </div>
-    <div data-reveal>
-      <p>{{ facts.units }} units, {{ facts.rented }} rented. {{ facts.tenants }} tenants on {{ facts.leases }} leases. A year of {{ "{:,}".format(facts.charges) }} charges, {{ "{:,}".format(facts.payments) }} payments and {{ facts.declined }} declined cards. This morning {{ facts.past_due }} tenants are past due for {{ money(facts.past_due_cents) }}.</p>
-      <p>Every change is an event in an append-only store with balanced entries. A payment keeps the day the card was charged and the day the facility learned of it, so a late fee posted before the facility knew can be found and removed.</p>
-      <p class="muted">The facility, its tenants and the money are sample data. Replies are shown on the page and never sent to anyone.</p>
+    <div class="ov-pair">
+      <article data-arrive="80"><b>Two payments, one complaint</b><p>Faye says her card was charged twice on {{ month }} 2. The records show two $110 payments, with the second held as credit. A refund needs a staff decision, so {{ agent }} passes on the complaint and the reason. No refund is issued and her balance stays unchanged.</p></article>
+      <article data-arrive="80" style="--d: 100ms"><b>A disputed $25 fee</b><p>Priya disputes a $25 admin fee that isn't in the schedule she signed. Collection pauses while the dispute is open. On Today, the office manager can review the records, remove the fee or keep it under review.</p></article>
     </div>
   </div>
 </section>
 
 <section class="lt-close">
-  <div class="wrap lt-close-grid">
+  <div class="wrap lt-close-grid" data-arrive="84">
     <div>
-    <h2>Sign in as the office manager and work the morning.</h2>
+    <h2>Sign in as the office manager. This morning's work is already waiting.</h2>
     <div class="actions">
-      <a class="button lt-light" href="{{ '/home' if signed_in else '/sign-in' }}">Open the demo FMS {% include "icons/arrow-right.svg" %}</a>
+      <a class="button lt-light" href="{{ '/home' if signed_in else '/sign-in' }}">Open the demo {% include "icons/arrow-right.svg" %}</a>
     </div>
     </div>
-    <div class="lt-guard">{% set guard_size = 200 %}{% set guard_pose = "" %}{% include "guard.html" %}<p>Press {{ agent }}. He has followed your pointer the whole way down.</p></div>
+    <div class="lt-guard">{% set guard_size = 200 %}{% set guard_pose = "" %}{% include "guard.html" %}<p>Try a tenant message and see what changes.</p></div>
   </div>
 </section>
+<script>
+  // the top of the page plays its entrance again whenever it comes back into view after leaving the window
+  (function () {
+    var hero = document.querySelector(".ov-hero");
+    if (!hero || !("IntersectionObserver" in window)) return;
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (!e.isIntersecting) hero.classList.remove("ov-play"); else if (!hero.classList.contains("ov-play")) { void hero.offsetWidth; hero.classList.add("ov-play"); } });
+    }, { threshold: 0 }).observe(hero.querySelector("h1"));
+  })();
+  // every marked part plays each time it comes into view, scrolling down or back up: it arrives when it reaches the given share of the
+  // window, and once it has left the window completely it resets, so the next time it comes into view it plays again
+  (function () {
+    var parts = [].slice.call(document.querySelectorAll("[data-arrive]"));
+    var still = !("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still) { parts.forEach(function (el) { el.classList.add("arrived"); }); return; }
+    var byShare = {};
+    parts.forEach(function (el) { var s = el.getAttribute("data-arrive"); (byShare[s] = byShare[s] || []).push(el); });
+    Object.keys(byShare).forEach(function (s) {
+      var arrive = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) e.target.classList.add("arrived"); });
+      }, { rootMargin: "0px 0px -" + (100 - s) + "% 0px" });
+      byShare[s].forEach(function (el) { arrive.observe(el); });
+    });
+    // a part plays again only after its whole section has left the window, never because the reader crossed its line again
+    var gone = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (!e.isIntersecting) e.target.querySelectorAll("[data-arrive]").forEach(function (el) { el.classList.remove("arrived"); }); if (!e.isIntersecting && e.target.hasAttribute("data-arrive")) e.target.classList.remove("arrived"); });
+    }, { threshold: 0 });
+    var owners = [];
+    parts.forEach(function (el) { var s = el.closest("section") || el; if (owners.indexOf(s) < 0) { owners.push(s); gone.observe(s); } });
+  })();
+  // the worked example: the step at the middle of the window, or the one clicked, moves the outline on the still Messages screen
+  (function () {
+    var zoom = document.querySelector(".ov-zoom"), steps = [].slice.call(document.querySelectorAll(".ov-steps li"));
+    if (!zoom) return;
+    var held = null;      // the page position when a step was clicked: scrolling under 160 px does not move the outline away from it
+    var pick = function (n) { zoom.dataset.step = n; steps.forEach(function (s, i) { s.classList.toggle("on", i + 1 === n); }); };
+    steps.forEach(function (s, i) { s.addEventListener("click", function () { held = scrollY; pick(i + 1); }); });
+    if (!("IntersectionObserver" in window)) return;
+    var io = new IntersectionObserver(function (es) {
+      if (held !== null && Math.abs(scrollY - held) < 160) return;
+      held = null;
+      es.forEach(function (e) { if (e.isIntersecting) pick(steps.indexOf(e.target) + 1); });
+    }, { rootMargin: "-55% 0px -44% 0px" });
+    steps.forEach(function (s) { io.observe(s); });
+  })();
+</script>
 {% endblock %}
 {% block footer %}{% include "site_foot.html" %}{% endblock %}

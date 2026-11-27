@@ -222,3 +222,16 @@ def test_website_writes_require_a_form_token(fms_url, sim):
         assert response.status_code == 422
         rental = next(iter(own(fd, ident)))
         assert not rental.accepted and not rental.pay_ops
+
+
+def test_the_one_deal_a_unit_shows_is_chosen_and_checkout_takes_it_off(fms_url, sim):
+    app = site(fms_url)
+    with sign_in(app) as c:
+        fd, ident = desk_of(app, c)
+        unit = next(u for u in vacant(fd, ident, 40) if 'Choose a deal' in c.get(f'/rent/{u}').text)
+        page = c.get(f'/rent/{unit}').text
+        deal = re.search(r'<option value="([^"]+)" selected>', page).group(1)      # the card advertised it, so the form starts on it
+        start = c.post(f'/rent/{unit}', data={'token': token(page), 'name': 'Rae Quinn', 'phone': '+14075550199', 'promotion': deal}, follow_redirects=False)
+        checkout = c.get(start.headers['location']).text
+        lines = [(-1 if minus else 1) * (int(dollars.replace(',', '')) * 100 + int(cents)) for minus, dollars, cents in re.findall(r'<dd>(-?)\$([\d,]+)\.(\d\d)</dd>', checkout)]
+        assert any(x < 0 for x in lines) and sum(lines) == int(due(checkout)), lines      # the deal is a line, and the lines add up to what is charged
