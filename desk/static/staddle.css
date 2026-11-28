@@ -1993,6 +1993,9 @@ body.ov.pub .feature h2 { font-size: clamp(2.125rem, 2.6vw, 3rem); line-height: 
 /* ---- One large statement after the bento: the first sentence in ink, the rest muted, as the premium product pages set their promise ---- */
 body.ov.pub .ov-statement { padding: 112px 0; }
 body.ov.pub .ov-statement-wrap { max-width: 68rem; text-align: center; }
+/* the handoff section's slip holds its one sentence on one line beside Tilden, and the two columns share the width evenly */
+body.ov.pub .ov-stops .spot-say { max-width: 26em; text-wrap: pretty; }
+@media (min-width: 60rem) { body.ov.pub .ov-stops .wrap { grid-template-columns: max-content minmax(0, 1fr); } }
 body.ov.pub .ov-statement .spot { justify-content: center; margin: 0 auto 28px; }
 body.ov.pub .ov-say { margin: 0; font-family: var(--display); font-size: clamp(2rem, 2.6vw, 3rem); font-weight: 600; line-height: 1.13; letter-spacing: -0.03em; color: var(--ink); text-wrap: pretty; }
 body.ov.pub .ov-say-more { max-width: 42rem; margin: 24px auto 0; font-size: 1.1875rem; line-height: 1.53; color: #53615A; text-wrap: pretty; }
