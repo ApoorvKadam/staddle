@@ -83,7 +83,7 @@ body {
 a { color: var(--link, var(--blue)); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 3px; }
 :focus-visible { outline: 2px solid var(--focus, var(--blue)); outline-offset: 2px; border-radius: 2px; }
-h1, h2, h3 { margin: 0; text-wrap: balance; color: var(--ink); }
+h1, h2, h3 { margin: 0; text-wrap: pretty; color: var(--ink); }
 p { margin: 0; }
 .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 clamp(20px, 3vw, 48px); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -690,7 +690,7 @@ body {
 .lt-center p:not(.lt-eyebrow) { margin: var(--s4) auto 0; color: var(--ink-3); font-size: 1.0625rem; line-height: 1.45; max-width: 46em; }
 
 .lt-close { background: var(--blue); color: #fff; padding: clamp(64px, 8vw, 112px) 0; }
-.lt-close h2 { color: #fff; font-family: var(--display); font-weight: 500; font-size: clamp(2.25rem, 4vw, 3.75rem); line-height: 1.08; letter-spacing: -0.02em; max-width: 14em; }
+.lt-close h2 { color: #fff; font-family: var(--display); font-weight: 500; font-size: clamp(2.25rem, 4vw, 3.75rem); line-height: 1.08; letter-spacing: -0.02em; max-width: 24em; }
 .lt-close .actions { margin-top: var(--s6); }
 .lt-close .lt-light { background: #fff; color: #18302b; border-color: #fff; }
 .lt-close .lt-ghost { color: inherit; border-color: color-mix(in srgb, currentColor 45%, transparent); }
@@ -1236,7 +1236,7 @@ html { font-size: 93.75%; }
 .ov-shot picture, .ov-shot img { border-radius: 10px; }
 .ov-shot img { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent); }
 .ov-shot img { display: block; width: 100%; height: auto; }
-.ov h2 { text-wrap: balance; }
+.ov h2 { text-wrap: pretty; }
 /* section leads on the Overview read as plain sentences, not italic taglines */
 .ov .feature .tagline, .ov .ov-film-head .tagline { font-family: inherit; font-style: normal; font-size: 1.0625rem; color: var(--ink-2); letter-spacing: 0; margin-top: var(--s2); }
 .ov .feature p { text-wrap: pretty; }
@@ -1961,7 +1961,7 @@ body.ov.pub .ov-steps li.on::before { background: var(--accent); }
 /* ---- The bento of a manager's questions (2026-11-27): each card a question, its answer line, and a real capture of the FMS page that
    answers it, inset from the left and running off the card's right and bottom edges, as a window into the product ---- */
 body.ov.pub .ov-bento-sec .wrap { display: block; }
-body.ov.pub .ov-bento-head { max-width: 46rem; margin: 0 auto 48px; text-align: center; }
+body.ov.pub .ov-bento-head { max-width: 62rem; margin: 0 auto 48px; text-align: center; }
 body.ov.pub .ov-bento-head .tagline { margin-top: 12px; }
 body.ov.pub .feature h2 { font-size: clamp(2.125rem, 2.6vw, 3rem); line-height: 1.08; letter-spacing: -0.03em; }
 .ov-bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: 450px 370px; gap: 20px; max-width: 1440px; margin: 0 auto; }
