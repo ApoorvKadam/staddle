@@ -115,6 +115,16 @@ def test_the_demo_login_signs_in_and_out_and_a_wrong_one_is_refused(fms_url, sim
         assert c.get("/home", follow_redirects=False).headers["location"] == "/sign-in"
 
 
+def test_a_research_key_signs_in_without_the_form_and_a_wrong_one_is_no_page(fms_url, sim):
+    with TestClient(site(fms_url, research_key="k" * 32)) as c:
+        assert c.get("/sign-in/pass/" + "x" * 32, follow_redirects=False).status_code == 404
+        r = c.get("/sign-in/pass/" + "k" * 32, follow_redirects=False)
+        assert (r.status_code, r.headers["location"]) == (303, "/home") and SESSION in r.cookies
+        assert "Dana Reyes" in c.get("/home").text
+    with TestClient(site(fms_url)) as c:      # no key set: the address does not exist
+        assert c.get("/sign-in/pass/" + "k" * 32, follow_redirects=False).status_code == 404
+
+
 def test_the_screens_show_the_generated_year_in_words(fms_url, sim):
     with sign_in(site(fms_url)) as c:
         pages = {p: c.get(p) for p in PAGES}

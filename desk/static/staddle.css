@@ -1740,7 +1740,7 @@ body.ov.pub .ov-shot img { border-radius: 10px; display: block; width: 100%; hei
 
 /* Sign-in: one white card on the paper, the same fields and button as the desk */
 body.si.pub .sign-in { min-height: calc(100vh - 220px); display: grid; place-items: center; padding: 48px 0; }
-body.si.pub .sign-in-card { width: min(100%, 28rem); background: #fff; border: 1px solid var(--rule); border-radius: 16px; padding: 32px; box-shadow: 0 2px 4px rgba(14, 21, 18, .04), 0 18px 44px rgba(14, 21, 18, .08); }
+body.si.pub .sign-in-card { width: min(100%, 32rem); background: #fff; border: 1px solid var(--rule); border-radius: 16px; padding: 32px; box-shadow: 0 2px 4px rgba(14, 21, 18, .04), 0 18px 44px rgba(14, 21, 18, .08); }
 body.si.pub .sign-in-card h1 { font-size: 1.875rem; line-height: 1.15; margin: 0; }
 body.si.pub .sign-in-card .muted { color: var(--ink-3); }
 body.si.pub .sign-in-card form { display: grid; gap: 6px; margin-top: 20px; }
@@ -1753,9 +1753,15 @@ body.si.pub .demo-login { margin-top: 14px; padding: 10px 12px; border-radius: 8
 }
 body.ov.pub .ov-hero h1 > span { display: block; }      /* two lines, the second in green */
 body.si.pub .sign-in { padding-inline: 16px; box-sizing: border-box; }
-body.si.pub .sign-in-card { text-align: left; }
+body.si.pub .sign-in-card { text-align: center; box-sizing: border-box; }
 body.si.pub .sign-in-card p { max-width: none; margin-inline: 0; text-wrap: pretty; }
-body.si.pub .sign-in-card h1 { text-align: left; }
+body.si.pub .sign-in-card h1 { text-align: center; }
+body.si.pub .sign-in-card form { text-align: left; }
+/* the bot check gets the same gap as a field and the full width of the fields; on a phone the card's padding shrinks so the
+   check's 300 px minimum still fits and the card stays centred */
+body.si.pub .sign-in-card .cf-turnstile { margin-top: 14px; }
+body.si.pub .sign-in-card .cf-turnstile iframe { width: 100% !important; }
+@media (max-width: 30rem) { body.si.pub .sign-in-card { padding: 24px 20px; } }
 /* round 7: the shot starts higher, the phone headline is smaller, the rise is short with no visible bounce */
 body.ov.pub .ov-hero { padding-top: 48px; }
 body.ov.pub .ov-hero h1 { margin-top: 20px; }
@@ -1986,9 +1992,12 @@ body.ov.pub .feature h2 { font-size: clamp(2.125rem, 2.6vw, 3rem); line-height: 
 
 /* ---- One large statement after the bento: the first sentence in ink, the rest muted, as the premium product pages set their promise ---- */
 body.ov.pub .ov-statement { padding: 112px 0; }
-body.ov.pub .ov-statement-wrap { max-width: 56rem; text-align: center; }
+body.ov.pub .ov-statement-wrap { max-width: 68rem; text-align: center; }
+/* the handoff section's slip holds its one sentence on one line beside Tilden, and the two columns share the width evenly */
+body.ov.pub .ov-stops .spot-say { max-width: 26em; text-wrap: pretty; }
+@media (min-width: 60rem) { body.ov.pub .ov-stops .wrap { grid-template-columns: max-content minmax(0, 1fr); } }
 body.ov.pub .ov-statement .spot { justify-content: center; margin: 0 auto 28px; }
-body.ov.pub .ov-say { margin: 0; font-family: var(--display); font-size: clamp(2rem, 2.6vw, 3rem); font-weight: 600; line-height: 1.13; letter-spacing: -0.03em; color: var(--ink); text-wrap: balance; }
+body.ov.pub .ov-say { margin: 0; font-family: var(--display); font-size: clamp(2rem, 2.6vw, 3rem); font-weight: 600; line-height: 1.13; letter-spacing: -0.03em; color: var(--ink); text-wrap: pretty; }
 body.ov.pub .ov-say-more { max-width: 42rem; margin: 24px auto 0; font-size: 1.1875rem; line-height: 1.53; color: #53615A; text-wrap: pretty; }
 body.ov.pub .ov-say-a { color: var(--ink); }
 body.ov.pub .ov-say-b { color: color-mix(in srgb, var(--ink) 42%, var(--paper)); }

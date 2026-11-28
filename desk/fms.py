@@ -110,7 +110,7 @@ SIDE = (("Facility", (("home", "Home", "house"), ("sitemap", "Site map", "map"),
 # the only addresses that answer without a session; tests/test_fms.py walks every route against this list. The card processor's
 # webhook is the one write among them: the processor calls it, no session exists, its signature is the check, and without a signing
 # secret it answers 503 (desk/stripe_hook.py)
-PUBLIC = {"/", "/film", "/sign-in", "/sign-out", "/static", "/health/live", "/health/ready", "/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc",
+PUBLIC = {"/", "/film", "/sign-in", "/sign-in/pass/{key}", "/sign-out", "/static", "/health/live", "/health/ready", "/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc",
           "/webhooks/stripe"}
 STAFF_WORDS = {"remove_disputed_fee": "Removed the fee", "keep_under_review": "Kept under review"}
 # renting's staff commands as the Today list words them; an attempt the gate refused reads "Asked to ..."
@@ -1118,6 +1118,20 @@ def mount(app, fd: FrontDesk, settings, guard, from_elsewhere, session_factory, 
                 return refuse("The quick check is not answering. Wait a minute, then reload the page.", 503)
             if not passed:
                 return refuse("The quick check did not pass. Reload the page and try again.", 403)
+        return start_session(request)
+
+    # the research browser's way in (settings.research_key): no form and no bot check, still limited per address like the form.
+    # A wrong key answers like an address that does not exist
+    @app.get("/sign-in/pass/{key}", include_in_schema=False)
+    def sign_in_with_key(request: Request, key: str):
+        want = settings.research_key
+        if not want or not hmac.compare_digest(key.encode(), want.encode()):
+            raise HTTPException(404, "Not Found")
+        if guard.on and not guard.allow(spend.address_of(request)):
+            raise HTTPException(429, "Too many sign-ins from here. Wait a minute, then try again.")
+        return start_session(request)
+
+    def start_session(request: Request):
         response = RedirectResponse("/home", status_code=303)
         response.set_cookie(SESSION, guard.cookie("session"), max_age=LIFETIME, httponly=True, samesite="lax", secure=spend.is_https(request))
         return response
